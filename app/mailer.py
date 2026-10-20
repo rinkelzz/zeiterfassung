@@ -17,6 +17,7 @@ from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from typing import Dict, List, Optional, Tuple
 
+from .config import settings
 from .db import audit, connect, get_setting
 from .report_files import build_data, parse_period, previous_month, render_data
 from .timeutil import fmt_duration, now_utc, now_utc_str, parse_utc, to_local, to_utc_str
@@ -219,6 +220,11 @@ def _loop(interval: float) -> None:
                 conn.close()
         except Exception as e:  # noqa: BLE001
             print(f"[zeiterfassung] Mail-Zeitplan: {e}", flush=True)
+        if settings.update_check:
+            from . import updates  # neue Version auf GitHub? (höchstens alle 30 Minuten)
+            st = updates.check()
+            if st["error"]:
+                print(f"[zeiterfassung] Update-Prüfung: {st['error']}", flush=True)
         _stop.wait(interval)
 
 

@@ -460,6 +460,28 @@ async function loadAdmin() {
         <td><button class="mini usave">Speichern</button></td></tr>`;
     }).join("") + "</tbody>";
   await loadSettingsForm();
+  loadUpdates().catch(() => {});
+}
+
+// Updates (Paketquelle fürs Paket-Zentrum)
+function showUpdates(u) {
+  $("updSrc").textContent = u.source_url;
+  const when = u.checked_at ? new Date(u.checked_at * 1000).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nicht";
+  let txt = `Installiert: <b>${esc(u.installed)}</b>`;
+  if (u.latest) txt += ` · neueste auf GitHub: <b>${esc(u.latest)}</b>`;
+  if (u.update_available) txt += u.ready ? ' · <span class="pos"><b>Update bereit</b> – im Paket-Zentrum „Aktualisieren“</span>'
+                                         : " · wird heruntergeladen …";
+  else if (u.latest) txt += ' · <span class="pos">aktuell</span>';
+  txt += ` <span class="muted small">(geprüft: ${when})</span>`;
+  $("updInfo").innerHTML = txt;
+  $("updErr").textContent = u.error ? "GitHub nicht erreichbar: " + u.error : "";
+}
+async function loadUpdates() { showUpdates(await api("updates")); }
+async function checkUpdates() {
+  $("updCheck").disabled = true; $("updCheck").textContent = "Prüfe …";
+  try { showUpdates(await api("updates/check", { method: "POST" })); }
+  catch (e) { $("updErr").textContent = e.message; }
+  finally { $("updCheck").disabled = false; $("updCheck").textContent = "Jetzt prüfen"; }
 }
 
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -782,6 +804,11 @@ $("csvBtn").onclick = async () => {
 $$(".dl").forEach(b => b.onclick = () => downloadReport(b));
 $$(".mailRep").forEach(b => b.onclick = () => mailReport(b));
 $("mailSave").onclick = saveMail;
+$("updCheck").onclick = checkUpdates;
+$("updCopy").onclick = async () => {
+  const t = $("updSrc").textContent;
+  try { await navigator.clipboard.writeText(t); $("updCopy").textContent = "Kopiert ✓"; } catch (e) { prompt("Adresse kopieren:", t); }
+};
 $("smtpSec").onchange = () => {  // passenden Standard-Port vorschlagen
   const port = { starttls: "587", ssl: "465", none: "25" }[$("smtpSec").value];
   if (["587", "465", "25", ""].includes($("smtpPort").value)) $("smtpPort").value = port;

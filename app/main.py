@@ -12,7 +12,7 @@ from .db import connect, init_db
 from .dsm import write_ui_config
 from .dsm_auth import proxy_info, publish_proxy_files
 from .mailer import start_scheduler, stop_scheduler
-from .routers import auth, clock, entries, importer, reports, users
+from .routers import auth, clock, entries, importer, reports, updates, users
 
 
 @asynccontextmanager
@@ -26,6 +26,9 @@ async def lifespan(app: FastAPI):
         conn.close()
     if settings.mail_scheduler:
         start_scheduler()
+    if settings.update_check:
+        from . import updates
+        updates.check_in_background()  # gleich beim Start, damit die Paketquelle sofort etwas liefert
     yield
     stop_scheduler()
 
@@ -38,7 +41,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-for r in (auth.router, clock.router, entries.router, importer.router, reports.router, users.router):
+for r in (auth.router, clock.router, entries.router, importer.router, reports.router, updates.router, users.router):
     app.include_router(r)
 
 

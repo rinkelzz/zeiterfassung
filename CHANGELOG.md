@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.8.1] – 2026-10-20
+
+### Neu
+- **Updates über das Paket-Zentrum:** Die Zeiterfassung ist ihre eigene Paketquelle
+  (`http://127.0.0.1:8765/spk`). Sie sieht regelmäßig bei GitHub nach neuen Releases, lädt die SPK
+  auf die NAS und bietet sie dem Paket-Zentrum zum Aktualisieren an.
+- Verwaltung → **Updates**: installierte und neueste Version, „Jetzt prüfen“, Anleitung zum Einrichten
+
 ## [0.8.0] – 2026-10-20
 
 Erste öffentliche Version.
@@ -25,4 +33,5 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.8.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.1
 [0.8.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.0

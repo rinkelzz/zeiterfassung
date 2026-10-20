@@ -66,6 +66,19 @@ Das Paket nutzt das Python der NAS (3.8 bis 3.13). Fehlt es, bricht die Installa
 Hinweis ab – dann im Paket-Zentrum „Python 3.9“ installieren. Daten liegen unter
 `/var/packages/zeiterfassung/var/` und bleiben bei Updates erhalten (beim Deinstallieren werden sie gelöscht).
 
+### Updates über das Paket-Zentrum
+
+Ab Version 0.8.1 ist die App ihre eigene Paketquelle – neue Releases von GitHub erscheinen im
+Paket-Zentrum zum Aktualisieren. Einmalig einrichten:
+
+1. **Paket-Zentrum → Einstellungen → Allgemein → Vertrauensebene:** „Beliebiger Herausgeber“
+   (das Paket ist nicht von Synology signiert).
+2. **Paket-Zentrum → Einstellungen → Paketquellen → Hinzufügen:** Name `Zeiterfassung`,
+   Ort `http://127.0.0.1:8765/spk`.
+
+Die App prüft etwa alle 30 Minuten (oder per „Jetzt prüfen“ unter Verwaltung → Updates), lädt eine
+neue SPK auf die NAS und bietet sie dort an. Die Paketquelle antwortet nur im lokalen Netz.
+
 ### Von unterwegs erreichbar machen (Reverse Proxy)
 
 Fürs iPhone unterwegs braucht die App eine eigene https-Adresse, z. B. `https://zeit.meinedomain.de`:
@@ -123,6 +136,8 @@ Beim ersten Start wird `admin` angelegt; das Passwort steht in `data/ERSTES_ADMI
 | `ZE_TIMEZONE` | `Europe/Berlin` | Tagesgrenzen und Anzeige |
 | `ZE_ADMIN_PASSWORD` | – | Startpasswort für den ersten Admin |
 | `ZE_MAIL_SCHEDULER` | `1` | automatischer Mailversand an/aus |
+| `ZE_UPDATE_CHECK` | `1` | bei GitHub nach neuen Versionen sehen (Paketquelle) |
+| `ZE_UPDATE_REPO` | `rinkelzz/zeiterfassung` | Repo, aus dem Updates kommen |
 
 **Aufbau:** FastAPI + SQLite (`app/`), Oberfläche ohne Build-Schritt (`app/static/`), PDF-Erzeugung
 ohne Fremdbibliothek (`app/pdf.py`), Excel mit openpyxl. Das Synology-Paket liegt unter `synology/`:
@@ -162,7 +177,9 @@ Synology DSM 7 (x86_64). The user interface is German.
 - Python/FastAPI + SQLite, no external database; all dependencies bundled in the SPK
 
 **Install:** download the `.spk` from [Releases](https://github.com/rinkelzz/zeiterfassung/releases),
-then DSM → Package Center → Manual Install. For remote access set up a DSM reverse proxy
+then DSM → Package Center → Manual Install. From 0.8.1 on the app is its own package source:
+add `http://127.0.0.1:8765/spk` under Package Center → Settings → Package Sources (trust level
+"Any publisher") to get updates through the Package Center. For remote access set up a DSM reverse proxy
 (`https://time.example.com` → `http://localhost:8765`) and enter that address under
 *Verwaltung → Einstellungen → Öffentliche Adresse*.
 

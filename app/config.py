@@ -34,6 +34,8 @@ class Settings:
         self.ui_dir = os.environ.get("ZE_UI_DIR", "")
         # Automatischer Berichtsversand per Mail (Hintergrund-Thread); in Tests aus
         self.mail_scheduler = _bool("ZE_MAIL_SCHEDULER", True)
+        # Regelmäßig bei GitHub nach neuen Versionen sehen (Paketquelle fürs Paket-Zentrum)
+        self.update_check = _bool("ZE_UPDATE_CHECK", True)
         # Optional: Startpasswort für den ersten Admin
         self.initial_admin_password = os.environ.get("ZE_ADMIN_PASSWORD")
 

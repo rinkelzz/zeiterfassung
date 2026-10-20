@@ -196,6 +196,24 @@
     </section>
 
     <section class="card">
+      <h2>Updates</h2>
+      <div class="row">
+        <span id="updInfo" class="muted">…</span>
+        <button id="updCheck" class="mini">Jetzt prüfen</button>
+      </div>
+      <p class="small" style="margin-bottom:6px">Updates kommen über das <b>Paket-Zentrum</b> – einmalig einrichten:</p>
+      <ol class="small" style="margin-top:0;padding-left:20px">
+        <li>Paket-Zentrum → <b>Einstellungen</b> → <b>Allgemein</b> → Vertrauensebene: <b>Beliebiger Herausgeber</b>.</li>
+        <li>Paket-Zentrum → <b>Einstellungen</b> → <b>Paketquellen</b> → <b>Hinzufügen</b>:
+          Name <code>Zeiterfassung</code>, Ort <code id="updSrc">http://127.0.0.1:8765/spk</code>
+          <button class="mini" id="updCopy">Kopieren</button></li>
+        <li>Neue Versionen erscheinen dann im Paket-Zentrum unter <b>Installiert</b> mit „Aktualisieren“
+          (oder automatisch, wenn dort automatische Updates eingeschaltet sind). Daten und Einstellungen bleiben erhalten.</li>
+      </ol>
+      <div class="err" id="updErr"></div>
+    </section>
+
+    <section class="card">
       <h2>Einstellungen</h2>
       <div class="row">
         <label>Bundesland (Feiertage) <select id="setBl"></select></label>
