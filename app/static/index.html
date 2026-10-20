@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zeiterfassung</title>
+<link rel="icon" href="static/icon.png">
+<link rel="apple-touch-icon" href="static/icon.png">
+<link rel="stylesheet" href="static/app.css?v={{v}}">
+</head>
+<body>
+
+<section id="loginView" class="card login hidden">
+  <h1 style="margin:0;font-size:20px">Zeiterfassung</h1>
+  <label>Benutzername <input id="lu" autocomplete="username"></label>
+  <label>Passwort <input id="lp" type="password" autocomplete="current-password"></label>
+  <label id="otpWrap" class="hidden">Zwei-Faktor-Code (DSM) <input id="lo" inputmode="numeric" autocomplete="one-time-code" maxlength="12"></label>
+  <p class="muted small" style="margin:0">Du kannst dich auch mit deinem DSM-Benutzer anmelden.</p>
+  <button class="primary" id="loginBtn">Anmelden</button>
+  <div class="err" id="loginErr"></div>
+</section>
+
+<div id="appView" class="hidden">
+<header>
+  <h1><img src="static/icon.png" alt="">Zeiterfassung</h1>
+  <nav id="tabs">
+    <button data-tab="home" class="active">Übersicht</button>
+    <button data-tab="month">Monat</button>
+    <button data-tab="year">Jahr</button>
+    <button data-tab="admin" class="admin hidden">Verwaltung</button>
+    <button data-tab="me">Mein Zugang</button>
+  </nav>
+  <div class="row"><span id="who" class="muted"></span><button id="logoutBtn">Abmelden</button></div>
+</header>
+
+<main>
+  <!-- ÜBERSICHT -->
+  <div data-page="home" class="page">
+    <section class="card">
+      <div class="clock">
+        <div>
+          <div id="state" class="state">…</div>
+          <div id="since" class="muted"></div>
+        </div>
+        <button id="clockBtn" class="primary big">…</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="muted">Heute</span><b id="sToday">–</b></div>
+        <div class="stat"><span class="muted">Gleitzeit-Konto</span><b id="sGleit">–</b></div>
+        <div class="stat"><span class="muted">Überstunden-Konto</span><b id="sUe">–</b></div>
+        <div class="stat"><span class="muted" id="sVacLabel">Resturlaub</span><b id="sVac">–</b></div>
+      </div>
+      <div class="muted small" id="sSince"></div>
+    </section>
+    <section class="card admin hidden">
+      <h2>Team</h2>
+      <div class="scroll"><table id="teamTable"></table></div>
+    </section>
+  </div>
+
+  <!-- MONAT -->
+  <div data-page="month" class="page hidden">
+    <section class="card">
+      <div class="toolbar">
+        <h2>Monat</h2>
+        <div class="row">
+          <select class="userSel hidden"></select>
+          <button id="mPrev" aria-label="Vormonat">‹</button>
+          <input type="month" id="mMonth">
+          <button id="mNext" aria-label="Folgemonat">›</button>
+          <span class="btngroup">
+            <button class="dl" data-scope="month" data-fmt="pdf" title="Arbeitszeitnachweis als PDF">PDF</button>
+            <button class="dl" data-scope="month" data-fmt="xlsx" title="Als Excel-Datei">Excel</button>
+            <button id="csvBtn" title="Rohdaten als CSV">CSV</button>
+            <button class="mailRep" data-scope="month" title="Bericht per Mail schicken">✉ Mail</button>
+          </span>
+        </div>
+      </div>
+      <div class="err" id="mMsg"></div>
+      <div class="stats" id="mStats"></div>
+      <div class="scroll"><table id="mTable" class="month"></table></div>
+      <p class="muted small admin hidden">Tipp: Auf einen Tag klicken, um Buchungen zu korrigieren, nachzutragen oder eine Abwesenheit einzutragen. „Ü“ schiebt die Zeit über dem Tagessoll ins Überstunden-Konto (ein Minus bleibt Gleitzeit).</p>
+    </section>
+  </div>
+
+  <!-- JAHR -->
+  <div data-page="year" class="page hidden">
+    <section class="card">
+      <div class="toolbar">
+        <h2>Jahr</h2>
+        <div class="row">
+          <select class="userSel hidden"></select>
+          <button id="yPrev" aria-label="Vorjahr">‹</button>
+          <b id="yLabel" style="min-width:48px;text-align:center"></b>
+          <button id="yNext" aria-label="Folgejahr">›</button>
+          <span class="btngroup">
+            <button class="dl" data-scope="year" data-fmt="pdf" title="Jahresübersicht als PDF">PDF</button>
+            <button class="dl" data-scope="year" data-fmt="xlsx" title="Als Excel-Datei mit allen Monaten">Excel</button>
+            <button class="mailRep" data-scope="year" title="Jahresübersicht per Mail schicken">✉ Mail</button>
+          </span>
+        </div>
+      </div>
+      <div class="legend" id="yLegend"></div>
+      <div id="ySel" class="selbar hidden">
+        <span id="ySelText"></span>
+        <select id="ySelKind"></select>
+        <label class="inline"><input type="checkbox" id="ySelHalf"> halber Tag</label>
+        <button class="primary" id="ySelSet">Eintragen</button>
+        <button id="ySelDel">Entfernen</button>
+        <button id="ySelCancel">Abbrechen</button>
+      </div>
+      <div class="err" id="yErr"></div>
+      <div id="yGrid" class="yeargrid"></div>
+      <p class="muted small admin hidden">Mit der Maus über mehrere Tage ziehen – am Handy ersten und letzten Tag antippen. Wochenenden und Feiertage werden bei Zeiträumen automatisch übersprungen.</p>
+      <div class="stats" id="yStats"></div>
+    </section>
+  </div>
+
+  <!-- VERWALTUNG -->
+  <div data-page="admin" class="page hidden">
+    <section class="card">
+      <h2>Mitarbeiter</h2>
+      <div class="scroll"><table id="usersTable" class="users"></table></div>
+      <div class="err" id="usersErr"></div>
+      <h3>Neu anlegen</h3>
+      <div class="row">
+        <label>Benutzername <input id="nu" placeholder="max"></label>
+        <label>Anzeigename <input id="nd" placeholder="Max Muster"></label>
+        <label>Passwort <input id="np" type="password" placeholder="min. 8 Zeichen"></label>
+        <label>Std./Woche <input id="nh" type="number" value="40" step="0.5" class="w80"></label>
+        <label>Urlaub/Jahr <input id="nv" type="number" value="30" step="0.5" class="w80"></label>
+        <label>Erfassungsbeginn <input id="ns" type="date"></label>
+        <label>E-Mail (Berichte) <input id="ne" type="email" placeholder="optional" style="width:180px"></label>
+        <label>&nbsp;<button class="primary" id="newUserBtn">Anlegen</button></label>
+      </div>
+      <div class="err" id="newUserErr"></div>
+    </section>
+
+    <section class="card">
+      <h2>Daten übernehmen (CSV-Import)</h2>
+      <p class="muted small" style="margin-top:0">Buchungen: CSV-Export der Gleitzeit-App (<code>datum;checkin;checkout;dauer_h;notiz</code>) oder eigene Tabelle mit Datum/Kommen/Gehen.
+        Abwesenheiten und Ü-Tage: Tabellenexport von <code>absences</code> bzw. <code>day_flags</code> (z. B. aus phpMyAdmin, CSV mit Semikolon).</p>
+      <div class="row">
+        <label>Für <select id="impUser" class="userSel2"></select></label>
+        <label>Art <select id="impKind">
+          <option value="entries">Buchungen</option>
+          <option value="absences">Abwesenheiten</option>
+          <option value="dayflags">Überstunden-Tage</option>
+        </select></label>
+        <label>Datei <input type="file" id="impFile" accept=".csv,.txt,text/csv"></label>
+        <label>&nbsp;<button id="impPreview">Vorschau</button></label>
+      </div>
+      <div class="err" id="impErr"></div>
+      <div id="impResult" class="hidden">
+        <div class="row" style="margin:10px 0"><span id="impSummary"></span>
+          <button class="primary" id="impCommit">Übernehmen</button></div>
+        <div class="scroll" style="max-height:360px"><table id="impTable"></table></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Berichte per Mail</h2>
+      <p class="muted small" style="margin-top:0">Monatsbericht am 1. des Monats ab 6 Uhr für den Vormonat, Jahresbericht am 1. Januar fürs Vorjahr –
+        an alle Mitarbeiter mit E-Mail-Adresse (Spalte „E-Mail“ oben oder selbst unter „Mein Zugang“). War die NAS aus, wird bis zum 7. nachgeholt.</p>
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="mailMonthly"> Monatsbericht automatisch</label>
+        <label class="inline"><input type="checkbox" id="mailYearly"> Jahresbericht automatisch</label>
+        <span class="muted small">Anhänge:</span>
+        <label class="inline"><input type="checkbox" class="mailFmt" value="pdf"> PDF</label>
+        <label class="inline"><input type="checkbox" class="mailFmt" value="xlsx"> Excel</label>
+      </div>
+      <h3>Mailserver (SMTP)</h3>
+      <div class="row">
+        <label>Server <input id="smtpHost" placeholder="smtp.strato.de" style="width:180px"></label>
+        <label>Port <input id="smtpPort" type="number" min="1" max="65535" class="w80"></label>
+        <label>Verschlüsselung <select id="smtpSec">
+          <option value="starttls">STARTTLS (Port 587)</option>
+          <option value="ssl">SSL/TLS (Port 465)</option>
+          <option value="none">keine (nur im LAN)</option>
+        </select></label>
+        <label>Benutzer <input id="smtpUser" autocomplete="off" style="width:180px"></label>
+        <label>Passwort <input id="smtpPw" type="password" autocomplete="new-password" style="width:150px"></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Absender-Adresse <input id="smtpFrom" type="email" placeholder="zeit@meinedomain.de" style="width:200px"></label>
+        <label>Absender-Name <input id="smtpFromName" placeholder="Zeiterfassung" style="width:160px"></label>
+        <label>&nbsp;<button class="primary" id="mailSave">Speichern</button></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Testmail an <input id="mailTestTo" type="email" style="width:200px"></label>
+        <label>&nbsp;<button id="mailTest">Testmail senden</button></label>
+      </div>
+      <div class="err" id="mailErr"></div>
+      <h3>Versandprotokoll</h3>
+      <div class="scroll" style="max-height:240px"><table id="mailLog"></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Einstellungen</h2>
+      <div class="row">
+        <label>Bundesland (Feiertage) <select id="setBl"></select></label>
+        <label>Betriebsfreie Tage (MM-TT) <input id="setFree" placeholder="12-24, 12-31" style="width:180px"></label>
+        <label>Pausenabzug <select id="setBreak"></select></label>
+        <label id="setMinWrap">Minuten <input id="setMin" type="number" min="0" max="120" class="w80"></label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label style="flex:1;min-width:260px">Öffentliche Adresse (QR-Code, iPhone-Kurzbefehle, DSM-Fenster)
+          <input id="setUrl" placeholder="https://zeit.meinedomain.de"></label>
+        <label>&nbsp;<button class="primary" id="setBtn">Speichern</button></label>
+      </div>
+      <h3>Wegezeit</h3>
+      <div class="row">
+        <label>beim Kommen früher (Min.) <input id="setTravIn" type="number" min="0" max="120" class="w80"></label>
+        <label>beim Gehen später (Min.) <input id="setTravOut" type="number" min="0" max="120" class="w80"></label>
+        <span class="muted small">gilt beim Stempeln über:</span>
+        <label class="inline"><input type="checkbox" class="travSrc" value="nfc"> NFC-Aufkleber</label>
+        <label class="inline"><input type="checkbox" class="travSrc" value="shortcut"> Kurzbefehl / Standort</label>
+        <label class="inline"><input type="checkbox" class="travSrc" value="web"> Weboberfläche</label>
+      </div>
+      <p class="muted small">Beispiel: 10 Minuten – wer per NFC um 07:00 kommt, wird ab 06:50 erfasst; wer um 16:00 geht, bis 16:10. Die Wegezeit wird bei jeder Buchung vermerkt und im CSV ausgewiesen.</p>
+      <h3>Anmeldung mit DSM-Konten</h3>
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="setDsmLogin"> Login mit DSM-Benutzer und -Passwort erlauben</label>
+        <label class="inline"><input type="checkbox" id="setDsmCreate"> unbekannte DSM-Benutzer automatisch anlegen</label>
+        <label class="inline"><input type="checkbox" id="setDsmAdmins"> DSM-Administratoren sind Admins</label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>DSM-Adresse für die Passwortprüfung <input id="setDsmUrl" placeholder="http://127.0.0.1:5000" style="width:220px"></label>
+      </div>
+      <p class="muted small">Im DSM-Fenster bist du automatisch mit deinem DSM-Benutzer angemeldet. Automatisch angelegte Mitarbeiter starten mit 40 Std./Woche und heutigem Erfassungsbeginn – bitte in der Mitarbeitertabelle anpassen.</p>
+      <div class="err" id="setErr"></div>
+      <h3>Feiertage <span id="holYear"></span></h3>
+      <div class="scroll"><table id="holTable"></table></div>
+    </section>
+  </div>
+
+  <!-- MEIN ZUGANG -->
+  <div data-page="me" class="page hidden">
+    <section class="card">
+      <h2>iPhone einrichten</h2>
+      <p class="muted" style="margin:0">Erzeugt einen persönlichen Zugang. Den QR-Code mit der iPhone-Kamera scannen – die Einrichtungsseite erklärt Schritt für Schritt, wie „Kommen“ und „Gehen“ als Kurzbefehl und automatisch an der Wache funktionieren.</p>
+      <div class="row" style="margin-top:10px">
+        <select id="qrUser" class="userSel2 hidden"></select>
+        <button id="qrBtn" class="primary">QR-Code erzeugen</button>
+      </div>
+      <div id="qrBox" class="qr hidden"></div>
+      <h3>Vorhandene Zugänge</h3>
+      <div class="scroll"><table id="tokTable"></table></div>
+      <div class="err" id="tokErr"></div>
+    </section>
+    <section class="card">
+      <h2>Berichte per Mail</h2>
+      <div class="row">
+        <label>Meine E-Mail-Adresse <input id="meEmail" type="email" placeholder="name@beispiel.de" style="width:240px"></label>
+        <label class="inline"><input type="checkbox" id="meReportMail"> Berichte automatisch zuschicken</label>
+        <label>&nbsp;<button id="meMailSave">Speichern</button></label>
+      </div>
+      <p class="muted small" id="meMailInfo" style="margin-bottom:0"></p>
+      <div class="err" id="meMailErr"></div>
+    </section>
+    <section class="card" id="pwCard">
+      <h2>Passwort ändern</h2>
+      <div class="row">
+        <label>Aktuell <input id="pwOld" type="password"></label>
+        <label>Neu <input id="pwNew" type="password" placeholder="min. 8 Zeichen"></label>
+        <label>&nbsp;<button id="pwBtn">Ändern</button></label>
+      </div>
+      <div class="err" id="pwErr"></div>
+    </section>
+    <p class="muted small" id="docsHint" style="text-align:center">Technische Schnittstelle: <a href="docs">API-Dokumentation</a></p>
+  </div>
+</main>
+</div>
+
+<script src="static/app.js?v={{v}}"></script>
+</body>
+</html>

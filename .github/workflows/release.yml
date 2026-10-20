@@ -1,0 +1,60 @@
+name: Release
+
+# Neues Release: Version in app/__init__.py und CHANGELOG.md eintragen, committen,
+# dann z. B. `git tag v0.8.1 && git push origin v0.8.1`.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Version prüfen
+        run: |
+          APP=$(python -c "import app; print(app.__version__)")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$APP" != "$TAG" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zu app/__init__.py ($APP)"; exit 1
+          fi
+
+      - name: Tests
+        run: |
+          pip install -r requirements-dev.txt
+          pytest -q
+
+      - name: SPK bauen
+        run: |
+          ./synology/build_spk.sh
+          cd dist && sha256sum *.spk > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Release-Notizen aus CHANGELOG.md
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v v="$V" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on && /^\[[0-9]/ {next}
+            on {print}
+          ' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "### Installation"
+            echo "SPK herunterladen → DSM → Paket-Zentrum → Manuelle Installation (DSM 7, x86_64, z. B. DS918+)."
+          } >> notes.md
+          cat notes.md
+
+      - name: Release erstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.spk dist/SHA256SUMS.txt \
+            --title "Zeiterfassung ${GITHUB_REF_NAME}" --notes-file notes.md

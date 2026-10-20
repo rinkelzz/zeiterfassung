@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Laufzeitdaten (Datenbank, Startpasswort) – nie einchecken
+data/
+*.db
+*.db-wal
+*.db-shm
+ERSTES_ADMIN_PASSWORT.txt
+
+# Build
+dist/
+build/
+
+# vom Programm erzeugt
+synology/ui/app.json
+.proxy_secret
+.port
+.python
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/

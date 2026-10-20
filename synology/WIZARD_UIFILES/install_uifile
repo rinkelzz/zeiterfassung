@@ -1,0 +1,39 @@
+[
+    {
+        "step_title": "Zeiterfassung einrichten",
+        "items": [
+            {
+                "type": "password",
+                "desc": "Passwort für den Benutzer <b>admin</b> der Zeiterfassung (mindestens 8 Zeichen). Das ist unabhängig von deinem DSM-Konto.",
+                "subitems": [
+                    {
+                        "key": "wizard_admin_password",
+                        "desc": "Admin-Passwort",
+                        "validator": {
+                            "allowBlank": false,
+                            "minLength": 8
+                        }
+                    }
+                ]
+            },
+            {
+                "type": "textfield",
+                "desc": "Adresse, unter der die Zeiterfassung von außen erreichbar ist (Reverse Proxy), z. B. https://zeit.meinedomain.de. Sie landet im QR-Code für die iPhone-Kurzbefehle. Leer lassen, wenn noch nicht eingerichtet – das lässt sich später ändern.",
+                "subitems": [
+                    {
+                        "key": "wizard_public_url",
+                        "desc": "Öffentliche Adresse",
+                        "emptyText": "https://zeit.meinedomain.de",
+                        "validator": {
+                            "allowBlank": true,
+                            "regex": {
+                                "expr": "/^(https?:\\/\\/[^\\s\\/]+(\\/[^\\s]*)?)?$/",
+                                "errorText": "Bitte mit http:// oder https:// beginnen"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+]

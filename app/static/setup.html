@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Zeiterfassung einrichten</title>
+<link rel="apple-touch-icon" href="static/icon.png">
+<style>
+:root { --bg: #f4f5f7; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
+        --accent: #0f766e; --accent-ink: #fff; --in: #15803d; --out: #b91c1c; --code: #eef0f3; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #11151c; --card: #1a2029; --text: #e7eaf0; --muted: #9aa3b2; --line: #2a3240;
+          --accent: #2dd4bf; --accent-ink: #062b28; --in: #4ade80; --out: #f87171; --code: #232b36; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 14px; }
+header { display: flex; align-items: center; gap: 10px; padding-top: 6px; }
+header img { width: 40px; height: 40px; border-radius: 10px; }
+h1 { font-size: 21px; margin: 0; } h2 { font-size: 17px; margin: 0 0 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.muted { color: var(--muted); } .small { font-size: 14px; }
+.state { font-size: 20px; font-weight: 700; } .in { color: var(--in); } .out { color: var(--out); }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 12px 14px;
+         border-radius: 12px; cursor: pointer; font-weight: 600; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+button:disabled { opacity: .5; }
+ol { margin: 0; padding-left: 22px; } li { margin: 8px 0; }
+.copy { display: flex; gap: 8px; align-items: stretch; margin: 6px 0 2px; }
+.copy input { flex: 1; min-width: 0; font: 14px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px;
+              border-radius: 10px; border: 1px solid var(--line); background: var(--code); color: var(--text); }
+.copy button { padding: 8px 12px; font-size: 14px; white-space: nowrap; }
+b.ui { background: var(--code); padding: 1px 6px; border-radius: 6px; font-weight: 600; }
+.msg { min-height: 1.4em; margin-top: 10px; font-weight: 600; }
+.warn { border-color: #f59e0b; } .err { color: var(--out); }
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tabs button { flex: 1; padding: 8px; font-size: 15px; }
+.tabs button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="static/icon.png?v={{v}}" alt="">
+    <div><h1>Zeiterfassung einrichten</h1><div class="muted small" id="hello">Einen Moment …</div></div>
+  </header>
+
+  <section class="card hidden" id="errCard">
+    <h2 class="err">Link ungültig</h2>
+    <p id="errText" style="margin:0"></p>
+  </section>
+
+  <div id="content" class="hidden" style="display:grid;gap:14px">
+    <section class="card">
+      <h2>1. Verbindung testen</h2>
+      <div class="state" id="state">…</div>
+      <div class="muted small" id="since"></div>
+      <div class="btns">
+        <button class="primary" id="btnIn">Kommen</button>
+        <button id="btnOut">Gehen</button>
+      </div>
+      <div class="msg" id="msg"></div>
+      <p class="muted small" id="lanHint" style="margin-bottom:0"></p>
+    </section>
+
+    <section class="card">
+      <h2>2. Kurzbefehle anlegen</h2>
+      <div class="tabs"><button class="on" data-k="in">„Kommen“</button><button data-k="out">„Gehen“</button></div>
+      <ol>
+        <li>App <b class="ui">Kurzbefehle</b> öffnen, oben rechts auf <b class="ui">+</b> tippen.</li>
+        <li><b class="ui">Aktion hinzufügen</b> → nach <b class="ui">Inhalte von URL abrufen</b> suchen und antippen.</li>
+        <li>In der Aktion auf <b class="ui">URL</b> tippen und diese Adresse einfügen:
+          <div class="copy"><input id="cUrl" readonly><button data-copy="cUrl">Kopieren</button></div></li>
+        <li>Auf den kleinen Pfeil <b class="ui">›</b> in der Aktion tippen:
+          <ul style="padding-left:18px">
+            <li><b class="ui">Methode</b> auf <b class="ui">POST</b> stellen</li>
+            <li>bei <b class="ui">Header</b> auf <b class="ui">Neues Feld hinzufügen</b> → <b class="ui">Text</b>.
+              Als Schlüssel:
+              <div class="copy"><input id="cKey" readonly value="Authorization"><button data-copy="cKey">Kopieren</button></div>
+              als Wert:
+              <div class="copy"><input id="cVal" readonly><button data-copy="cVal">Kopieren</button></div></li>
+          </ul></li>
+        <li>Optional für eine Rückmeldung: Aktion <b class="ui">Wörterbuchwert abrufen</b> (Schlüssel <b class="ui">message</b>)
+          und danach <b class="ui">Mitteilung anzeigen</b> hinzufügen. Dann erscheint z. B. „Eingestempelt um 07:02 Uhr“.</li>
+        <li>Oben den Namen <b class="ui" id="cName">Kommen</b> eintragen und auf <b class="ui">Fertig</b> tippen.</li>
+      </ol>
+      <p class="muted small" style="margin-bottom:0">Danach das Gleiche für <span id="otherName">„Gehen“</span> – oben umschalten, dann stimmen die Adressen.</p>
+    </section>
+
+    <section class="card">
+      <h2>3. Automatisch an der Wache</h2>
+      <ol>
+        <li>In <b class="ui">Kurzbefehle</b> unten auf <b class="ui">Automation</b>, dann <b class="ui">+</b>.</li>
+        <li><b class="ui">Ankommen</b> wählen → Ort der Wache suchen und festlegen → <b class="ui">Sofort ausführen</b> wählen → <b class="ui">Weiter</b>.</li>
+        <li>Den Kurzbefehl <b class="ui">Kommen</b> auswählen.</li>
+        <li>Zweite Automation: <b class="ui">Verlassen</b> → gleicher Ort → <b class="ui">Gehen</b>.</li>
+      </ol>
+      <p class="muted small" style="margin-bottom:0">Löst das iPhone mal doppelt aus, ist das egal: Wer schon eingestempelt ist, wird nicht zweimal eingestempelt.</p>
+    </section>
+
+    <section class="card">
+      <h2>4. NFC-Aufkleber (optional)</h2>
+      <p class="small" style="margin-top:0">Am sichersten mit <b>zwei Aufklebern</b> an der Wache: einer für „Kommen“, einer für „Gehen“.
+        Das verträgt sich auch mit der Standort-Automation. Lege dafür zwei weitere Kurzbefehle an – genau wie in Schritt 2, nur mit diesen Adressen:</p>
+      NFC Kommen:
+      <div class="copy"><input id="cNfcIn" readonly><button data-copy="cNfcIn">Kopieren</button></div>
+      NFC Gehen:
+      <div class="copy"><input id="cNfcOut" readonly><button data-copy="cNfcOut">Kopieren</button></div>
+      <ol>
+        <li>In <b class="ui">Kurzbefehle</b> → <b class="ui">Automation</b> → <b class="ui">+</b> → <b class="ui">NFC</b> → <b class="ui">Scannen</b>.</li>
+        <li>iPhone oben an den „Kommen“-Aufkleber halten, Namen vergeben (z. B. „Wache Kommen“).</li>
+        <li><b class="ui">Sofort ausführen</b> wählen → Kurzbefehl „NFC Kommen“ auswählen.</li>
+        <li>Das Gleiche für den „Gehen“-Aufkleber.</li>
+      </ol>
+      <p class="small" id="travelInfo" style="margin-bottom:6px"></p>
+      <p class="muted small" style="margin-bottom:0">Nur ein Aufkleber? Dann diese Umschalt-Adresse nehmen – jedes Antippen wechselt zwischen Kommen und Gehen
+        (bitte dann <b>ohne</b> Standort-Automation):</p>
+      <div class="copy"><input id="cToggle" readonly><button data-copy="cToggle">Kopieren</button></div>
+    </section>
+
+    <section class="card warn">
+      <h2>Wichtig</h2>
+      <p class="small" style="margin:0">Dieser Link ist dein persönlicher Schlüssel – wer ihn hat, kann für dich stempeln.
+        Bitte nicht weitergeben. Geht das Handy verloren, kann der Admin den Zugang in der Zeiterfassung sperren.</p>
+    </section>
+  </div>
+</main>
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = "";
+  try { token = new URLSearchParams(location.hash.slice(1)).get("t") || ""; } catch (e) {}
+  var base = location.href.split("#")[0].replace(/\/setup\/?(\?.*)?$/, "");
+  var kind = "in";
+
+  function api(path, method) {
+    return fetch(base + "/api/v1/" + path, {
+      method: method || "GET",
+      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+      body: method === "POST" ? JSON.stringify({ source: "shortcut" }) : undefined,
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok) { throw new Error((d && d.detail) || ("Fehler " + r.status)); }
+        return d;
+      });
+    });
+  }
+  function fail(text) {
+    $("hello").textContent = "";
+    $("errText").textContent = text;
+    $("errCard").classList.remove("hidden");
+    $("content").classList.add("hidden");
+  }
+  function showStatus(s) {
+    $("state").textContent = s.status === "in" ? "Eingestempelt" : "Ausgestempelt";
+    $("state").className = "state " + s.status;
+    $("since").textContent = s.since ? "seit " + new Date(s.since).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr · heute " + s.today_total + " h" : "heute " + s.today_total + " h";
+  }
+  function fill() {
+    $("cUrl").value = base + "/api/v1/clock/" + kind + "?source=shortcut";
+    $("cNfcIn").value = base + "/api/v1/clock/in?source=nfc";
+    $("cNfcOut").value = base + "/api/v1/clock/out?source=nfc";
+    $("cVal").value = "Bearer " + token;
+    $("cName").textContent = kind === "in" ? "Kommen" : "Gehen";
+    $("otherName").textContent = kind === "in" ? "„Gehen“" : "„Kommen“";
+    $("cToggle").value = base + "/api/v1/clock/toggle?source=nfc";
+  }
+  function copy(id, btn) {
+    var el = $(id), text = el.value;
+    var done = function () { var t = btn.textContent; btn.textContent = "Kopiert ✓"; setTimeout(function () { btn.textContent = t; }, 1500); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, function () { legacy(); });
+    } else { legacy(); }
+    function legacy() {   // http im Heimnetz: Clipboard-API gibt es dort nicht
+      el.removeAttribute("readonly"); el.focus(); el.select(); el.setSelectionRange(0, text.length);
+      try { document.execCommand("copy"); done(); } catch (e) { btn.textContent = "markiert – Kopieren antippen"; }
+      el.setAttribute("readonly", "");
+    }
+  }
+  function clock(action) {
+    $("btnIn").disabled = $("btnOut").disabled = true; $("msg").textContent = "";
+    api("clock/" + action, "POST").then(function (s) { $("msg").textContent = s.message; showStatus(s); })
+      .catch(function (e) { $("msg").innerHTML = "<span class='err'></span>"; $("msg").firstChild.textContent = e.message; })
+      .then(function () { $("btnIn").disabled = $("btnOut").disabled = false; });
+  }
+
+  if (!/^ze_[A-Za-z0-9_\-]{20,}$/.test(token)) {
+    return fail("Im Link fehlt der persönliche Schlüssel. Bitte in der Zeiterfassung unter „Mein Zugang“ einen neuen QR-Code erzeugen.");
+  }
+  // Schlüssel aus der Adresszeile nehmen, damit er nicht im Verlauf landet
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  fill();
+  Promise.all([api("me"), api("clock/status"), api("settings").catch(function () { return {}; })]).then(function (r) {
+    $("hello").textContent = "Hallo " + r[0].display_name + "!";
+    showStatus(r[1]);
+    var st = r[2] || {}, src = st.travel_sources || [];
+    if (src.indexOf("nfc") >= 0 && (st.travel_in_minutes || st.travel_out_minutes)) {
+      $("travelInfo").textContent = "Beim Stempeln per NFC wird Wegezeit dazugerechnet: " +
+        (st.travel_in_minutes ? st.travel_in_minutes + " min vor dem Kommen" : "") +
+        (st.travel_in_minutes && st.travel_out_minutes ? " und " : "") +
+        (st.travel_out_minutes ? st.travel_out_minutes + " min nach dem Gehen" : "") + ".";
+    }
+    $("content").classList.remove("hidden");
+    if (location.protocol === "http:" && /^(\d+\.){3}\d+$|\.local$/.test(location.hostname)) {
+      $("lanHint").textContent = "Hinweis: Diese Adresse funktioniert nur im WLAN der Wache bzw. zu Hause. Für unterwegs braucht es eine öffentliche https-Adresse (Reverse Proxy).";
+    }
+  }).catch(function (e) {
+    fail(/401|angemeldet/i.test(e.message)
+      ? "Dieser Zugang ist nicht mehr gültig (gesperrt oder ersetzt). Bitte einen neuen QR-Code erzeugen."
+      : "Die Zeiterfassung ist gerade nicht erreichbar: " + e.message);
+  });
+
+  $("btnIn").onclick = function () { clock("in"); };
+  $("btnOut").onclick = function () { clock("out"); };
+  Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (b) {
+    b.onclick = function () { copy(b.getAttribute("data-copy"), b); };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (b) {
+    b.onclick = function () {
+      kind = b.getAttribute("data-k");
+      Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (x) { x.classList.toggle("on", x === b); });
+      fill();
+    };
+  });
+})();
+</script>
+</body>
+</html>

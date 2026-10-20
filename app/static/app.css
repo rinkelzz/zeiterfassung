@@ -1,0 +1,118 @@
+:root {
+  --bg: #f4f5f7; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
+  --accent: #0f766e; --accent-ink: #fff; --in: #15803d; --out: #b91c1c;
+  --k-urlaub: #bfdbfe; --k-krank: #fecaca; --k-bildungsurlaub: #c7d2fe; --k-gleittag: #fde68a;
+  --k-mehrarbeit: #fed7aa; --k-feiertag: #ddd6fe; --k-sonstiges: #e5e7eb; --k-sel: #0f766e;
+  --weekend: #eef0f3; --worked: #99f6e4;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #11151c; --card: #1a2029; --text: #e7eaf0; --muted: #9aa3b2; --line: #2a3240;
+          --accent: #2dd4bf; --accent-ink: #062b28; --in: #4ade80; --out: #f87171;
+          --k-urlaub: #1e3a8a; --k-krank: #7f1d1d; --k-bildungsurlaub: #3730a3; --k-gleittag: #713f12;
+          --k-mehrarbeit: #7c2d12; --k-feiertag: #4c1d95; --k-sonstiges: #374151; --k-sel: #2dd4bf;
+          --weekend: #151a22; --worked: #134e4a; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+       background: var(--bg); color: var(--text); }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+         padding: 10px 20px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+header h1 { font-size: 17px; margin: 0; display: flex; align-items: center; gap: 8px; }
+header img { width: 26px; height: 26px; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; }
+nav button { border: none; background: none; padding: 8px 12px; border-radius: 8px; color: var(--muted); font-weight: 600; }
+nav button.active { background: var(--bg); color: var(--text); }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+.page { display: grid; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.card h2 { font-size: 15px; margin: 0 0 12px; }
+.card h3 { font-size: 14px; margin: 18px 0 10px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.toolbar h2 { margin: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.muted { color: var(--muted); } .small { font-size: 13px; }
+button, .btn { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text);
+               padding: 7px 13px; border-radius: 8px; cursor: pointer; text-decoration: none; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+button.danger { color: var(--out); }
+button.mini { padding: 2px 8px; font-size: 12px; }
+button:disabled { opacity: .5; cursor: default; }
+input, select { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+                background: var(--bg); color: var(--text); min-width: 0; }
+label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+label.inline { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 14px; }
+.w80 { width: 80px; } .w64 { width: 64px; }
+.clock { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+.state { font-size: 26px; font-weight: 700; }
+.state.in { color: var(--in); } .state.out { color: var(--out); }
+.big { font-size: 18px; padding: 16px 28px; border-radius: 12px; min-width: 170px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0 6px; }
+.stat { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+.stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.neg { color: var(--out); } .pos { color: var(--in); }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; }
+tr.weekend td { color: var(--muted); background: var(--weekend); }
+tr.today td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+table.month tbody tr.day { cursor: default; }
+body.is-admin table.month tbody tr.day { cursor: pointer; }
+body.is-admin table.month tbody tr.day:hover td { background: var(--bg); }
+tr.detail td { background: var(--bg); white-space: normal; }
+.detailbox { display: grid; gap: 10px; padding: 6px 2px; }
+.detailbox .row { gap: 8px; }
+.scroll { overflow-x: auto; }
+.login { max-width: 360px; margin: 10vh auto; display: grid; gap: 12px; }
+.qr { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; margin-top: 12px; }
+.qr svg { width: 200px; height: 200px; background: #fff; border-radius: 8px; }
+.err { color: var(--out); min-height: 1.2em; font-size: 14px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--muted); }
+.dot.in { background: var(--in); }
+.hidden { display: none !important; }
+.tag { display: inline-block; font-size: 12px; padding: 1px 7px; border-radius: 999px; background: var(--bg);
+       border: 1px solid var(--line); color: var(--text); }
+.tag.k { border-color: transparent; }
+.ue { font-size: 12px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--muted); }
+.ue.on { background: var(--k-mehrarbeit); color: var(--text); border-color: transparent; font-weight: 700; }
+td input { padding: 4px 6px; }
+code { background: var(--bg); padding: 2px 5px; border-radius: 4px; font-size: 13px; word-break: break-all; }
+.st-neu { color: var(--in); font-weight: 600; } .st-fehler, .st-konflikt { color: var(--out); font-weight: 600; }
+.st-doppelt, .st-übersprungen { color: var(--muted); }
+
+/* Jahreskalender */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; margin-bottom: 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1px solid var(--line); }
+.yeargrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; user-select: none; -webkit-user-select: none; }
+.mon h4 { margin: 0 0 6px; font-size: 13px; }
+.mon .g { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.mon .wd { font-size: 10px; color: var(--muted); text-align: center; }
+.cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 12px;
+        border-radius: 5px; font-variant-numeric: tabular-nums; }
+.cell.d { cursor: default; }
+body.is-admin .cell.d { cursor: pointer; }
+.cell.we { background: var(--weekend); color: var(--muted); }
+.cell.worked::after { content: ""; position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.cell.half { background-image: linear-gradient(135deg, transparent 50%, var(--card) 50%) !important; }
+.cell.today { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cell.pre { opacity: .45; }
+.cell.sel { background: var(--k-sel) !important; color: var(--accent-ink) !important; }
+.k-urlaub { background: var(--k-urlaub); } .k-krank { background: var(--k-krank); }
+.k-bildungsurlaub { background: var(--k-bildungsurlaub); } .k-gleittag { background: var(--k-gleittag); }
+.k-mehrarbeit { background: var(--k-mehrarbeit); } .k-feiertag { background: var(--k-feiertag); }
+.k-sonstiges { background: var(--k-sonstiges); }
+.selbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; border-radius: 10px;
+          background: var(--bg); margin-bottom: 10px; position: sticky; top: 64px; z-index: 3; border: 1px solid var(--line); }
+
+@media (max-width: 720px) {
+  header { padding: 10px 12px; position: static; }
+  .selbar { top: 0; }
+  nav button { padding: 6px 8px; font-size: 14px; }
+  .clock { grid-template-columns: 1fr; } .big { width: 100%; }
+  .qr { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr 1fr; }
+}
+
+.btngroup { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.btngroup button { padding-left: 10px; padding-right: 10px; }

@@ -1,0 +1,57 @@
+
+# --- start-stop-status: wird von DSM beim Starten/Stoppen/Statusabfrage aufgerufen
+
+is_running() {
+    [ -f "${PIDFILE}" ] && kill -0 "$(cat "${PIDFILE}")" 2>/dev/null
+}
+
+start_daemon() {
+    is_running && return 0
+    set -- $(find_python)
+    PY="$1"; TAG="$2"
+    if [ -z "$PY" ]; then
+        log "FEHLER: kein passendes Python gefunden (3.8 bis 3.13 mit sqlite3 und ssl)"
+        return 1
+    fi
+    [ -f "${CONFIG}" ] && . "${CONFIG}"
+    export ZE_DATA_DIR="${PKGVAR}"
+    export ZE_PORT="${ZE_PORT:-8765}"
+    export ZE_HOST="${ZE_HOST:-0.0.0.0}"
+    export ZE_PUBLIC_URL ZE_ROOT_PATH ZE_COOKIE_SECURE ZE_TIMEZONE
+    export ZE_UI_DIR="${PKGDEST}/ui"
+    export PYTHONPATH="${PKGDEST}/lib/${TAG}:${PKGDEST}"
+    export PYTHONDONTWRITEBYTECODE=1
+    # Für ui/app.cgi (DSM-Fenster): welches Python die Weiterleitung nutzen soll
+    echo "${PY}" > "${PKGDEST}/.python" 2>/dev/null && chmod 644 "${PKGDEST}/.python" 2>/dev/null
+    log "Starte mit ${PY} (${TAG}) auf Port ${ZE_PORT}"
+    cd "${PKGDEST}" || return 1
+    nohup "${PY}" -m app.main >> "${LOGFILE}" 2>&1 &
+    echo $! > "${PIDFILE}"
+    # kurz warten, ob der Prozess stehen bleibt
+    i=0
+    while [ $i -lt 10 ]; do
+        sleep 1
+        is_running || { log "Prozess ist direkt beendet – siehe Meldungen oben"; return 1; }
+        i=$((i + 1))
+        [ $i -ge 2 ] && return 0
+    done
+}
+
+stop_daemon() {
+    if is_running; then
+        kill "$(cat "${PIDFILE}")" 2>/dev/null
+        i=0
+        while is_running && [ $i -lt 15 ]; do sleep 1; i=$((i + 1)); done
+        is_running && kill -9 "$(cat "${PIDFILE}")" 2>/dev/null
+        log "Gestoppt"
+    fi
+    rm -f "${PIDFILE}"
+}
+
+case "$1" in
+    start)  start_daemon; exit $? ;;
+    stop)   stop_daemon; exit 0 ;;
+    status) is_running && exit 0 || exit 3 ;;
+    log)    echo "${LOGFILE}"; exit 0 ;;
+    *)      exit 1 ;;
+esac

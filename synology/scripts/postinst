@@ -1,0 +1,26 @@
+
+# --- postinst: Konfiguration aus dem Assistenten schreiben, Datenbank + Admin anlegen
+
+mkdir -p "${PKGVAR}"
+
+if [ ! -f "${CONFIG}" ]; then
+    {
+        echo "# Zeiterfassung – Einstellungen. Nach Änderungen das Paket neu starten."
+        echo "ZE_PORT=8765"
+        echo "ZE_PUBLIC_URL=\"${wizard_public_url:-}\""
+        echo "ZE_ROOT_PATH=\"\""
+        echo "ZE_COOKIE_SECURE=0"
+        echo "ZE_TIMEZONE=\"Europe/Berlin\""
+    } > "${CONFIG}"
+fi
+
+set -- $(find_python)
+PY="$1"; TAG="$2"
+if [ -n "$PY" ]; then
+    # Admin-Passwort wird nur hier verwendet und nirgends gespeichert
+    ZE_DATA_DIR="${PKGVAR}" ZE_ADMIN_PASSWORD="${wizard_admin_password:-}" \
+    PYTHONPATH="${PKGDEST}/lib/${TAG}:${PKGDEST}" PYTHONDONTWRITEBYTECODE=1 \
+        "$PY" -c "from app.db import init_db; init_db()" >> "${LOGFILE}" 2>&1
+    log "Installation abgeschlossen (${PY})"
+fi
+exit 0

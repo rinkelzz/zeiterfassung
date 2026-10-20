@@ -1,0 +1,10 @@
+
+# --- preinst: prüft vor der Installation, ob ein passendes Python da ist
+
+if [ -z "$(find_python)" ]; then
+    cat >> "${SYNOPKG_TEMP_LOGFILE:-/dev/stdout}" <<'EOF'
+Kein passendes Python gefunden. Bitte zuerst im Paket-Zentrum „Python 3.9" installieren (oder Python 3.11/3.12 von SynoCommunity) und danach die Zeiterfassung erneut installieren.
+EOF
+    exit 1
+fi
+exit 0

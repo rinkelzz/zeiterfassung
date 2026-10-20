@@ -1,0 +1,39 @@
+# Gemeinsame Funktionen – wird beim Bau oben in jedes Skript eingefügt.
+PKG="zeiterfassung"
+PKGDEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG}/target}"
+PKGVAR="${SYNOPKG_PKGVAR:-/var/packages/${PKG}/var}"
+CONFIG="${PKGVAR}/config.env"
+PIDFILE="${PKGVAR}/${PKG}.pid"
+LOGFILE="${PKGVAR}/${PKG}.log"
+SUPPORTED="cp313 cp312 cp311 cp310 cp39 cp38"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "${LOGFILE}" 2>/dev/null
+}
+
+# Sucht das neueste Python, für das Bibliotheken im Paket liegen und das
+# sqlite3 + ssl mitbringt. Gibt "PFAD TAG" aus.
+find_python() {
+    candidates="${ZE_PYTHON:-}"
+    for p in /var/packages/python3*/target/bin/python3.* \
+             /var/packages/Python3*/target/usr/bin/python3.* \
+             /var/packages/Python3*/target/bin/python3.* \
+             /usr/local/bin/python3.* /usr/local/bin/python3 \
+             /usr/bin/python3.* /usr/bin/python3 /bin/python3; do
+        case "$p" in *-config|*m-config) continue ;; esac
+        [ -x "$p" ] && candidates="$candidates $p"
+    done
+    best=""; best_tag=""; best_rank=99
+    for py in $candidates; do
+        tag=$("$py" -c 'import sys, sqlite3, ssl; print("cp%d%d" % sys.version_info[:2])' 2>/dev/null) || continue
+        rank=0
+        for s in $SUPPORTED; do
+            if [ "$s" = "$tag" ]; then
+                if [ $rank -lt $best_rank ]; then best="$py"; best_tag="$tag"; best_rank=$rank; fi
+                break
+            fi
+            rank=$((rank + 1))
+        done
+    done
+    [ -n "$best" ] && echo "$best $best_tag"
+}

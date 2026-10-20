@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zeiterfassung</title>
+<style>
+  :root { --bg: #f4f5f7; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb; --accent: #0f766e; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #11151c; --card: #1a2029; --text: #e7eaf0; --muted: #9aa3b2; --line: #2a3240; --accent: #2dd4bf; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .box { max-width: 520px; margin: 12vh auto; padding: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p { margin: 8px 0; } .muted { color: var(--muted); font-size: 14px; }
+  a.btn { display: inline-block; margin-top: 10px; padding: 9px 16px; border-radius: 8px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="box" id="box"><p class="muted">Zeiterfassung wird geladen …</p></div>
+<script>
+// DSM lädt diese Seite im App-Fenster (gleicher Ursprung wie DSM).
+// Von hier geht es in die eigentliche App – im selben Fenster, ohne neuen Tab.
+(function () {
+  var box = document.getElementById("box");
+  function go(url) { window.location.replace(url); }
+  function show(cfg) {
+    var port = (cfg && cfg.port) || 8765;
+    var root = (cfg && cfg.root_path) || "";
+    var pub = (cfg && cfg.public_url) || "";
+    var direct = "http://" + location.hostname + ":" + port + root + "/";
+    var https = location.protocol === "https:";
+    // 1) Öffentliche Adresse (Reverse Proxy) – über https klappt das auch im https-DSM
+    if (pub && (!https || pub.indexOf("https://") === 0)) return go(pub + "/");
+    // 2) DSM über http → App direkt auf ihrem Port
+    if (!https) return go(direct);
+    // 3) DSM über https, aber keine https-Adresse: Browser blockt http im Fenster
+    box.innerHTML =
+      "<h1>Zeiterfassung</h1>" +
+      "<p>DSM läuft über <b>https</b>, die Zeiterfassung ist aber nur über http erreichbar. " +
+      "Der Browser erlaubt das nicht im selben Fenster.</p>" +
+      "<a class='btn' href='" + direct + "' target='_blank' rel='noopener'>In neuem Tab öffnen</a>" +
+      "<p class='muted' style='margin-top:16px'>Damit sie hier im DSM-Fenster läuft: in DSM unter " +
+      "<b>Systemsteuerung → Anmeldeportal → Erweitert → Reverse Proxy</b> eine https-Adresse auf " +
+      "<code>http://localhost:" + port + "</code> einrichten und diese in der Zeiterfassung unter " +
+      "<b>Verwaltung → Einstellungen → Öffentliche Adresse</b> eintragen.</p>";
+  }
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "app.json?t=" + Date.now());
+  xhr.onload = function () { var cfg = null; try { cfg = JSON.parse(xhr.responseText); } catch (e) {} show(xhr.status === 200 ? cfg : null); };
+  xhr.onerror = function () { show(null); };
+  xhr.send();
+})();
+</script>
+</body>
+</html>

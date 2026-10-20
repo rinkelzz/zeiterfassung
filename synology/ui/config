@@ -1,0 +1,24 @@
+{
+    "Zeiterfassung.js": {
+        "SYNO.SDS.Zeiterfassung.Application": {
+            "type": "app",
+            "title": "Zeiterfassung",
+            "desc": "Kommen/Gehen-Zeiterfassung",
+            "icon": "images/icon_{0}.png",
+            "texts": "texts",
+            "allUsers": true,
+            "allowMultiInstance": false,
+            "appWindow": "SYNO.SDS.Zeiterfassung.AppWindow",
+            "grantPrivilege": "all",
+            "advanceGrantPrivilege": true,
+            "depend": ["SYNO.SDS.Zeiterfassung.AppWindow"]
+        },
+        "SYNO.SDS.Zeiterfassung.AppWindow": {
+            "type": "lib",
+            "title": "Zeiterfassung",
+            "icon": "images/icon_{0}.png",
+            "texts": "texts",
+            "depend": []
+        }
+    }
+}

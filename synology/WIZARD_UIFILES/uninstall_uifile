@@ -1,0 +1,10 @@
+[
+    {
+        "step_title": "Zeiterfassung deinstallieren",
+        "items": [
+            {
+                "desc": "<b>Achtung:</b> Beim Deinstallieren werden alle erfassten Zeiten gelöscht. Exportiere vorher die Auswertungen als CSV, wenn du sie behalten möchtest. Für ein Update einfach die neue SPK-Datei installieren – dabei bleiben die Daten erhalten."
+            }
+        ]
+    }
+]
