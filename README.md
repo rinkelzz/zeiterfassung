@@ -131,8 +131,8 @@ Anfragen über den Webserver von DSM weiter und übernimmt die DSM-Anmeldung.
 
 **Paket bauen:** `./synology/build_spk.sh` → `dist/zeiterfassung-<version>-0001-x86_64.spk`
 (lädt die Bibliotheken für Python 3.8–3.13 von PyPI). **Release:** Version in `app/__init__.py` und
-`CHANGELOG.md` anpassen, dann Tag `v<version>` pushen – GitHub Actions testet, baut die SPK und
-erstellt das Release.
+`CHANGELOG.md` anpassen und committen, dann auf GitHub unter **Actions → Release → Run workflow**
+starten (oder Tag `v<version>` pushen) – GitHub Actions testet, baut die SPK und erstellt das Release.
 
 ## Hinweise
 

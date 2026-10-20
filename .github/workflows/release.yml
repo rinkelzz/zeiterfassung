@@ -1,10 +1,12 @@
 name: Release
 
-# Neues Release: Version in app/__init__.py und CHANGELOG.md eintragen, committen,
-# dann z. B. `git tag v0.8.1 && git push origin v0.8.1`.
+# Neues Release: Version in app/__init__.py und CHANGELOG.md eintragen und committen. Dann entweder
+# - auf GitHub: Actions → Release → „Run workflow“ (legt den Tag v<version> selbst an), oder
+# - per Kommandozeile: `git tag v0.8.1 && git push origin v0.8.1`.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,12 +21,22 @@ jobs:
           python-version: "3.12"
 
       - name: Version prüfen
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           APP=$(python -c "import app; print(app.__version__)")
-          TAG="${GITHUB_REF_NAME#v}"
-          if [ "$APP" != "$TAG" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME passt nicht zu app/__init__.py ($APP)"; exit 1
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"
+            if [ "$APP" != "${TAG#v}" ]; then
+              echo "::error::Tag $TAG passt nicht zu app/__init__.py ($APP)"; exit 1
+            fi
+          else
+            TAG="v$APP"   # per Knopf gestartet: Tag aus der Version im Code
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "::error::Release $TAG gibt es schon – erst die Version in app/__init__.py erhöhen"; exit 1
+            fi
           fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Tests
         run: |
@@ -38,7 +50,7 @@ jobs:
 
       - name: Release-Notizen aus CHANGELOG.md
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${TAG#v}"
           awk -v v="$V" '
             $0 ~ "^## \\[" v "\\]" {on=1; next}
             on && /^## \[/ {exit}
@@ -56,5 +68,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.spk dist/SHA256SUMS.txt \
-            --title "Zeiterfassung ${GITHUB_REF_NAME}" --notes-file notes.md
+          gh release create "$TAG" dist/*.spk dist/SHA256SUMS.txt --target "$GITHUB_SHA" \
+            --title "Zeiterfassung $TAG" --notes-file notes.md
