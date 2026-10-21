@@ -2,6 +2,18 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.13.0] – 2026-10-21
+
+### Neu
+- **Korrekturanträge:** Mitarbeiter tippen in der Monatsansicht auf einen Tag und beantragen mit
+  Begründung einen Nachtrag, eine Änderung von Kommen/Gehen oder das Löschen einer Buchung.
+- Admins bekommen eine Mail und sehen offene Anträge unter Verwaltung → Korrekturanträge (Zähler am Reiter).
+  **Genehmigen** übernimmt die Änderung direkt, **Ablehnen** mit Begründung; der Mitarbeiter bekommt die
+  Entscheidung per Mail. Alles steht im Änderungsprotokoll.
+- „Mein Zugang“ zeigt die eigenen Anträge mit Status; offene lassen sich zurückziehen.
+- Schutz: keine Anträge in abgeschlossene Monate oder die Zukunft, Überschneidungen werden geprüft,
+  wurde die Buchung zwischenzeitlich geändert, lässt sich der Antrag nicht mehr genehmigen.
+
 ## [0.12.0] – 2026-10-21
 
 ### Neu
@@ -87,6 +99,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.13.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.0
 [0.12.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.12.0
 [0.11.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.11.0
 [0.10.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.10.0

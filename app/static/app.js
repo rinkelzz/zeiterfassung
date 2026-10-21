@@ -106,6 +106,7 @@ async function start() {
   $("docsHint").classList.toggle("hidden", !!PROXY);
   document.body.classList.toggle("is-admin", isAdmin());
   $$(".admin").forEach(el => el.classList.toggle("hidden", !isAdmin()));
+  $("empTip").classList.toggle("hidden", isAdmin());
   state.uid = state.uid || state.me.id;
   const now = new Date();
   state.month = state.month || `${now.getFullYear()}-${p2(now.getMonth() + 1)}`;
@@ -115,7 +116,11 @@ async function start() {
   const wanted = (location.hash || "").slice(1) || store.get("tab") || "home";
   await showTab(["home", "month", "year", "admin", "me"].includes(wanted) && (wanted !== "admin" || isAdmin()) ? wanted : "home");
   clearInterval(state.timer);
-  state.timer = setInterval(() => { if (state.tab === "home") refreshHome().catch(() => {}); }, 60000);
+  refreshRequestCount();
+  state.timer = setInterval(() => {
+    if (state.tab === "home") refreshHome().catch(() => {});
+    refreshRequestCount();
+  }, 60000);
 }
 
 async function showTab(name) {
@@ -129,7 +134,7 @@ async function showTab(name) {
     if (name === "month") await loadMonth();
     if (name === "year") await loadYear();
     if (name === "admin") await loadAdmin();
-    if (name === "me") { loadMeMail(); await loadTokens(); }
+    if (name === "me") { loadMeMail(); loadMyRequests().catch(e => { $("myRqErr").textContent = e.message; }); await loadTokens(); }
   } catch (e) { if (e.message !== "Nicht angemeldet") console.error(e); }
 }
 
@@ -194,11 +199,15 @@ function shiftMonth(delta) {
 async function loadMonth() {
   $("mMonth").value = state.month;
   const { from, to } = monthRange();
-  const [rep, entries, cl] = await Promise.all([
+  const [rep, entries, cl, reqs] = await Promise.all([
     api(`reports/user?user_id=${state.uid}&from=${from}&to=${to}`),
     api(`entries?user_id=${state.uid}&from=${from}&to=${to}`),
     api(`closings?user_id=${state.uid}&month=${state.month}`),
+    api(`requests?user_id=${state.uid}&status=offen`),
   ]);
+  state.openReqs = {};
+  reqs.forEach(r => { (state.openReqs[r.day] = state.openReqs[r.day] || []).push(r); });
+  state.openReqEntries = new Set(reqs.filter(r => r.entry_id).map(r => r.entry_id));
   state.monthClosed = !!cl.closed;
   if (state.monthClosed) state.openDay = null;
   showClosing(cl);
@@ -228,12 +237,14 @@ async function loadMonth() {
     const warn = (d.warnings || []).map(w => `<span class="tag warn" title="${w.code === "max10"
       ? "Mehr als 10 Stunden Arbeitszeit an einem Tag (§ 3 Arbeitszeitgesetz)"
       : "Weniger als 11 Stunden Ruhezeit seit dem letzten Arbeitstag (§ 5 Arbeitszeitgesetz)"}">⚠ ${esc(w.text)}</span> `).join("");
+    const pend = (state.openReqs[d.date] || []).length
+      ? `<span class="tag pending" title="Korrekturantrag wartet auf Entscheidung">⏳ Antrag offen</span> ` : "";
     const check = d.needs_check ? '<span class="tag warn" title="Ausstempeln vergessen – die Buchung wurde automatisch beendet. Bitte Gehen-Zeit prüfen und korrigieren.">⚠ bitte prüfen</span> ' : "";
     const row = `<tr class="day ${off ? "weekend" : ""} ${d.date === today ? "today" : ""}" data-day="${d.date}">
       <td>${d.weekday} ${deShort(d.date)}</td><td>${d.first_in || ""}</td><td>${d.running ? "läuft" : d.last_out || ""}${multi}</td>
       <td class="num">${d.worked_s ? d.worked : ""}</td><td class="num">${d.target_s ? d.target : ""}</td>
-      <td class="num">${diff}</td><td>${ue}</td><td>${check}${warn}${info}${brk}</td></tr>`;
-    return row + (state.openDay === d.date ? detailRow(d) : "");
+      <td class="num">${diff}</td><td>${ue}</td><td>${pend}${check}${warn}${info}${brk}</td></tr>`;
+    return row + (state.openDay === d.date ? (isAdmin() ? detailRow(d) : requestRow(d)) : "");
   }).join("");
   $("mTable").innerHTML = `<thead><tr><th>Tag</th><th>Kommen</th><th>Gehen</th><th class="num">Ist</th><th class="num">Soll</th><th class="num">Saldo</th><th></th><th></th></tr></thead>
     <tbody>${rows}</tbody><tfoot><tr><th>Summe</th><th></th><th></th><th class="num">${t.worked}</th><th class="num">${t.target}</th><th class="num">${signed(t.diff_s, t.diff)}</th><th></th><th></th></tr></tfoot>`;
@@ -339,13 +350,138 @@ async function onMonthClick(e) {
     await api("dayflags", { method: "PUT", body: { user_id: state.uid, day: ueBtn.dataset.ue, overtime: !ueBtn.classList.contains("on") } });
     return loadMonth();
   }
+  const rqBtn = e.target.closest("[data-rq]");
+  if (rqBtn) return requestAction(rqBtn);
   const actBtn = e.target.closest("[data-act]");
   if (actBtn) return detailAction(actBtn);
   if (e.target.closest("tr.detail")) return;
   const tr = e.target.closest("tr.day");
-  if (!tr || !isAdmin() || state.monthClosed) return;
+  if (!tr || state.monthClosed) return;
+  // Admins bearbeiten direkt; Mitarbeiter stellen für ihre eigenen Tage einen Antrag
+  if (!isAdmin() && (state.uid !== state.me.id || tr.dataset.day > todayIso())) return;
   state.openDay = state.openDay === tr.dataset.day ? null : tr.dataset.day;
   loadMonth();
+}
+
+// ---------- Korrekturanträge (Mitarbeiter) ----------
+function requestRow(d) {
+  const entries = d.entry_ids.map(id => state.monthEntries[id]).filter(Boolean);
+  const pending = state.openReqs[d.date] || [];
+  const ent = entries.map(e => {
+    const busy = state.openReqEntries.has(e.id);
+    return `<div class="row" data-entry="${e.id}">
+      <input type="datetime-local" class="es" value="${e.start.slice(0, 16)}">
+      <span>–</span>
+      <input type="datetime-local" class="ee" value="${e.end ? e.end.slice(0, 16) : ""}">
+      ${busy ? '<span class="tag pending">⏳ Antrag offen</span>'
+             : `<button class="mini" data-rq="change">Änderung beantragen</button>
+                <button class="mini danger" data-rq="delete">Löschung beantragen</button>`}
+    </div>`;
+  }).join("");
+  const pend = pending.map(r => `<div class="small">⏳ <b>${esc(r.kind_label)}</b> ${esc(r.new_text || r.old_text)} – „${esc(r.reason)}“
+      <button class="mini" data-rq="withdraw" data-rid="${r.id}">Zurückziehen</button></div>`).join("");
+  return `<tr class="detail"><td colspan="8"><div class="detailbox">
+    <b>${d.weekday} ${deDate(d.date)}</b> <span class="muted small">– Korrektur beantragen</span>
+    ${ent || '<div class="muted small">Keine Buchung an diesem Tag.</div>'}
+    <div class="row">
+      <span class="muted small">Nachtragen:</span>
+      <input type="time" class="ns" value="07:00"><span>–</span><input type="time" class="ne" value="15:30">
+      <button class="mini" data-rq="add">Nachtrag beantragen</button>
+      <span class="muted small">Gehen vor Kommen = über Mitternacht</span>
+    </div>
+    <div class="row"><input class="rr" placeholder="Begründung (Pflicht), z. B. „Stempeln vergessen“" style="flex:1;min-width:240px" maxlength="300"></div>
+    ${pend}
+    <div class="err" data-err></div>
+  </div></td></tr>`;
+}
+
+async function requestAction(btn) {
+  const box = btn.closest(".detailbox");
+  const errEl = box.querySelector("[data-err]");
+  const day = state.openDay;
+  const reason = box.querySelector(".rr").value.trim();
+  errEl.textContent = "";
+  try {
+    const kind = btn.dataset.rq;
+    if (kind === "withdraw") {
+      await api(`requests/${btn.dataset.rid}/withdraw`, { method: "POST" });
+    } else {
+      if (reason.length < 3) throw new Error("Bitte eine kurze Begründung eintragen.");
+      const body = { kind, reason };
+      if (kind === "add") {
+        const s = box.querySelector(".ns").value, en = box.querySelector(".ne").value;
+        if (!s || !en) throw new Error("Bitte Kommen und Gehen angeben");
+        let endDay = day;
+        if (en <= s) { const d = new Date(day + "T12:00"); d.setDate(d.getDate() + 1); endDay = isoDay(d); }
+        body.start = `${day}T${s}`; body.end = `${endDay}T${en}`;
+      } else {
+        const row = btn.closest("[data-entry]");
+        body.entry_id = Number(row.dataset.entry);
+        if (kind === "change") {
+          body.start = row.querySelector(".es").value; body.end = row.querySelector(".ee").value;
+          if (!body.start || !body.end) throw new Error("Bitte Kommen und Gehen angeben");
+        } else if (!confirm("Löschung dieser Buchung beantragen?")) return;
+      }
+      await api("requests", { method: "POST", body });
+    }
+    await loadMonth();
+    refreshRequestCount();
+  } catch (e) { errEl.textContent = e.message; }
+}
+
+const RQ_STATUS = { offen: "⏳ offen", genehmigt: "✓ genehmigt", abgelehnt: "✗ abgelehnt", zurueckgezogen: "zurückgezogen" };
+const fmtDT = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "";
+function rqChange(r) {
+  return r.kind === "add" ? `neu: ${esc(r.new_text)}` : r.kind === "delete" ? `löschen: ${esc(r.old_text)}`
+    : `${esc(r.old_text)}<br>→ ${esc(r.new_text)}`;
+}
+
+async function loadMyRequests() {
+  const rows = await api("requests?limit=50");
+  $("myRqTable").innerHTML = rows.length ? `<thead><tr><th>gestellt</th><th>Art</th><th>Änderung</th><th>Begründung</th><th>Status</th><th></th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${fmtDT(r.created_at)}</td><td>${esc(r.kind_label)}</td><td class="small">${rqChange(r)}</td>
+      <td class="small">${esc(r.reason)}</td>
+      <td class="st-${esc(r.status)}">${RQ_STATUS[r.status] || esc(r.status)}${r.decision_note ? `<div class="muted small">${esc(r.decision_note)}</div>` : ""}</td>
+      <td>${r.status === "offen" ? `<button class="mini" data-wd="${r.id}">Zurückziehen</button>` : ""}</td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted">Noch keine Anträge.</td></tr></tbody>';
+  $$("#myRqTable [data-wd]").forEach(b => b.onclick = async () => {
+    try { await api(`requests/${b.dataset.wd}/withdraw`, { method: "POST" }); await loadMyRequests(); refreshRequestCount(); }
+    catch (e) { $("myRqErr").textContent = e.message; }
+  });
+}
+
+// ---------- Korrekturanträge (Verwaltung) ----------
+async function loadAdminRequests() {
+  const rows = await api(`requests?all_users=true${$("rqDone").checked ? "&limit=60" : "&status=offen"}`);
+  $("rqTable").innerHTML = rows.length ? `<thead><tr><th>Mitarbeiter</th><th>gestellt</th><th>Art</th><th>Änderung</th><th>Begründung</th><th></th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${esc(r.display_name)}</td><td>${fmtDT(r.created_at)}</td><td>${esc(r.kind_label)}</td>
+      <td class="small">${rqChange(r)}</td><td class="small">${esc(r.reason)}</td>
+      <td>${r.status === "offen"
+        ? `<button class="mini primary" data-ok="${r.id}">Genehmigen</button> <button class="mini danger" data-no="${r.id}">Ablehnen</button>`
+        : `<span class="st-${esc(r.status)}">${RQ_STATUS[r.status] || esc(r.status)}</span>
+           <div class="muted small">${r.decided_by_name ? esc(r.decided_by_name) + ", " : ""}${fmtDT(r.decided_at)}${r.decision_note ? " – " + esc(r.decision_note) : ""}</div>`}</td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted">Keine offenen Anträge.</td></tr></tbody>';
+  $$("#rqTable [data-ok]").forEach(b => b.onclick = () => decideRequest(b.dataset.ok, true));
+  $$("#rqTable [data-no]").forEach(b => b.onclick = () => decideRequest(b.dataset.no, false));
+}
+async function decideRequest(id, ok) {
+  $("rqErr").textContent = "";
+  const note = ok ? "" : prompt("Warum wird der Antrag abgelehnt? (geht per Mail an den Mitarbeiter)");
+  if (!ok && !note) return;
+  try {
+    await api(`requests/${id}/${ok ? "approve" : "reject"}`, { method: "POST", body: { note } });
+    okMsg($("rqErr"), ok ? "Genehmigt und übernommen." : "Abgelehnt.");
+    await loadAdminRequests(); refreshRequestCount();
+  } catch (e) { $("rqErr").textContent = e.message; }
+}
+
+async function refreshRequestCount() {
+  try {
+    const c = await api("requests/count");
+    const set = (el, n) => { el.textContent = n || ""; el.classList.toggle("hidden", !n); };
+    set($("badgeAdmin"), c.all || 0);
+    set($("badgeMe"), c.mine || 0);
+  } catch (e) { /* egal */ }
 }
 
 async function detailAction(btn) {
@@ -531,6 +667,7 @@ async function loadAdmin() {
   loadUpdates().catch(() => {});
   loadBackups().catch(e => { $("bkErr").textContent = e.message; });
   loadClosings().catch(e => { $("clErr").textContent = e.message; });
+  loadAdminRequests().catch(e => { $("rqErr").textContent = e.message; });
 }
 
 // Datensicherung
@@ -932,6 +1069,7 @@ $("mailSave").onclick = saveMail;
 $("updCheck").onclick = checkUpdates;
 $("bkSave").onclick = saveBackups;
 $("clAll").onclick = closeAll;
+$("rqDone").onchange = () => loadAdminRequests().catch(e => { $("rqErr").textContent = e.message; });
 $("bkNow").onclick = backupNow;
 $("updCopy").onclick = async () => {
   const t = $("updSrc").textContent;

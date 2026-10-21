@@ -27,8 +27,8 @@
     <button data-tab="home" class="active">Übersicht</button>
     <button data-tab="month">Monat</button>
     <button data-tab="year">Jahr</button>
-    <button data-tab="admin" class="admin hidden">Verwaltung</button>
-    <button data-tab="me">Mein Zugang</button>
+    <button data-tab="admin" class="admin hidden">Verwaltung <span class="badge hidden" id="badgeAdmin"></span></button>
+    <button data-tab="me">Mein Zugang <span class="badge hidden" id="badgeMe"></span></button>
   </nav>
   <div class="row"><span id="who" class="muted"></span><button id="logoutBtn">Abmelden</button></div>
 </header>
@@ -80,6 +80,8 @@
       <div class="err" id="mMsg"></div>
       <div class="stats" id="mStats"></div>
       <div class="scroll"><table id="mTable" class="month"></table></div>
+      <p class="muted small" id="empTip">Falsche Zeit oder Stempeln vergessen? Auf den Tag tippen und eine Korrektur beantragen –
+        die Verwaltung entscheidet, du bekommst Bescheid.</p>
       <p class="muted small admin hidden">Tipp: Auf einen Tag klicken, um Buchungen zu korrigieren, nachzutragen oder eine Abwesenheit einzutragen. „Ü“ schiebt die Zeit über dem Tagessoll ins Überstunden-Konto (ein Minus bleibt Gleitzeit).</p>
     </section>
   </div>
@@ -119,6 +121,13 @@
 
   <!-- VERWALTUNG -->
   <div data-page="admin" class="page hidden">
+    <section class="card">
+      <h2>Korrekturanträge</h2>
+      <div class="scroll"><table id="rqTable"></table></div>
+      <div class="err" id="rqErr"></div>
+      <label class="inline small" style="margin-top:8px"><input type="checkbox" id="rqDone"> zuletzt entschiedene anzeigen</label>
+    </section>
+
     <section class="card">
       <h2>Mitarbeiter</h2>
       <div class="scroll"><table id="usersTable" class="users"></table></div>
@@ -334,6 +343,13 @@
       </div>
       <p class="muted small" id="meMailInfo" style="margin-bottom:0"></p>
       <div class="err" id="meMailErr"></div>
+    </section>
+    <section class="card">
+      <h2>Meine Korrekturanträge</h2>
+      <p class="muted small" style="margin-top:0">Vergessen zu stempeln oder falsche Zeit? In der <b>Monatsansicht</b> auf den Tag tippen
+        und dort eine Korrektur beantragen. Die Verwaltung bekommt Bescheid, du bekommst die Entscheidung per Mail (wenn hinterlegt).</p>
+      <div class="scroll"><table id="myRqTable"></table></div>
+      <div class="err" id="myRqErr"></div>
     </section>
     <section class="card" id="pwCard">
       <h2>Passwort ändern</h2>

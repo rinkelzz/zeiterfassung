@@ -27,7 +27,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - [Installation](#installation-auf-der-synology) · [Updates](#updates-über-das-paket-zentrum) ·
   [Datensicherung](#datensicherung) · [Von unterwegs (Reverse Proxy)](#von-unterwegs-erreichbar-machen-reverse-proxy) ·
   [iPhone & NFC](#iphone-und-nfc-einrichten) · [Berichte per Mail](#berichte-per-mail) ·
-  [Vergessenes Ausstempeln](#vergessenes-ausstempeln) · [Monatsabschluss](#monatsabschluss)
+  [Vergessenes Ausstempeln](#vergessenes-ausstempeln) · [Korrekturanträge](#korrekturanträge) ·
+  [Monatsabschluss](#monatsabschluss)
 - [Entwicklung](#entwicklung) · [Hinweise](#hinweise) · [Lizenz](#lizenz) · [English](#english)
 
 ## Funktionen
@@ -51,6 +52,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - **Hinweise nach Arbeitszeitgesetz:** über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5) –
   in Monatsansicht und Berichten markiert, abschaltbar
 - Monatsansicht zum Korrigieren, Jahreskalender zum Eintragen von Abwesenheiten per Ziehen
+- **Korrekturanträge:** Mitarbeiter beantragen Nachtrag, Änderung oder Löschung einer Buchung; der Admin
+  genehmigt per Klick (wird übernommen) oder lehnt mit Begründung ab – mit Mail an beide Seiten
 - **Monatsabschluss** pro Mitarbeiter: Monat sperren und Kontostände festschreiben, Wiederöffnen nur mit Begründung
 
 **Berichte**
@@ -165,6 +168,15 @@ endet sie zur Grenze (z. B. Kommen 06:50 → Gehen 18:50) und der Tag ist in Mon
 Excel mit „⚠ bitte prüfen“ markiert, bis ein Admin die Buchung korrigiert. Grenze und automatisches
 Beenden lassen sich unter **Verwaltung → Einstellungen** ändern oder abschalten (0 Stunden = aus).
 
+### Korrekturanträge
+
+Mitarbeiter können ihre Buchungen nicht selbst ändern. Stattdessen tippen sie in der **Monatsansicht**
+auf den Tag und beantragen mit Begründung einen Nachtrag, eine andere Kommen-/Gehen-Zeit oder das
+Löschen einer Buchung. Admins bekommen eine Mail (wenn Mailversand und Adresse eingerichtet sind) und
+sehen offene Anträge unter **Verwaltung → Korrekturanträge** – die Zahl steht auch am Reiter.
+**Genehmigen** übernimmt die Änderung, **Ablehnen** geht mit kurzer Begründung; der Mitarbeiter bekommt
+die Entscheidung per Mail und sieht seine Anträge unter **Mein Zugang**.
+
 ### Monatsabschluss
 
 Nach Prüfung (und ggf. Unterschrift unter dem PDF) schließt ein Admin den Monat ab – in der
@@ -235,6 +247,8 @@ Synology DSM 7 (x86_64). The user interface is German.
 - Separate flextime and overtime accounts, weekly hours with effective dates, vacation tracking,
   public holidays for all 16 German states, break deduction per German working-time law (ArbZG)
 - Working-time-law hints: more than 10 hours a day, less than 11 hours rest between working days
+- Correction requests: employees request adding, changing or deleting a punch; admins approve (applied
+  automatically) or reject with a reason, with email notifications
 - Month closing per employee: locks the month and freezes the account balances (reopen with a reason)
 - Monthly and yearly reports as PDF and Excel, delivered automatically by email (own SMTP server)
 - Runs in its own DSM window with single sign-on for DSM users; login with DSM credentials incl. 2FA

@@ -120,3 +120,10 @@ body.is-admin .cell.d { cursor: pointer; }
 @media (prefers-color-scheme: dark) { .tag.warn { background: #4a3a10; border-color: #8a6a1a; color: #ffd98a; } }
 .tag.lock { background: #e8eefc; border-color: #b8c8f0; color: #23407a; font-weight: 600; }
 @media (prefers-color-scheme: dark) { .tag.lock { background: #1e2a44; border-color: #3a5288; color: #b9ccff; } }
+.badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 999px; background: #d4380d; color: #fff;
+         font-size: 11px; line-height: 18px; text-align: center; margin-left: 4px; vertical-align: 1px; }
+.tag.pending { background: #f3ecff; border-color: #cdb6f5; color: #4b2a8a; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .tag.pending { background: #2e2244; border-color: #5d4590; color: #d9c7ff; } }
+.st-genehmigt { color: var(--in); font-weight: 600; } .st-abgelehnt { color: var(--out); font-weight: 600; }
+.st-offen { color: #4b2a8a; font-weight: 600; } .st-zurueckgezogen { color: var(--muted); }
+button.mini.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }

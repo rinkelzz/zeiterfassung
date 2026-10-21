@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -224,6 +224,22 @@ def migrate(conn: sqlite3.Connection) -> None:
             " worked_s INTEGER NOT NULL DEFAULT 0, target_s INTEGER NOT NULL DEFAULT 0,"
             " PRIMARY KEY (user_id, month))"
         )
+    if version < 9:
+        # Korrekturanträge von Mitarbeitern
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS correction_requests ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            " user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+            " kind TEXT NOT NULL,"                       # add | change | delete
+            " entry_id INTEGER,"                         # bei change/delete
+            " old_start_utc TEXT, old_end_utc TEXT,"     # Stand bei Antragstellung
+            " start_utc TEXT, end_utc TEXT,"             # beantragt (add/change)
+            " reason TEXT NOT NULL,"
+            " status TEXT NOT NULL DEFAULT 'offen',"     # offen | genehmigt | abgelehnt | zurueckgezogen
+            " created_at TEXT NOT NULL,"
+            " decided_at TEXT, decided_by INTEGER, decision_note TEXT)"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_requests_status ON correction_requests(status, user_id)")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
