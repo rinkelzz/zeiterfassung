@@ -206,6 +206,20 @@
     </section>
 
     <section class="card">
+      <h2>Kiosk-Tablets</h2>
+      <p class="muted small" style="margin-top:0">Ein Tablet an der Wache, an dem jeder per Namen und PIN kommt und geht.
+        Hier freischalten, den QR-Code mit dem Tablet scannen und die Seite als Lesezeichen bzw. „Zum Home-Bildschirm“ speichern.
+        Am Tablet erscheint, wer unter „Mein Zugang“ eine PIN gesetzt hat.</p>
+      <div class="row">
+        <label>Name <input id="kName" value="Tablet Wache" style="width:180px"></label>
+        <label>&nbsp;<button class="primary" id="kNew">Tablet freischalten</button></label>
+      </div>
+      <div id="kBox" class="qr hidden"></div>
+      <div class="err" id="kErr"></div>
+      <div class="scroll" style="margin-top:8px"><table id="kTable"></table></div>
+    </section>
+
+    <section class="card">
       <h2>Monatsabschluss</h2>
       <p class="muted small" style="margin-top:0">Ein abgeschlossener Monat ist gesperrt (Buchungen, Abwesenheiten, Ü-Tage) und seine
         Kontostände sind festgeschrieben – spätere Änderungen an Übertrag oder Wochenarbeitszeit wirken nur noch auf offene Monate.
@@ -288,6 +302,7 @@
         <label class="inline"><input type="checkbox" class="travSrc" value="nfc"> NFC-Aufkleber</label>
         <label class="inline"><input type="checkbox" class="travSrc" value="shortcut"> Kurzbefehl / Standort</label>
         <label class="inline"><input type="checkbox" class="travSrc" value="web"> Weboberfläche</label>
+        <label class="inline"><input type="checkbox" class="travSrc" value="kiosk"> Kiosk-Tablet</label>
       </div>
       <p class="muted small">Beispiel: 10 Minuten – wer per NFC um 07:00 kommt, wird ab 06:50 erfasst; wer um 16:00 geht, bis 16:10. Die Wegezeit wird bei jeder Buchung vermerkt und im CSV ausgewiesen.</p>
       <h3>Arbeitszeitgesetz</h3>
@@ -360,6 +375,18 @@
       </div>
       <p class="muted small" id="meMailInfo" style="margin-bottom:0"></p>
       <div class="err" id="meMailErr"></div>
+    </section>
+    <section class="card">
+      <h2>PIN fürs Kiosk-Tablet</h2>
+      <p class="muted small" style="margin-top:0">Mit dieser PIN (4–6 Ziffern) stempelst du am Tablet an der Wache.
+        Ohne PIN erscheinst du dort nicht. <span id="pinState"></span></p>
+      <div class="row">
+        <label>Neue PIN <input id="pinNew" type="password" inputmode="numeric" maxlength="6" autocomplete="off" class="w80"></label>
+        <label>wiederholen <input id="pinNew2" type="password" inputmode="numeric" maxlength="6" autocomplete="off" class="w80"></label>
+        <label>&nbsp;<button id="pinSave">Speichern</button></label>
+        <label>&nbsp;<button id="pinDel" class="danger">PIN entfernen</button></label>
+      </div>
+      <div class="err" id="pinErr"></div>
     </section>
     <section class="card">
       <h2>Meine Korrekturanträge</h2>

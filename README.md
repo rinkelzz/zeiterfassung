@@ -26,7 +26,7 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - [Funktionen](#funktionen)
 - [Installation](#installation-auf-der-synology) · [Updates](#updates-über-das-paket-zentrum) ·
   [Datensicherung](#datensicherung) · [Von unterwegs (Reverse Proxy)](#von-unterwegs-erreichbar-machen-reverse-proxy) ·
-  [iPhone & NFC](#iphone-und-nfc-einrichten) · [Berichte per Mail](#berichte-per-mail) ·
+  [iPhone & NFC](#iphone-und-nfc-einrichten) · [Kiosk-Tablet](#kiosk-tablet) · [Berichte per Mail](#berichte-per-mail) ·
   [Vergessenes Ausstempeln](#vergessenes-ausstempeln) · [Korrekturanträge](#korrekturanträge) ·
   [Monatsabschluss](#monatsabschluss)
 - [Entwicklung](#entwicklung) · [Hinweise](#hinweise) · [Lizenz](#lizenz) · [English](#english)
@@ -34,7 +34,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 ## Funktionen
 
 **Stempeln**
-- Weboberfläche (auch am Handy), iPhone-Kurzbefehle, Standort-Automation, NFC-Aufkleber, Kiosk-Tablet
+- Weboberfläche (auch am Handy), iPhone-Kurzbefehle, Standort-Automation, NFC-Aufkleber
+- **Kiosk-Tablet** an der Wache: Name antippen, PIN eingeben, Kommen/Gehen – mit Anzeige, wer gerade da ist
 - Einrichtung fürs iPhone per **QR-Code**: persönliche Seite mit Test-Knöpfen und Kopier-Feldern
 - **Umschalten** mit einem einzigen NFC-Aufkleber (kommt, wenn draußen – geht, wenn drin)
 - **Wegezeit**: für gewählte Stempelwege (z. B. NFC) beim Kommen früher und beim Gehen später, z. B. je 10 Minuten
@@ -157,6 +158,19 @@ die Umschalt-Adresse verwenden (dann **ohne** Standort-Automation), mit zwei Auf
 getrennt. Für Metallflächen werden **On-Metal-NFC-Aufkleber** (mit Ferrit-Schicht) benötigt. Die
 **Wegezeit** (Verwaltung → Einstellungen) wird standardmäßig nur bei NFC-Stempeln dazugerechnet.
 
+### Kiosk-Tablet
+
+Für ein Tablet an der Wache (oder für Kollegen ohne iPhone):
+
+1. **Verwaltung → Kiosk-Tablets → Tablet freischalten** und den QR-Code mit dem Tablet scannen
+   (oder den Link dort öffnen). Die Seite am besten „Zum Home-Bildschirm“ hinzufügen.
+2. Jeder Mitarbeiter setzt unter **Mein Zugang → PIN fürs Kiosk-Tablet** eine 4–6-stellige PIN.
+   Nur wer eine PIN hat, erscheint am Tablet.
+3. Am Tablet: Namen antippen, PIN eingeben, **Kommen** bzw. **Gehen**. Ein grüner Punkt zeigt, wer gerade da ist.
+
+Nach 5 falschen PINs ist der Name 15 Minuten gesperrt. Ein verlorenes Tablet lässt sich in der Verwaltung
+sperren, eine vergessene PIN in der Mitarbeitertabelle löschen.
+
 ### Berichte per Mail
 
 **Verwaltung → Berichte per Mail**: SMTP-Server eintragen (z. B. Port 587 mit STARTTLS oder 465 mit SSL),
@@ -246,8 +260,8 @@ Quellcode unter derselben Lizenz offenlegen.
 **Zeiterfassung** is a self-hosted clock-in/clock-out time tracker for small teams, packaged for
 Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The user interface is German.
 
-- Clock in via web UI, iPhone Shortcuts (setup via QR code), geofence automation or NFC tags;
-  optional travel-time allowance for NFC punches
+- Clock in via web UI, iPhone Shortcuts (setup via QR code), geofence automation, NFC tags or a
+  kiosk tablet (name + PIN, shows who is present); optional travel-time allowance
 - Forgotten clock-outs: email reminder after 12 hours, auto-close at midnight, flagged for review
 - Separate flextime and overtime accounts, weekly hours with effective dates, vacation tracking,
   public holidays for all 16 German states, break deduction per German working-time law (ArbZG)

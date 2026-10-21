@@ -71,6 +71,7 @@ def user_out(row: sqlite3.Row) -> dict:
         "has_password": bool(row["password_hash"]),
         "email": row["email"] if "email" in row.keys() else None,
         "report_mail": bool(row["report_mail"]) if "report_mail" in row.keys() else True,
+        "has_pin": bool(row["pin_hash"]) if "pin_hash" in row.keys() else False,
     }
 
 

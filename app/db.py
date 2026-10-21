@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -251,6 +251,16 @@ def migrate(conn: sqlite3.Connection) -> None:
                 conn.execute("UPDATE audit_log SET subject_user_id = ? WHERE id = ?", (sid, r["id"]))
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_subject ON audit_log(subject_user_id, id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts)")
+    if version < 11:
+        # Kiosk: PIN pro Mitarbeiter, freigeschaltete Tablets
+        if "pin_hash" not in _columns(conn, "users"):
+            conn.execute("ALTER TABLE users ADD COLUMN pin_hash TEXT")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS kiosk_devices ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,"
+            " token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, created_by INTEGER,"
+            " last_used_at TEXT)"
+        )
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

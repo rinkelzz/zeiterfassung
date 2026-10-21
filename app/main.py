@@ -12,7 +12,7 @@ from .db import connect, init_db
 from .dsm import write_ui_config
 from .dsm_auth import proxy_info, publish_proxy_files
 from .mailer import start_scheduler, stop_scheduler
-from .routers import auth, backup, clock, closings, entries, importer, reports, requests, updates, users
+from .routers import auth, backup, clock, closings, entries, importer, kiosk, reports, requests, updates, users
 
 
 @asynccontextmanager
@@ -49,7 +49,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E40
 TRUSTED_PROXIES = ["127.0.0.1", "::1"]
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=TRUSTED_PROXIES)
 
-for r in (auth.router, backup.router, clock.router, closings.router, entries.router, importer.router, reports.router, requests.router, updates.router, users.router):
+for r in (auth.router, backup.router, clock.router, closings.router, entries.router, importer.router, kiosk.router, reports.router, requests.router, updates.router, users.router):
     app.include_router(r)
 
 
@@ -81,6 +81,13 @@ def index(request: Request):
 def setup_page():
     """Einrichtungsseite fürs iPhone (QR-Code). Das Token kommt per #t=… und bleibt im Browser."""
     html = (STATIC_DIR / "setup.html").read_text(encoding="utf-8").replace("{{v}}", __version__)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.get("/kiosk", include_in_schema=False)
+def kiosk_page():
+    """Tablet-Seite. Der Freischalt-Schlüssel kommt per #k=… und wird nur im Tablet gespeichert."""
+    html = (STATIC_DIR / "kiosk.html").read_text(encoding="utf-8").replace("{{v}}", __version__)
     return HTMLResponse(html, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 

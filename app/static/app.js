@@ -134,7 +134,7 @@ async function showTab(name) {
     if (name === "month") await loadMonth();
     if (name === "year") await loadYear();
     if (name === "admin") await loadAdmin();
-    if (name === "me") { loadMeMail(); loadMyRequests().catch(e => { $("myRqErr").textContent = e.message; }); await loadTokens(); }
+    if (name === "me") { loadMeMail(); showPinState(); loadMyRequests().catch(e => { $("myRqErr").textContent = e.message; }); await loadTokens(); }
   } catch (e) { if (e.message !== "Nicht angemeldet") console.error(e); }
 }
 
@@ -514,6 +514,54 @@ async function loadAudit(more) {
   $("alCount").textContent = audit.rows.length ? `${audit.rows.length} Einträge angezeigt` : "";
 }
 
+// ---------- Kiosk ----------
+async function loadKiosks() {
+  const list = await api("kiosks");
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie";
+  $("kTable").innerHTML = list.length ? `<thead><tr><th>Tablet</th><th>freigeschaltet</th><th>zuletzt benutzt</th><th></th></tr></thead><tbody>` +
+    list.map(k => `<tr><td>${esc(k.name)}</td><td>${fmt(k.created_at)}</td><td>${fmt(k.last_used_at)}</td>
+      <td><button class="mini danger" data-kdel="${k.id}">Sperren</button></td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted">Noch kein Tablet freigeschaltet.</td></tr></tbody>';
+  $$("#kTable [data-kdel]").forEach(b => b.onclick = async () => {
+    if (!confirm("Dieses Tablet sperren? Es zeigt danach „nicht freigeschaltet“.")) return;
+    try { await api("kiosks/" + b.dataset.kdel, { method: "DELETE" }); await loadKiosks(); } catch (e) { $("kErr").textContent = e.message; }
+  });
+}
+async function newKiosk() {
+  $("kErr").textContent = "";
+  try {
+    const r = await api("kiosks", { method: "POST", body: { name: $("kName").value.trim() || "Tablet", host_hint: location.hostname } });
+    $("kBox").innerHTML = `<div>${r.qr_svg.replace(/<\?xml[^>]*>/, "")}</div>
+      <div><b>Mit dem Tablet scannen</b> oder den Link dort öffnen. Danach ist das Tablet dauerhaft freigeschaltet –
+        den Link nicht weitergeben.<br><br><code>${esc(r.url)}</code><br><br>
+        <button class="mini" id="kCopy">Link kopieren</button></div>`;
+    $("kBox").classList.remove("hidden");
+    $("kCopy").onclick = async () => { try { await navigator.clipboard.writeText(r.url); $("kCopy").textContent = "Kopiert ✓"; } catch (e) { prompt("Link:", r.url); } };
+    await loadKiosks();
+  } catch (e) { $("kErr").textContent = e.message; }
+}
+function showPinState() {
+  $("pinState").innerHTML = state.me.has_pin ? '<b class="pos">PIN ist gesetzt.</b>' : "<b>Noch keine PIN gesetzt.</b>";
+  $("pinDel").classList.toggle("hidden", !state.me.has_pin);
+}
+async function savePin(remove) {
+  $("pinErr").textContent = "";
+  try {
+    if (!remove) {
+      const a = $("pinNew").value.trim(), b = $("pinNew2").value.trim();
+      if (!/^\d{4,6}$/.test(a)) throw new Error("Die PIN muss aus 4 bis 6 Ziffern bestehen.");
+      if (a !== b) throw new Error("Die beiden PINs stimmen nicht überein.");
+      await api("me/pin", { method: "PUT", body: { pin: a } });
+    } else {
+      if (!confirm("PIN entfernen? Du erscheinst dann nicht mehr am Kiosk-Tablet.")) return;
+      await api("me/pin", { method: "PUT", body: { pin: null } });
+    }
+    $("pinNew").value = $("pinNew2").value = "";
+    state.me = await api("me"); showPinState();
+    okMsg($("pinErr"), remove ? "PIN entfernt." : "PIN gespeichert.");
+  } catch (e) { $("pinErr").textContent = e.message; }
+}
+
 async function refreshRequestCount() {
   try {
     const c = await api("requests/count");
@@ -683,7 +731,7 @@ async function loadAdmin() {
   const bal = Object.fromEntries(ov.users.map(u => [u.id, u]));
   $("usersTable").innerHTML = `<thead><tr><th>Name</th><th>Wochenarbeitszeit</th><th>Erfassungsbeginn</th>
       <th>Übertrag GZ</th><th>Übertrag Ü</th><th class="num">Urlaub/Jahr</th><th class="num">Resturlaub-Übertrag</th>
-      <th>E-Mail (Berichte)</th><th>Neues Passwort</th><th class="num">Gleitzeit</th><th class="num">Überst.</th><th class="num">Urlaub Rest</th><th></th></tr></thead><tbody>` +
+      <th>E-Mail (Berichte)</th><th>PIN</th><th>Neues Passwort</th><th class="num">Gleitzeit</th><th class="num">Überst.</th><th class="num">Urlaub Rest</th><th></th></tr></thead><tbody>` +
     state.users.map(u => {
       const b = bal[u.id] || {};
       return `<tr data-id="${u.id}">
@@ -696,6 +744,7 @@ async function loadAdmin() {
         <td class="num"><input class="ur w64" type="number" step="0.5" value="${u.carryover_vacation}"></td>
         <td><input class="umail" type="email" value="${esc(u.email || "")}" placeholder="keine" style="width:170px">
           <label class="inline small" style="margin-top:3px" title="Monats-/Jahresberichte automatisch per Mail"><input type="checkbox" class="urm"${u.report_mail ? " checked" : ""}> auto</label></td>
+        <td class="nowrap">${u.has_pin ? '✓ <button class="mini" data-pinreset title="PIN löschen – Mitarbeiter setzt unter „Mein Zugang“ eine neue">löschen</button>' : '<span class="muted">–</span>'}</td>
         <td><input class="up" type="password" placeholder="unverändert" style="width:120px" autocomplete="new-password"></td>
         <td class="num">${b.account_gleitzeit != null ? signed(b.account_gleitzeit_s, b.account_gleitzeit) : ""}</td>
         <td class="num">${b.account_ueberstunden != null ? signed(b.account_ueberstunden_s, b.account_ueberstunden) : ""}</td>
@@ -707,6 +756,7 @@ async function loadAdmin() {
   loadBackups().catch(e => { $("bkErr").textContent = e.message; });
   loadClosings().catch(e => { $("clErr").textContent = e.message; });
   loadAdminRequests().catch(e => { $("rqErr").textContent = e.message; });
+  loadKiosks().catch(e => { $("kErr").textContent = e.message; });
   initAudit().catch(e => { $("alErr").textContent = e.message; });
 }
 
@@ -1109,6 +1159,9 @@ $("mailSave").onclick = saveMail;
 $("updCheck").onclick = checkUpdates;
 $("bkSave").onclick = saveBackups;
 $("clAll").onclick = closeAll;
+$("kNew").onclick = newKiosk;
+$("pinSave").onclick = () => savePin(false);
+$("pinDel").onclick = () => savePin(true);
 $("alGo").onclick = () => loadAudit(false).catch(e => { $("alErr").textContent = e.message; });
 $("alQ").addEventListener("keydown", e => { if (e.key === "Enter") $("alGo").click(); });
 $("alMore").onclick = () => loadAudit(true).catch(e => { $("alErr").textContent = e.message; });
@@ -1135,6 +1188,13 @@ $$(".userSel").forEach(s => s.addEventListener("change", () => {
 }));
 $("usersTable").addEventListener("click", e => {
   const b = e.target.closest(".usave"); if (b) return saveUserRow(b);
+  const pr = e.target.closest("[data-pinreset]");
+  if (pr) {
+    const tr = pr.closest("tr");
+    if (!confirm("PIN dieses Mitarbeiters löschen? Er setzt danach unter „Mein Zugang“ eine neue.")) return;
+    return api(`users/${tr.dataset.id}/pin`, { method: "PUT", body: { pin: null } }).then(loadAdmin)
+      .catch(err => { $("usersErr").textContent = err.message; });
+  }
   const v = e.target.closest(".usched"); if (v) return toggleSchedules(v.closest("tr"));
   const a = e.target.closest("[data-sact]"); if (a) return scheduleAction(a);
 });

@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.16.0] – 2026-10-21
+
+### Neu
+- **Kiosk-Tablet:** eigene Seite `/kiosk` für ein Tablet an der Wache – Namenskacheln mit grünem Punkt
+  für alle, die gerade da sind; Name antippen, PIN eingeben, „Kommen“ bzw. „Gehen“, kurze Bestätigung.
+- Tablets schaltet ein Admin unter Verwaltung → Kiosk-Tablets frei (QR-Code/Link, jederzeit sperrbar).
+- Jeder setzt seine 4–6-stellige **PIN** unter „Mein Zugang“; ein Admin kann sie zurücksetzen.
+  Nur wer eine PIN hat, erscheint am Tablet. Nach 5 falschen PINs ist der Name 15 Minuten gesperrt.
+- Wegezeit lässt sich auch für das Kiosk-Tablet einschalten.
+
 ## [0.15.0] – 2026-10-21
 
 ### Neu
@@ -131,6 +141,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.16.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.0
 [0.15.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.15.0
 [0.14.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.14.0
 [0.13.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.1
