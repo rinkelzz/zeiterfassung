@@ -127,9 +127,12 @@ def check(force: bool = False) -> Dict:
         return status()  # läuft gerade schon
     try:
         rel = fetch_latest()
-        if rel:
+        old = _state["release"]
+        if rel and old and old.get("name") == rel["name"] and old.get("md5"):
+            rel.update(md5=old["md5"], size=old["size"])  # schon da
+        _state.update(release=rel, error=None)  # auch ohne fertigen Download schon anbieten
+        if rel and not rel.get("md5"):
             rel.update(_download(rel))
-        _state.update(release=rel, error=None)
     except Exception as e:  # noqa: BLE001 – Netzwerkfehler sollen die App nie stören
         _state["error"] = f"{type(e).__name__}: {e}"
     finally:
@@ -168,9 +171,10 @@ def _plain_notes(md: str, limit: int = 1500) -> str:
 def catalog(base_url: str) -> Dict:
     """Paketliste für das Paket-Zentrum (Format wie spkrepo/SynoCommunity, DSM 7)."""
     rel = _state["release"]
-    if not rel or not rel.get("md5") or not (cache_dir() / rel["name"]).exists():
+    if not rel:
         check_in_background()
         return {"packages": []}
+    cached = bool(rel.get("md5")) and (cache_dir() / rel["name"]).exists()
     icon = RAW_URL.format(repo=REPO, name="PACKAGE_ICON.PNG")
     icon256 = RAW_URL.format(repo=REPO, name="PACKAGE_ICON_256.PNG")
     entry = {
@@ -179,7 +183,8 @@ def catalog(base_url: str) -> Dict:
         "dname": "Zeiterfassung",
         "desc": "Kommen/Gehen-Zeiterfassung für mehrere Mitarbeiter – mit iPhone-Kurzbefehlen, NFC, "
                 "Gleitzeit- und Überstundenkonto, Urlaub, Berichten als PDF/Excel und per Mail.",
-        "link": f"{base_url}/spk/download/{rel['name']}",
+        # liegt die SPK schon auf der NAS, von dort; sonst (noch beim Herunterladen) direkt von GitHub
+        "link": f"{base_url}/spk/download/{rel['name']}" if cached else rel["url"],
         "thumbnail": [icon, icon256],
         "thumbnail_retina": [icon256, icon256],
         "snapshot": [],
@@ -192,7 +197,6 @@ def catalog(base_url: str) -> Dict:
         "conflictpkgs": None,
         "download_count": 0,
         "recent_download_count": 0,
-        "md5": rel["md5"],
         "size": rel["size"],
         "maintainer": "rinkelzz",
         "maintainer_url": f"https://github.com/{REPO}",
@@ -201,6 +205,8 @@ def catalog(base_url: str) -> Dict:
         "support_url": f"https://github.com/{REPO}/issues",
         "changelog": _plain_notes(rel.get("notes", "")),
     }
+    if cached:
+        entry["md5"] = rel["md5"]
     check_in_background()
     return {"packages": [entry]}
 
