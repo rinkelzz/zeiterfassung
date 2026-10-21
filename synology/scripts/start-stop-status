@@ -19,11 +19,16 @@ start_daemon() {
     export ZE_HOST="${ZE_HOST:-0.0.0.0}"
     export ZE_PUBLIC_URL ZE_ROOT_PATH ZE_COOKIE_SECURE ZE_TIMEZONE
     export ZE_UI_DIR="${PKGDEST}/ui"
-    export PYTHONPATH="${PKGDEST}/lib/${TAG}:${PKGDEST}"
+    PYTHONPATH="$(lib_path "$PY" "$TAG")"
+    if [ -z "$PYTHONPATH" ]; then
+        log "FEHLER: keine Bibliotheken für ${TAG} auf $(cpu_name "$PY") im Paket"
+        return 1
+    fi
+    export PYTHONPATH
     export PYTHONDONTWRITEBYTECODE=1
     # Für ui/app.cgi (DSM-Fenster): welches Python die Weiterleitung nutzen soll
     echo "${PY}" > "${PKGDEST}/.python" 2>/dev/null && chmod 644 "${PKGDEST}/.python" 2>/dev/null
-    log "Starte mit ${PY} (${TAG}) auf Port ${ZE_PORT}"
+    log "Starte mit ${PY} (${TAG}, $(cpu_name "$PY")) auf Port ${ZE_PORT}"
     cd "${PKGDEST}" || return 1
     nohup "${PY}" -m app.main >> "${LOGFILE}" 2>&1 &
     echo $! > "${PIDFILE}"

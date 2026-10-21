@@ -1,5 +1,7 @@
 #!/bin/bash
-# Baut zeiterfassung-<version>-x86_64.spk für DSM 7 (z. B. DS918+).
+# Baut zeiterfassung-<version>-noarch.spk für DSM 7 – ein Paket für Intel/AMD (x86_64)
+# und ARM (aarch64 = ARMv8, armv7l = ARMv7). Reines Python liegt je Python-Version unter
+# lib/<cp>, kompilierte Bibliotheken je Prozessor unter lib/<cp>-<prozessor>.
 # Benötigt: Python 3 mit pip, Internetzugang zu PyPI.
 set -euo pipefail
 
@@ -15,7 +17,10 @@ echo "==> Version $VERSION-$BUILD_NO"
 PKG="$WORK/package"
 mkdir -p "$PKG/lib" "$OUT"
 
-echo "==> Bibliotheken je Python-Version (manylinux x86_64)"
+ARCHES="aarch64 armv7l"          # zusätzlich zu x86_64
+BINARY_PKGS="pydantic_core"      # die einzigen kompilierten Abhängigkeiten
+
+echo "==> Bibliotheken je Python-Version"
 for TAG in cp38 cp39 cp310 cp311 cp312 cp313; do
     PYVER="${TAG:2:1}.${TAG:3}"
     W="$WORK/wheels/$TAG"
@@ -34,7 +39,28 @@ for TAG in cp38 cp39 cp310 cp311 cp312 cp313; do
     for whl in "$W"/*.whl; do
         python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$whl" "$PKG/lib/$TAG"
     done
-    echo "    $TAG: $(ls "$W" | wc -l) Pakete"
+    # backports.zoneinfo (nur cp38) bringt eine reine Python-Fassung mit – die läuft auf jedem Prozessor
+    find "$PKG/lib/$TAG" -name "_czoneinfo*.so" -delete
+    # kompilierte Pakete je Prozessor ablegen
+    mkdir -p "$PKG/lib/$TAG-x86_64"
+    for BP in $BINARY_PKGS; do
+        DI=$(ls -d "$PKG/lib/$TAG/$BP"-*.dist-info)
+        BV=$(basename "$DI" .dist-info); BV=${BV#"$BP"-}
+        mv "$PKG/lib/$TAG/$BP" "$DI" "$PKG/lib/$TAG-x86_64/"
+        for A in $ARCHES; do
+            WA="$WORK/wheels/$TAG-$A"
+            pip download -q --no-deps --only-binary=:all: --platform "manylinux2014_$A" --implementation cp \
+                --python-version "$PYVER" --abi "$TAG" -d "$WA" "$BP==$BV"
+            mkdir -p "$PKG/lib/$TAG-$A"
+            for whl in "$WA"/*.whl; do
+                python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$whl" "$PKG/lib/$TAG-$A"
+            done
+        done
+    done
+    # Schutz: im gemeinsamen Ordner darf nichts Kompiliertes mehr liegen
+    LEFT=$(find "$PKG/lib/$TAG" -name "*.so" | head -3)
+    if [ -n "$LEFT" ]; then echo "FEHLER: kompilierte Dateien in lib/$TAG – BINARY_PKGS ergänzen:"; echo "$LEFT"; exit 1; fi
+    echo "    $TAG: $(ls "$W" | wc -l) Pakete, $BINARY_PKGS für x86_64 $ARCHES"
 done
 find "$PKG/lib" -name "__pycache__" -type d -prune -exec rm -rf {} +
 
@@ -66,6 +92,6 @@ cp "$HERE/PACKAGE_ICON.PNG" "$HERE/PACKAGE_ICON_256.PNG" "$SPK/"
 sed "s/@VERSION@/$VERSION-$BUILD_NO/" "$HERE/INFO.in" > "$SPK/INFO"
 echo "checksum=\"$(md5sum "$SPK/package.tgz" | cut -d' ' -f1)\"" >> "$SPK/INFO"
 
-NAME="zeiterfassung-$VERSION-$BUILD_NO-x86_64.spk"
+NAME="zeiterfassung-$VERSION-$BUILD_NO-noarch.spk"
 ( cd "$SPK" && tar --owner=0 --group=0 -cf "$OUT/$NAME" INFO package.tgz scripts conf WIZARD_UIFILES PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG )
 echo "==> Fertig: $OUT/$NAME ($(du -h "$OUT/$NAME" | cut -f1))"

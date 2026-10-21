@@ -2,6 +2,18 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.14.0] – 2026-10-21
+
+### Neu
+- **ARM-Modelle:** Ein Paket für alle NAS mit DSM 7 – Intel/AMD (x86_64), ARMv8 (z. B. DS223, DS124,
+  DS220j) und ARMv7. Das Startskript wählt die passenden Bibliotheken für Prozessor und Python-Version.
+  Getestet im Emulator für ARMv8 (Python 3.8 und 3.9) und ARMv7 (Python 3.9).
+
+### Geändert
+- Release-Datei heißt jetzt `zeiterfassung-<version>-noarch.spk` (vorher `…-x86_64.spk`). Für die
+  Update-Funktion älterer Versionen liegt dieselbe Datei zusätzlich unter dem alten Namen im Release.
+- Das Paket ist größer (rund 45 MB), weil es die Bibliotheken für alle Prozessoren enthält.
+
 ## [0.13.1] – 2026-10-21
 
 ### Sicherheit
@@ -109,6 +121,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.14.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.14.0
 [0.13.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.1
 [0.13.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.0
 [0.12.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.12.0

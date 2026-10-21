@@ -2,7 +2,7 @@
 
 Ablauf:
 1. Die App fragt (höchstens alle 30 Minuten) bei GitHub nach dem neuesten Release.
-2. Hat es eine SPK für x86_64, wird sie einmal in den Datenordner geladen (mit MD5 und Größe).
+2. Hat es eine SPK (noarch, ältere Releases: x86_64), wird sie einmal in den Datenordner geladen (mit MD5 und Größe).
 3. Das Paket-Zentrum fragt die Paketquelle  http://127.0.0.1:<port>/spk  ab und bekommt die
    Paketliste im Format, das DSM erwartet (wie bei SynoCommunity). Ist die Version neuer als die
    installierte, bietet DSM „Aktualisieren“ an. Heruntergeladen wird von der NAS selbst
@@ -26,7 +26,8 @@ REPO = os.environ.get("ZE_UPDATE_REPO", "rinkelzz/zeiterfassung")
 API_URL = "https://api.github.com/repos/{repo}/releases/latest"
 RAW_URL = "https://raw.githubusercontent.com/{repo}/main/synology/{name}"
 CHECK_EVERY = 30 * 60
-SPK_RE = re.compile(r"^zeiterfassung-(\d+\.\d+\.\d+(?:-\d+)?)-x86_64\.spk$")
+# Ab 0.14.0 ein Paket für alle Prozessoren (noarch); bis 0.13.x nur x86_64
+SPK_RE = re.compile(r"^zeiterfassung-(\d+\.\d+\.\d+(?:-\d+)?)-(noarch|x86_64)\.spk$")
 MAX_SIZE = 200 * 1024 * 1024
 
 _lock = threading.Lock()
@@ -56,7 +57,7 @@ def _http(url: str, timeout: float = 20):
 
 
 def fetch_latest() -> Optional[Dict]:
-    """Neuestes Release mit x86_64-SPK von GitHub (oder None, wenn keins da ist)."""
+    """Neuestes Release mit SPK von GitHub (oder None, wenn keins da ist). noarch hat Vorrang."""
     try:
         with _http(API_URL.format(repo=REPO)) as r:
             data = json.loads(r.read().decode("utf-8"))
@@ -64,7 +65,8 @@ def fetch_latest() -> Optional[Dict]:
         if e.code == 404:  # noch kein Release veröffentlicht
             return None
         raise
-    for asset in data.get("assets", []):
+    assets = sorted(data.get("assets", []), key=lambda a: "-noarch.spk" not in a.get("name", ""))
+    for asset in assets:
         m = SPK_RE.match(asset.get("name", ""))
         if m:
             return {

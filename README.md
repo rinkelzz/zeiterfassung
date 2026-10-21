@@ -75,10 +75,11 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 
 ## Installation auf der Synology
 
-Voraussetzung: DSM 7 auf einem Modell mit **Intel/AMD-Prozessor (x86_64)**, z. B. DS918+, DS920+, DS1621+.
+Voraussetzung: DSM 7. Ein Paket für alle Modelle – **Intel/AMD** (z. B. DS918+, DS920+, DS1621+) und
+**ARM** (ARMv8, z. B. DS223, DS124, DS220j; ARMv7, z. B. DS218j).
 
 1. Unter [Releases](https://github.com/rinkelzz/zeiterfassung/releases) die neueste
-   `zeiterfassung-<version>-0001-x86_64.spk` herunterladen.
+   `zeiterfassung-<version>-0001-noarch.spk` herunterladen.
 2. DSM → **Paket-Zentrum** → **Manuelle Installation** → SPK auswählen → Hinweis zu
    Drittanbieter-Paketen bestätigen.
 3. Im Assistenten ein Passwort für den Benutzer `admin` und optional die öffentliche Adresse eintragen.
@@ -218,8 +219,9 @@ Mailversand, Erinnerungen (`app/forgotten.py`), Datensicherung (`app/backup.py`)
 `ui/Zeiterfassung.js` ist die native DSM-App (Ext JS), `ui/app.cgi` → `proxy/dsm_proxy.py` reicht die
 Anfragen über den Webserver von DSM weiter und übernimmt die DSM-Anmeldung.
 
-**Paket bauen:** `./synology/build_spk.sh` → `dist/zeiterfassung-<version>-0001-x86_64.spk`
-(lädt die Bibliotheken für Python 3.8–3.13 von PyPI). **Release:** Version in `app/__init__.py` und
+**Paket bauen:** `./synology/build_spk.sh` → `dist/zeiterfassung-<version>-0001-noarch.spk`
+(lädt die Bibliotheken für Python 3.8–3.13 von PyPI; reines Python unter `lib/<cp>`, kompilierte
+Teile – nur `pydantic_core` – je Prozessor unter `lib/<cp>-x86_64|aarch64|armv7l`). **Release:** Version in `app/__init__.py` und
 `CHANGELOG.md` anpassen und committen, dann auf GitHub unter **Actions → Release → Run workflow**
 starten (oder Tag `v<version>` pushen) – GitHub Actions testet, baut die SPK und erstellt das Release.
 
@@ -240,7 +242,7 @@ Quellcode unter derselben Lizenz offenlegen.
 ## English
 
 **Zeiterfassung** is a self-hosted clock-in/clock-out time tracker for small teams, packaged for
-Synology DSM 7 (x86_64). The user interface is German.
+Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The user interface is German.
 
 - Clock in via web UI, iPhone Shortcuts (setup via QR code), geofence automation or NFC tags;
   optional travel-time allowance for NFC punches

@@ -115,3 +115,16 @@ def test_only_local_network(fake_github):
 def test_status_admin_only():
     with TestClient(app) as c:
         assert c.get("/api/v1/updates").status_code == 401
+
+
+def test_prefers_noarch(monkeypatch):
+    rel = dict(RELEASE, assets=[
+        {"name": "zeiterfassung-99.2.0-0001-x86_64.spk", "browser_download_url": "https://example.org/x", "size": 1},
+        {"name": "zeiterfassung-99.2.0-0001-noarch.spk", "browser_download_url": "https://example.org/n", "size": 1},
+    ])
+    monkeypatch.setattr(updates, "_http", lambda url, timeout=20: _Resp(json.dumps(rel).encode()))
+    r = updates.fetch_latest()
+    assert r["name"].endswith("-noarch.spk") and r["version"] == "99.2.0-0001"
+    # ältere Releases (nur x86_64) werden weiter erkannt
+    rel["assets"] = rel["assets"][:1]
+    assert updates.fetch_latest()["name"].endswith("-x86_64.spk")

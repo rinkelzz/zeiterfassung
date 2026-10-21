@@ -46,7 +46,10 @@ jobs:
       - name: SPK bauen
         run: |
           ./synology/build_spk.sh
-          cd dist && sha256sum *.spk > SHA256SUMS.txt && cat SHA256SUMS.txt
+          cd dist
+          # Kopie unter dem alten Namen, damit Installationen bis 0.13.x das Update finden
+          for f in *-noarch.spk; do cp "$f" "${f%-noarch.spk}-x86_64.spk"; done
+          sha256sum *.spk > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - name: Release-Notizen aus CHANGELOG.md
         run: |
@@ -60,7 +63,9 @@ jobs:
           {
             echo
             echo "### Installation"
-            echo "SPK herunterladen → DSM → Paket-Zentrum → Manuelle Installation (DSM 7, x86_64, z. B. DS918+)."
+            echo "\`…-noarch.spk\` herunterladen → DSM → Paket-Zentrum → Manuelle Installation."
+            echo "Ein Paket für alle Modelle mit DSM 7: Intel/AMD sowie ARMv8 und ARMv7."
+            echo "(\`…-x86_64.spk\` ist dieselbe Datei – nur für die Update-Funktion älterer Versionen.)"
           } >> notes.md
           cat notes.md
 

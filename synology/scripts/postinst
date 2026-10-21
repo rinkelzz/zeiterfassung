@@ -19,7 +19,7 @@ PY="$1"; TAG="$2"
 if [ -n "$PY" ]; then
     # Admin-Passwort wird nur hier verwendet und nirgends gespeichert
     ZE_DATA_DIR="${PKGVAR}" ZE_ADMIN_PASSWORD="${wizard_admin_password:-}" \
-    PYTHONPATH="${PKGDEST}/lib/${TAG}:${PKGDEST}" PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$(lib_path "$PY" "$TAG")" PYTHONDONTWRITEBYTECODE=1 \
         "$PY" -c "from app.db import init_db; init_db()" >> "${LOGFILE}" 2>&1
     log "Installation abgeschlossen (${PY})"
 fi
