@@ -238,6 +238,16 @@ def run_import(data: ImportIn, admin=Depends(admin_user), conn: sqlite3.Connecti
         raise HTTPException(404, "Nutzer nicht gefunden")
 
     rows = PLANNERS[data.kind](conn, data.user_id, data.csv_text)
+    from ..closing import closed_until, utc_day
+    until = closed_until(conn, data.user_id)
+    if until:  # nichts in abgeschlossene Monate importieren
+        for r in rows:
+            if r["status"] != "neu":
+                continue
+            day = utc_day(r["start_utc"]) if r.get("start_utc") else (
+                date.fromisoformat(r["day"]) if r.get("day") else None)
+            if day and day <= until:
+                r["status"], r["message"] = "fehler", "Monat ist abgeschlossen"
     summary: Dict[str, int] = {}
     for r in rows:
         summary[r["status"]] = summary.get(r["status"], 0) + 1

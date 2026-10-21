@@ -55,16 +55,9 @@ def file_name(user: sqlite3.Row, period: str, ext: str) -> str:
 # --- Daten ---------------------------------------------------------------------
 
 def balance_until(conn: sqlite3.Connection, user: sqlite3.Row, d: date) -> Dict[str, int]:
-    """Kontostände (inkl. Übertrag) am Ende des Tages d. Zukunft zählt nicht."""
-    g = int(user["carryover_minutes"] or 0) * 60
-    u = int(user["carryover_overtime_minutes"] or 0) * 60
-    start = tracking_start(user)
-    end = min(d, today_local())
-    if start and start <= end:
-        t = compute_report(conn, user, start, end)["totals"]
-        g += t["gleitzeit_s"]
-        u += t["ueberstunden_s"]
-    return {"gleitzeit_s": g, "ueberstunden_s": u}
+    """Kontostände (inkl. Übertrag) am Ende des Tages d – ab dem letzten Monatsabschluss gerechnet."""
+    from .reports import balance_at
+    return balance_at(conn, user, d)
 
 
 def _absence_counts(days: List[Dict]) -> Dict[str, float]:
@@ -110,7 +103,14 @@ def build_data(conn: sqlite3.Connection, user: sqlite3.Row, period: str) -> Dict
         "schedule": _schedule_text(conn, user, min(d_to, today_local()) if d_from <= today_local() else d_from),
         "break_rule": break_rule(conn),
         "created": to_local(now_utc()),
+        "closed_at": None,
     }
+    if kind == "month":
+        row = conn.execute("SELECT closed_at FROM month_closings WHERE user_id = ? AND month = ?",
+                           (user["id"], period)).fetchone()
+        if row:
+            from .timeutil import parse_utc
+            data["closed_at"] = to_local(parse_utc(row["closed_at"]))
     if kind == "year":
         months = []
         for m in range(1, 13):
@@ -190,6 +190,8 @@ def _pdf_header(pdf: PDF, data: Dict, heading: str) -> float:
     if rule["mode"] == "fixed":
         brk = f"fest {rule['minutes']} min pro Arbeitstag"
     pdf.text(L, 92, f"Sollarbeitszeit: {data['schedule']}   ·   Pausenabzug: {brk}", 8, color=GREY)
+    if data.get("closed_at"):
+        pdf.text(R, 92, f"Monat abgeschlossen am {data['closed_at']:%d.%m.%Y}", 8, True, "right", (0.14, 0.25, 0.48))
     pdf.line(L, 100, R, 100, 1, (0.3, 0.3, 0.3))
     return 116
 

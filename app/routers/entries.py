@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from ..closing import ensure_open, utc_day
 from ..db import audit, get_db
 from ..reports import ABSENCE_KINDS, holidays_between, target_fn
 from ..security import admin_user, current_user
@@ -106,6 +107,7 @@ def create_entry(data: EntryCreate, admin=Depends(admin_user), conn: sqlite3.Con
         raise HTTPException(404, "Nutzer nicht gefunden")
     start = to_utc_str(data.start)
     end = to_utc_str(data.end) if data.end else None
+    ensure_open(conn, data.user_id, [utc_day(start), utc_day(end)])
     _check_entry(conn, data.user_id, start, end)
     now = now_utc_str()
     try:
@@ -131,6 +133,7 @@ def update_entry(entry_id: int, data: EntryUpdate, admin=Depends(admin_user), co
     else:
         end = to_utc_str(data.end) if data.end else e["end_utc"]
     note = data.note if data.note is not None else e["note"]
+    ensure_open(conn, e["user_id"], [utc_day(e["start_utc"]), utc_day(e["end_utc"]), utc_day(start), utc_day(end)])
     _check_entry(conn, e["user_id"], start, end, exclude_id=entry_id)
     try:
         conn.execute(
@@ -153,6 +156,7 @@ def delete_entry(entry_id: int, admin=Depends(admin_user), conn: sqlite3.Connect
     e = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
     if not e:
         raise HTTPException(404, "Buchung nicht gefunden")
+    ensure_open(conn, e["user_id"], [utc_day(e["start_utc"]), utc_day(e["end_utc"])])
     conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
     audit(conn, admin["id"], "entry_deleted", f"entry:{entry_id}",
           f"user:{e['user_id']} {e['start_utc']} – {e['end_utc']}")
@@ -203,6 +207,7 @@ def create_absences(data: AbsenceCreate, admin=Depends(admin_user), conn: sqlite
     target = conn.execute("SELECT * FROM users WHERE id = ?", (data.user_id,)).fetchone()
     if not target:
         raise HTTPException(404, "Nutzer nicht gefunden")
+    ensure_open(conn, data.user_id, [data.from_day, to_day])
     holidays = holidays_between(conn, data.from_day, to_day)
     day_target = target_fn(conn, target)
     single = data.from_day == to_day
@@ -230,6 +235,7 @@ def delete_absence(absence_id: int, admin=Depends(admin_user), conn: sqlite3.Con
     row = conn.execute("SELECT * FROM absences WHERE id = ?", (absence_id,)).fetchone()
     if not row:
         raise HTTPException(404, "Abwesenheit nicht gefunden")
+    ensure_open(conn, row["user_id"], [date.fromisoformat(row["day"])])
     conn.execute("DELETE FROM absences WHERE id = ?", (absence_id,))
     audit(conn, admin["id"], "absence_deleted", f"user:{row['user_id']}", f"{row['day']} {row['kind']}")
     return {"ok": True}
@@ -244,6 +250,7 @@ def delete_absence_range(
     conn: sqlite3.Connection = Depends(get_db),
 ):
     """Alle Abwesenheiten eines Nutzers im Zeitraum entfernen (z. B. Auswahl im Jahreskalender)."""
+    ensure_open(conn, user_id, [from_, to])
     cur = conn.execute(
         "DELETE FROM absences WHERE user_id = ? AND day BETWEEN ? AND ?",
         (user_id, from_.isoformat(), to.isoformat()),
@@ -263,6 +270,7 @@ class DayFlagIn(BaseModel):
 @router.put("/dayflags")
 def set_day_flag(data: DayFlagIn, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
     """Markiert einen Tag als Überstundentag: sein Saldo fließt ins Überstunden-Konto."""
+    ensure_open(conn, data.user_id, [data.day])
     if data.overtime:
         conn.execute(
             "INSERT INTO day_flags(user_id, day, overtime) VALUES (?, ?, 1) "

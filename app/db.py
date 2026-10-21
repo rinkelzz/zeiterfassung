@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -213,6 +213,17 @@ def migrate(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE entries ADD COLUMN reminded_at TEXT")
         if "auto_closed" not in cols:
             conn.execute("ALTER TABLE entries ADD COLUMN auto_closed INTEGER NOT NULL DEFAULT 0")
+    if version < 8:
+        # Monatsabschluss: Kontostände am Monatsende festgeschrieben
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS month_closings ("
+            " user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+            " month TEXT NOT NULL,"                 # 2026-09
+            " closed_at TEXT NOT NULL, closed_by INTEGER,"
+            " gleitzeit_s INTEGER NOT NULL, ueberstunden_s INTEGER NOT NULL,"
+            " worked_s INTEGER NOT NULL DEFAULT 0, target_s INTEGER NOT NULL DEFAULT 0,"
+            " PRIMARY KEY (user_id, month))"
+        )
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

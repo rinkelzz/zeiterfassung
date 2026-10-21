@@ -194,10 +194,14 @@ function shiftMonth(delta) {
 async function loadMonth() {
   $("mMonth").value = state.month;
   const { from, to } = monthRange();
-  const [rep, entries] = await Promise.all([
+  const [rep, entries, cl] = await Promise.all([
     api(`reports/user?user_id=${state.uid}&from=${from}&to=${to}`),
     api(`entries?user_id=${state.uid}&from=${from}&to=${to}`),
+    api(`closings?user_id=${state.uid}&month=${state.month}`),
   ]);
+  state.monthClosed = !!cl.closed;
+  if (state.monthClosed) state.openDay = null;
+  showClosing(cl);
   state.monthEntries = Object.fromEntries(entries.map(e => [e.id, e]));
   state.monthDays = Object.fromEntries(rep.days.map(d => [d.date, d]));
   const t = rep.totals;
@@ -213,7 +217,7 @@ async function loadMonth() {
     const off = (!d.workday || d.before_start) && !d.worked_s;
     const diff = d.diff_s ? signed(d.diff_s, d.diff) : "";
     const showUe = d.worked_s || d.target_s || d.overtime_day;
-    const ue = isAdmin()
+    const ue = isAdmin() && !state.monthClosed
       ? (showUe ? `<button class="ue ${d.overtime_day ? "on" : ""}" data-ue="${d.date}" title="Zeit über dem Tagessoll ins Überstunden-Konto">Ü</button>` : "")
       : (d.overtime_day || d.absence === "mehrarbeit" ? `<span class="ue ${d.diff_ueberstunden_s ? "on" : ""}">Ü</span>` : "");
     const info = d.absence_label ? `<span class="tag k k-${esc(d.absence)}">${esc(d.absence_label)}</span>` :
@@ -233,6 +237,64 @@ async function loadMonth() {
   }).join("");
   $("mTable").innerHTML = `<thead><tr><th>Tag</th><th>Kommen</th><th>Gehen</th><th class="num">Ist</th><th class="num">Soll</th><th class="num">Saldo</th><th></th><th></th></tr></thead>
     <tbody>${rows}</tbody><tfoot><tr><th>Summe</th><th></th><th></th><th class="num">${t.worked}</th><th class="num">${t.target}</th><th class="num">${signed(t.diff_s, t.diff)}</th><th></th><th></th></tr></tfoot>`;
+}
+
+// Monatsabschluss in der Monatsansicht
+function showClosing(cl) {
+  const fmt = (iso) => new Date(iso).toLocaleDateString("de-DE");
+  let html = "";
+  if (cl.closed) {
+    html = `<span class="tag lock">🔒 abgeschlossen am ${fmt(cl.closed.closed_at)}${cl.closed.closed_by_name ? " von " + esc(cl.closed.closed_by_name) : ""}</span>
+      <span class="muted small">Gleitzeit ${signed(cl.closed.gleitzeit_s, minToHm(Math.round(cl.closed.gleitzeit_s / 60)).replace("+", ""))} ·
+      Überstunden ${signed(cl.closed.ueberstunden_s, minToHm(Math.round(cl.closed.ueberstunden_s / 60)).replace("+", ""))} festgeschrieben</span>`;
+    if (isAdmin() && cl.can_reopen) html += ' <button class="mini" id="mReopen">Wieder öffnen</button>';
+  } else if (isAdmin() && cl.can_close) {
+    html = '<button class="mini" id="mClose">🔒 Monat abschließen</button> <span class="muted small">sperrt Änderungen und schreibt die Kontostände fest</span>';
+  } else if (isAdmin() && cl.next_month && cl.next_month < state.month && cl.last_closed !== undefined) {
+    html = `<span class="muted small">Abschluss der Reihe nach – als Nächstes offen: ${esc(cl.next_month.slice(5))}/${esc(cl.next_month.slice(0, 4))}</span>`;
+  }
+  $("mClosing").innerHTML = html;
+  const c = $("mClose"), r = $("mReopen");
+  if (c) c.onclick = async () => {
+    if (!confirm("Monat abschließen? Danach sind Buchungen, Abwesenheiten und Ü-Tage in diesem Monat gesperrt.")) return;
+    try { await api("closings", { method: "POST", body: { user_id: state.uid, month: state.month } }); await loadMonth(); }
+    catch (e) { $("mMsg").textContent = e.message; }
+  };
+  if (r) r.onclick = async () => {
+    const reason = prompt("Begründung für das Wiederöffnen (steht im Änderungsprotokoll):");
+    if (reason === null) return;
+    try { await api("closings/reopen", { method: "POST", body: { user_id: state.uid, month: state.month, reason } }); await loadMonth(); }
+    catch (e) { $("mMsg").textContent = e.message; }
+  };
+}
+
+// Monatsabschluss in der Verwaltung
+async function loadClosings() {
+  const rows = await api("closings/overview");
+  if (!$("clUntil").value) {
+    const d = new Date(); d.setDate(0);  // letzter Tag des Vormonats
+    $("clUntil").value = `${d.getFullYear()}-${p2(d.getMonth() + 1)}`;
+  }
+  $("clTable").innerHTML = `<thead><tr><th>Mitarbeiter</th><th>abgeschlossen bis</th><th>am</th><th>nächster offener Monat</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${esc(r.display_name)}</td><td>${r.last_closed ? esc(r.last_closed.label) : '<span class="muted">–</span>'}</td>
+      <td>${r.last_closed ? new Date(r.last_closed.closed_at).toLocaleDateString("de-DE") : ""}</td>
+      <td>${r.next_month ? esc(r.next_month.slice(5) + "/" + r.next_month.slice(0, 4)) : ""}</td></tr>`).join("") + "</tbody>";
+}
+async function closeAll() {
+  const until = $("clUntil").value;
+  $("clErr").textContent = "";
+  if (!until) return;
+  const label = new Date(until + "-01T12:00").toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+  if (!confirm(`Für alle aktiven Mitarbeiter alle offenen Monate bis einschließlich ${label} abschließen?`)) return;
+  try {
+    const r = await api("closings/all", { method: "POST", body: { until } });
+    const errs = r.results.filter(x => x.error);
+    const n = r.results.reduce((s, x) => s + x.closed.length, 0);
+    await loadClosings();
+    if (errs.length) $("clErr").innerHTML = `${n} Monat(e) abgeschlossen. Nicht möglich bei: ` +
+      errs.map(x => `<b>${esc(x.display_name)}</b> – ${esc(x.error)}`).join("; ");
+    else okMsg($("clErr"), `${n} Monat(e) abgeschlossen.`);
+  } catch (e) { $("clErr").textContent = e.message; }
 }
 
 function detailRow(d) {
@@ -281,7 +343,7 @@ async function onMonthClick(e) {
   if (actBtn) return detailAction(actBtn);
   if (e.target.closest("tr.detail")) return;
   const tr = e.target.closest("tr.day");
-  if (!tr || !isAdmin()) return;
+  if (!tr || !isAdmin() || state.monthClosed) return;
   state.openDay = state.openDay === tr.dataset.day ? null : tr.dataset.day;
   loadMonth();
 }
@@ -468,6 +530,7 @@ async function loadAdmin() {
   await loadSettingsForm();
   loadUpdates().catch(() => {});
   loadBackups().catch(e => { $("bkErr").textContent = e.message; });
+  loadClosings().catch(e => { $("clErr").textContent = e.message; });
 }
 
 // Datensicherung
@@ -868,6 +931,7 @@ $$(".mailRep").forEach(b => b.onclick = () => mailReport(b));
 $("mailSave").onclick = saveMail;
 $("updCheck").onclick = checkUpdates;
 $("bkSave").onclick = saveBackups;
+$("clAll").onclick = closeAll;
 $("bkNow").onclick = backupNow;
 $("updCopy").onclick = async () => {
   const t = $("updSrc").textContent;

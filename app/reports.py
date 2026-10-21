@@ -396,17 +396,45 @@ def compute_report(
     }
 
 
+def balance_at(conn: sqlite3.Connection, user: sqlite3.Row, d: date) -> Dict[str, int]:
+    """Kontostände (inkl. Übertrag) am Ende des Tages d. Zukunft zählt nicht.
+
+    Gerechnet wird ab dem letzten Monatsabschluss bis d (dessen Snapshot ist fest), ohne
+    Abschluss ab Erfassungsbeginn mit Übertrag."""
+    row = conn.execute(
+        "SELECT * FROM month_closings WHERE user_id = ? AND month <= ? ORDER BY month DESC LIMIT 1",
+        (user["id"], f"{d.year}-{d.month:02d}")).fetchone()
+    if row:
+        y, m = int(row["month"][:4]), int(row["month"][5:7])
+        snap_end = date(y + (m == 12), m % 12 + 1, 1) - timedelta(days=1)
+        if snap_end > d:  # d liegt mitten im abgeschlossenen Monat → einen Monat früher ansetzen
+            row = conn.execute(
+                "SELECT * FROM month_closings WHERE user_id = ? AND month < ? ORDER BY month DESC LIMIT 1",
+                (user["id"], row["month"])).fetchone()
+    if row:
+        y, m = int(row["month"][:4]), int(row["month"][5:7])
+        start = date(y + (m == 12), m % 12 + 1, 1)
+        g, u = int(row["gleitzeit_s"]), int(row["ueberstunden_s"])
+    else:
+        start = tracking_start(user)
+        g = int(user["carryover_minutes"] or 0) * 60
+        u = int(user["carryover_overtime_minutes"] or 0) * 60
+    end = min(d, to_local(now_utc()).date())
+    if start and start <= end:
+        t = compute_report(conn, user, start, end)["totals"]
+        g += t["gleitzeit_s"]
+        u += t["ueberstunden_s"]
+    return {"gleitzeit_s": g, "ueberstunden_s": u}
+
+
 def account_balance(conn: sqlite3.Connection, user: sqlite3.Row) -> Dict:
-    """Kontostände vom Erfassungsbeginn bis heute, inklusive Überträge."""
+    """Kontostände vom Erfassungsbeginn (bzw. letzten Monatsabschluss) bis heute, inklusive Überträge."""
     today = to_local(now_utc()).date()
     start = tracking_start(user) or today
     carry_g = int(user["carryover_minutes"] or 0) * 60
     carry_u = int(user["carryover_overtime_minutes"] or 0) * 60
-    g = u = 0
-    if start <= today:
-        t = compute_report(conn, user, start, today)["totals"]
-        g, u = t["gleitzeit_s"], t["ueberstunden_s"]
-    gleitzeit, ueberstunden = carry_g + g, carry_u + u
+    bal = balance_at(conn, user, today)
+    gleitzeit, ueberstunden = bal["gleitzeit_s"], bal["ueberstunden_s"]
     return {
         "since": start.isoformat(),
         "carryover_s": carry_g,

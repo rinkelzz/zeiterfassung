@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.12.0] – 2026-10-21
+
+### Neu
+- **Monatsabschluss pro Mitarbeiter:** Ein abgeschlossener Monat ist gesperrt (Buchungen, Abwesenheiten,
+  Ü-Tage, Arbeitszeit-Verlauf, CSV-Import) und seine Kontostände am Monatsende sind festgeschrieben.
+  Spätere Änderungen an Übertrag oder Wochenarbeitszeit wirken nur noch auf offene Monate.
+- Abschließen in der Monatsansicht („🔒 Monat abschließen“) oder in der Verwaltung für alle Mitarbeiter
+  bis zu einem Monat; abgeschlossen wird der Reihe nach. Wieder öffnen geht beim jeweils letzten
+  abgeschlossenen Monat mit Begründung (steht im Änderungsprotokoll).
+- PDF-Arbeitszeitnachweis zeigt „Monat abgeschlossen am …“
+
+### Geändert
+- Kontostände werden ab dem letzten Monatsabschluss gerechnet statt immer ab Erfassungsbeginn –
+  das ist auch schneller, je länger die App im Einsatz ist.
+
 ## [0.11.0] – 2026-10-21
 
 ### Neu
@@ -72,6 +87,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.12.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.12.0
 [0.11.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.11.0
 [0.10.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.10.0
 [0.9.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.9.0

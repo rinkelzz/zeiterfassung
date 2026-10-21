@@ -118,3 +118,5 @@ body.is-admin .cell.d { cursor: pointer; }
 .btngroup button { padding-left: 10px; padding-right: 10px; }
 .tag.warn { background: #fff3cd; border-color: #f0c36d; color: #7a5200; font-weight: 600; }
 @media (prefers-color-scheme: dark) { .tag.warn { background: #4a3a10; border-color: #8a6a1a; color: #ffd98a; } }
+.tag.lock { background: #e8eefc; border-color: #b8c8f0; color: #23407a; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .tag.lock { background: #1e2a44; border-color: #3a5288; color: #b9ccff; } }

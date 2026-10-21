@@ -1,6 +1,6 @@
 """Nutzerverwaltung für Admins."""
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -154,6 +154,15 @@ def update_user(user_id: int, data: UserUpdate, admin=Depends(admin_user), conn:
     if loses_admin and user["is_admin"] and user["active"] and _active_admins(conn) <= 1:
         raise HTTPException(400, "Es muss mindestens ein aktiver Admin bleiben")
 
+    # Übertrag und Erfassungsbeginn wirken auf alle Monate – nach einem Monatsabschluss gesperrt
+    from ..closing import closed_until, month_label
+    until = closed_until(conn, user_id)
+    locked = [k for k in ("tracking_start", "carryover_minutes", "carryover_overtime_minutes") if k in changes
+              and str(changes[k]) != str(user[k])]
+    if until and locked:
+        raise HTTPException(409, f"Übertrag und Erfassungsbeginn sind gesperrt, weil Monate bis "
+                                 f"{month_label(until.isoformat()[:7])} abgeschlossen sind")
+
     # Wochenstunden/Arbeitstage ohne Datum ändern den heute gültigen Eintrag im Verlauf.
     # Für eine Änderung „ab Datum“ gibt es POST /users/{id}/schedules.
     if "weekly_hours" in changes or "workdays" in changes:
@@ -162,7 +171,13 @@ def update_user(user_id: int, data: UserUpdate, admin=Depends(admin_user), conn:
         hours = changes.get("weekly_hours", cur_s["weekly_hours"] if cur_s else user["weekly_hours"])
         days = ",".join(str(d) for d in changes["workdays"]) if "workdays" in changes else (
             cur_s["workdays"] if cur_s else user["workdays"])
-        if cur_s:
+        if cur_s and until and cur_s["valid_from"] <= until.isoformat():
+            # Eintrag gilt auch für abgeschlossene Monate → neuen Eintrag ab dem ersten offenen Tag anlegen
+            conn.execute("INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, created_at) "
+                         "VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, valid_from) DO UPDATE SET "
+                         "weekly_hours = excluded.weekly_hours, workdays = excluded.workdays",
+                         (user_id, (until + timedelta(days=1)).isoformat(), hours, days, now_utc_str()))
+        elif cur_s:
             conn.execute("UPDATE work_schedules SET weekly_hours = ?, workdays = ? WHERE id = ?", (hours, days, cur_s["id"]))
         else:
             conn.execute("INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, created_at) "
@@ -265,6 +280,8 @@ def list_schedules(user_id: int, admin=Depends(admin_user), conn: sqlite3.Connec
 def add_schedule(user_id: int, data: ScheduleIn, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
     """Neue Wochenarbeitszeit ab einem Datum. Gleiches Datum = Eintrag ersetzen."""
     list_schedules(user_id, admin, conn)  # stellt sicher, dass es einen Anfangseintrag gibt
+    from ..closing import ensure_open
+    ensure_open(conn, user_id, [data.valid_from])
     days = ",".join(str(d) for d in data.workdays)
     conn.execute(
         "INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, created_at) VALUES (?, ?, ?, ?, ?) "
@@ -284,6 +301,8 @@ def delete_schedule(user_id: int, schedule_id: int, admin=Depends(admin_user), c
         raise HTTPException(404, "Eintrag nicht gefunden")
     if row["valid_from"] == FOREVER:
         raise HTTPException(400, "Der Anfangseintrag kann nicht gelöscht werden – bitte stattdessen ändern")
+    from ..closing import ensure_open
+    ensure_open(conn, user_id, [date.fromisoformat(row["valid_from"])])
     conn.execute("DELETE FROM work_schedules WHERE id = ?", (schedule_id,))
     sync_current_schedule(conn, user_id)
     audit(conn, admin["id"], "schedule_deleted", f"user:{user_id}", f"ab {row['valid_from']}: {row['weekly_hours']} h")

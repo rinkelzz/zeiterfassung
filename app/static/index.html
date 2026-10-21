@@ -76,6 +76,7 @@
           </span>
         </div>
       </div>
+      <div class="row" id="mClosing" style="margin-top:4px"></div>
       <div class="err" id="mMsg"></div>
       <div class="stats" id="mStats"></div>
       <div class="scroll"><table id="mTable" class="month"></table></div>
@@ -193,6 +194,19 @@
       <div class="err" id="mailErr"></div>
       <h3>Versandprotokoll</h3>
       <div class="scroll" style="max-height:240px"><table id="mailLog"></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Monatsabschluss</h2>
+      <p class="muted small" style="margin-top:0">Ein abgeschlossener Monat ist gesperrt (Buchungen, Abwesenheiten, Ü-Tage) und seine
+        Kontostände sind festgeschrieben – spätere Änderungen an Übertrag oder Wochenarbeitszeit wirken nur noch auf offene Monate.
+        Abgeschlossen wird der Reihe nach; einzelne Monate lassen sich in der Monatsansicht abschließen oder mit Begründung wieder öffnen.</p>
+      <div class="row">
+        <label>alle offenen Monate bis einschließlich <input type="month" id="clUntil"></label>
+        <label>&nbsp;<button class="primary" id="clAll">Für alle abschließen</button></label>
+      </div>
+      <div class="err" id="clErr"></div>
+      <div class="scroll" style="max-height:260px;margin-top:8px"><table id="clTable"></table></div>
     </section>
 
     <section class="card">

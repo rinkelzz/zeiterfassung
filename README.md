@@ -27,7 +27,7 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - [Installation](#installation-auf-der-synology) · [Updates](#updates-über-das-paket-zentrum) ·
   [Datensicherung](#datensicherung) · [Von unterwegs (Reverse Proxy)](#von-unterwegs-erreichbar-machen-reverse-proxy) ·
   [iPhone & NFC](#iphone-und-nfc-einrichten) · [Berichte per Mail](#berichte-per-mail) ·
-  [Vergessenes Ausstempeln](#vergessenes-ausstempeln)
+  [Vergessenes Ausstempeln](#vergessenes-ausstempeln) · [Monatsabschluss](#monatsabschluss)
 - [Entwicklung](#entwicklung) · [Hinweise](#hinweise) · [Lizenz](#lizenz) · [English](#english)
 
 ## Funktionen
@@ -51,6 +51,7 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - **Hinweise nach Arbeitszeitgesetz:** über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5) –
   in Monatsansicht und Berichten markiert, abschaltbar
 - Monatsansicht zum Korrigieren, Jahreskalender zum Eintragen von Abwesenheiten per Ziehen
+- **Monatsabschluss** pro Mitarbeiter: Monat sperren und Kontostände festschreiben, Wiederöffnen nur mit Begründung
 
 **Berichte**
 - **PDF**: Arbeitszeitnachweis pro Monat (mit Kontoständen und Unterschriftszeilen) und Jahresübersicht
@@ -164,6 +165,14 @@ endet sie zur Grenze (z. B. Kommen 06:50 → Gehen 18:50) und der Tag ist in Mon
 Excel mit „⚠ bitte prüfen“ markiert, bis ein Admin die Buchung korrigiert. Grenze und automatisches
 Beenden lassen sich unter **Verwaltung → Einstellungen** ändern oder abschalten (0 Stunden = aus).
 
+### Monatsabschluss
+
+Nach Prüfung (und ggf. Unterschrift unter dem PDF) schließt ein Admin den Monat ab – in der
+Monatsansicht mit **🔒 Monat abschließen** oder unter **Verwaltung → Monatsabschluss** für alle
+Mitarbeiter bis zu einem Monat. Danach sind Buchungen, Abwesenheiten, Ü-Tage und der Arbeitszeit-Verlauf
+in diesem Monat gesperrt, und die Kontostände am Monatsende sind festgeschrieben. Abgeschlossen wird der
+Reihe nach; **Wieder öffnen** geht beim zuletzt abgeschlossenen Monat mit Begründung (Änderungsprotokoll).
+
 ## Entwicklung
 
 ```bash
@@ -189,7 +198,7 @@ Beim ersten Start wird `admin` angelegt; das Passwort steht in `data/ERSTES_ADMI
 | `ZE_UPDATE_REPO` | `rinkelzz/zeiterfassung` | Repo, aus dem Updates kommen |
 
 **Aufbau:** FastAPI + SQLite (`app/`), Oberfläche ohne Build-Schritt (`app/static/`). Berechnung der
-Konten in `app/reports.py`, Berichte in `app/report_files.py` (PDF ohne Fremdbibliothek über `app/pdf.py`,
+Konten in `app/reports.py` (ab dem letzten Monatsabschluss, `app/closing.py`), Berichte in `app/report_files.py` (PDF ohne Fremdbibliothek über `app/pdf.py`,
 Excel mit openpyxl). Hintergrundaufgaben laufen alle 10 Minuten in einem Thread (`app/mailer.py`):
 Mailversand, Erinnerungen (`app/forgotten.py`), Datensicherung (`app/backup.py`) und Update-Prüfung
 (`app/updates.py`). Das Synology-Paket liegt unter `synology/`:
@@ -226,6 +235,7 @@ Synology DSM 7 (x86_64). The user interface is German.
 - Separate flextime and overtime accounts, weekly hours with effective dates, vacation tracking,
   public holidays for all 16 German states, break deduction per German working-time law (ArbZG)
 - Working-time-law hints: more than 10 hours a day, less than 11 hours rest between working days
+- Month closing per employee: locks the month and freezes the account balances (reopen with a reason)
 - Monthly and yearly reports as PDF and Excel, delivered automatically by email (own SMTP server)
 - Runs in its own DSM window with single sign-on for DSM users; login with DSM credentials incl. 2FA
 - Nightly database backup to a shared folder (for Hyper Backup) with one-click restore
