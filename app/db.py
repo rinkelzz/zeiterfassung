@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -240,6 +240,17 @@ def migrate(conn: sqlite3.Connection) -> None:
             " decided_at TEXT, decided_by INTEGER, decision_note TEXT)"
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_requests_status ON correction_requests(status, user_id)")
+    if version < 10:
+        # Änderungsprotokoll: betroffener Mitarbeiter (für Filter), Altbestand nachtragen
+        if "subject_user_id" not in _columns(conn, "audit_log"):
+            conn.execute("ALTER TABLE audit_log ADD COLUMN subject_user_id INTEGER")
+        rows = conn.execute("SELECT id, actor_id, action, target, details FROM audit_log").fetchall()
+        for r in rows:
+            sid = audit_subject(conn, r["actor_id"], r["action"], r["target"], r["details"])
+            if sid is not None:
+                conn.execute("UPDATE audit_log SET subject_user_id = ? WHERE id = ?", (sid, r["id"]))
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_subject ON audit_log(subject_user_id, id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts)")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
@@ -309,8 +320,37 @@ def get_setting(conn: sqlite3.Connection, key: str) -> str:
     return row["value"] if row else DEFAULT_SETTINGS.get(key, "")
 
 
+# Aktionen, die immer den Handelnden selbst betreffen
+SELF_ACTIONS = {"login", "password_changed", "profile_updated", "clock_in", "clock_out", "request_withdrawn"}
+
+
+def audit_subject(conn: sqlite3.Connection, actor_id, action: str, target: str, details: str):
+    """Welchen Mitarbeiter betrifft der Eintrag? (für den Filter im Änderungsprotokoll)"""
+    import re
+    kind, _, ref = (target or "").partition(":")
+    try:
+        if kind == "user" and ref.isdigit():
+            return int(ref)
+        if kind == "entry" and ref.isdigit():
+            row = conn.execute("SELECT user_id FROM entries WHERE id = ?", (int(ref),)).fetchone()
+            if row:
+                return row[0]
+        if kind == "request" and ref.isdigit():
+            row = conn.execute("SELECT user_id FROM correction_requests WHERE id = ?", (int(ref),)).fetchone()
+            if row:
+                return row[0]
+    except sqlite3.OperationalError:
+        pass  # Tabelle (noch) nicht da – z. B. während der Migration
+    m = re.search(r"\buser:(\d+)", details or "")
+    if m:
+        return int(m.group(1))
+    if action in SELF_ACTIONS:
+        return actor_id
+    return None
+
+
 def audit(conn: sqlite3.Connection, actor_id, action: str, target: str = "", details: str = "") -> None:
     conn.execute(
-        "INSERT INTO audit_log(ts, actor_id, action, target, details) VALUES (?, ?, ?, ?, ?)",
-        (now_utc_str(), actor_id, action, target, details),
+        "INSERT INTO audit_log(ts, actor_id, action, target, details, subject_user_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (now_utc_str(), actor_id, action, target, details, audit_subject(conn, actor_id, action, target, details)),
     )

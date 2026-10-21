@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.15.0] – 2026-10-21
+
+### Neu
+- **Änderungsprotokoll in der Verwaltung:** wer hat wann was geändert – filterbar nach Mitarbeiter
+  (betroffen oder handelnd), Zeitraum, Bereich (Buchungen, Anträge, Monatsabschluss, Mitarbeiter,
+  Einstellungen, Berichte, Anmeldungen) und Suchtext (auch deutsches Datum wie „14.10.2026“).
+  Klartext statt Kürzeln, Zeiten in Ortszeit, Nachladen älterer Einträge, CSV-Export.
+- Jeder Protokolleintrag kennt den betroffenen Mitarbeiter – auch bei gelöschten Buchungen;
+  vorhandene Einträge werden beim Update nachgetragen (Schema v10).
+
 ## [0.14.0] – 2026-10-21
 
 ### Neu
@@ -121,6 +131,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.15.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.15.0
 [0.14.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.14.0
 [0.13.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.1
 [0.13.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.0

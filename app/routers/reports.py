@@ -422,12 +422,173 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
     return _settings_out(conn)
 
 
-@router.get("/audit", tags=["Einstellungen"])
-def audit_log(limit: int = Query(200, le=1000), admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
-    """Protokoll aller Änderungen – wichtig für nachvollziehbare Arbeitszeitnachweise."""
+AUDIT_ACTIONS = {
+    # Aktion: (Bereich, Bezeichnung)
+    "clock_in": ("buchungen", "Kommen gestempelt"),
+    "clock_out": ("buchungen", "Gehen gestempelt"),
+    "entry_created": ("buchungen", "Buchung angelegt"),
+    "entry_updated": ("buchungen", "Buchung geändert"),
+    "entry_deleted": ("buchungen", "Buchung gelöscht"),
+    "entry_auto_closed": ("buchungen", "Buchung automatisch beendet"),
+    "entry_reminder": ("buchungen", "Erinnerung: noch eingestempelt"),
+    "absence_set": ("buchungen", "Abwesenheit eingetragen"),
+    "absence_deleted": ("buchungen", "Abwesenheit entfernt"),
+    "dayflag_set": ("buchungen", "Ü-Tag geändert"),
+    "import": ("buchungen", "CSV-Import"),
+    "request_created": ("antraege", "Korrekturantrag gestellt"),
+    "request_approved": ("antraege", "Korrekturantrag genehmigt"),
+    "request_rejected": ("antraege", "Korrekturantrag abgelehnt"),
+    "request_withdrawn": ("antraege", "Korrekturantrag zurückgezogen"),
+    "month_closed": ("abschluss", "Monat abgeschlossen"),
+    "month_reopened": ("abschluss", "Monat wieder geöffnet"),
+    "user_created": ("mitarbeiter", "Mitarbeiter angelegt"),
+    "user_created_dsm": ("mitarbeiter", "Mitarbeiter aus DSM angelegt"),
+    "user_admin_dsm": ("mitarbeiter", "Admin-Recht aus DSM"),
+    "user_updated": ("mitarbeiter", "Mitarbeiter geändert"),
+    "schedule_set": ("mitarbeiter", "Wochenarbeitszeit geändert"),
+    "schedule_deleted": ("mitarbeiter", "Wochenarbeitszeit-Eintrag gelöscht"),
+    "password_changed": ("mitarbeiter", "Passwort geändert"),
+    "profile_updated": ("mitarbeiter", "Eigene Angaben geändert"),
+    "token_created": ("mitarbeiter", "iPhone-Zugang erstellt"),
+    "token_deleted": ("mitarbeiter", "iPhone-Zugang gesperrt"),
+    "login": ("anmeldung", "Anmeldung"),
+    "settings_updated": ("einstellungen", "Einstellungen geändert"),
+    "mail_test": ("einstellungen", "Testmail"),
+    "backup_created": ("einstellungen", "Sicherung erstellt"),
+    "backup_download": ("einstellungen", "Sicherung heruntergeladen"),
+    "backup_restored": ("einstellungen", "Sicherung wiederhergestellt"),
+    "export_csv": ("berichte", "CSV-Export"),
+    "report_download": ("berichte", "Bericht heruntergeladen"),
+    "report_mailed": ("berichte", "Bericht per Mail"),
+}
+AUDIT_CATEGORIES = {
+    "buchungen": "Buchungen & Abwesenheiten", "antraege": "Korrekturanträge", "abschluss": "Monatsabschluss",
+    "mitarbeiter": "Mitarbeiter & Zugänge", "einstellungen": "Einstellungen & Sicherung",
+    "berichte": "Berichte & Export", "anmeldung": "Anmeldungen",
+}
+_ISO_UTC = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?\+00:00")
+
+
+def _audit_text(details: str, names: dict) -> str:
+    """Zeitstempel in Ortszeit, „user:5“ als Name, „None“ als „offen“."""
+    from ..timeutil import parse_utc, to_local
+    text = _ISO_UTC.sub(lambda m: to_local(parse_utc(m.group(0))).strftime("%d.%m.%Y %H:%M"), details or "")
+    text = re.sub(r"\buser:(\d+)", lambda m: names.get(int(m.group(1)), "Nutzer " + m.group(1)), text)
+    return text.replace(" – None", " – offen")
+
+
+_SOURCES = {"web": "über die Weboberfläche", "nfc": "per NFC", "shortcut": "per Kurzbefehl/Standort",
+            "kiosk": "am Kiosk", "api": "über die Schnittstelle", "manual": "von Hand"}
+
+
+def _audit_polish(action: str, text: str) -> str:
+    """Technische Kürzel in Klartext."""
+    if action == "login":
+        return {"local": "mit Passwort", "dsm": "mit DSM-Konto"}.get(text, text)
+    if action in ("clock_in", "clock_out"):
+        src, _, rest = text.partition(" ")
+        return (_SOURCES.get(src, src) + (" " + rest if rest else "")).strip()
+    if action == "request_created":
+        for k, v in (("add:", "Nachtrag:"), ("change:", "Änderung:"), ("delete:", "Löschung:")):
+            if text.startswith(k):
+                return v + text[len(k):]
+    if action == "month_closed":
+        def hm(m):
+            v = int(m.group(1))
+            return f"{'-' if v < 0 else '+' if v > 0 else ''}{abs(v) // 60}:{abs(v) % 60:02d} h"
+        text = re.sub(r"(-?\d+) min", hm, text)
+        text = re.sub(r"^(\d{4})-(\d{2})", lambda m: f"{m[2]}/{m[1]}", text)
+    return text
+
+
+def _audit_query(conn, user_id, d_from, d_to, category, q):
+    from ..timeutil import day_start_utc, to_utc_str
+    sql, args = " WHERE 1 = 1", []
+    if user_id:
+        sql += " AND (a.subject_user_id = ? OR a.actor_id = ?)"
+        args += [user_id, user_id]
+    if d_from:
+        sql += " AND a.ts >= ?"
+        args.append(to_utc_str(day_start_utc(d_from)))
+    if d_to:
+        from datetime import timedelta
+        sql += " AND a.ts < ?"
+        args.append(to_utc_str(day_start_utc(d_to + timedelta(days=1))))
+    if category:
+        acts = [k for k, (c, _) in AUDIT_ACTIONS.items() if c == category]
+        if not acts:
+            raise HTTPException(400, "Unbekannter Bereich")
+        sql += f" AND a.action IN ({','.join('?' * len(acts))})"
+        args += acts
+    if q:
+        # „14.10.2026“ → „2026-10-14“, so wie es gespeichert ist (Zeitstempel in UTC – kurz nach Mitternacht
+        # kann ein Eintrag am Vortag stehen)
+        iso = re.sub(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b", lambda m: f"{m[3]}-{int(m[2]):02d}-{int(m[1]):02d}", q.strip())
+        sql += " AND (a.details LIKE ? OR a.details LIKE ? OR a.target LIKE ? OR a.action LIKE ?)"
+        args += [f"%{q.strip()}%", f"%{iso}%", f"%{q.strip()}%", f"%{q.strip()}%"]
+    return sql, args
+
+
+def _audit_rows(conn, where, args, limit, before_id=None):
+    from ..timeutil import local_iso
+    if before_id:
+        where += " AND a.id < ?"
+        args = args + [before_id]
     rows = conn.execute(
-        "SELECT a.*, u.display_name AS actor FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id "
-        "ORDER BY a.id DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
-    return [dict(r) for r in rows]
+        "SELECT a.*, u.display_name AS actor, s.display_name AS subject FROM audit_log a "
+        "LEFT JOIN users u ON u.id = a.actor_id LEFT JOIN users s ON s.id = a.subject_user_id"
+        + where + " ORDER BY a.id DESC LIMIT ?", args + [limit]).fetchall()
+    names = {r["id"]: r["display_name"] for r in conn.execute("SELECT id, display_name FROM users")}
+    out = []
+    for r in rows:
+        cat, label = AUDIT_ACTIONS.get(r["action"], ("", r["action"]))
+        out.append({**dict(r), "ts_local": local_iso(r["ts"]), "category": cat, "label": label,
+                    "text": _audit_polish(r["action"], _audit_text(r["details"], names))})
+    return out
+
+
+@router.get("/audit", tags=["Einstellungen"])
+def audit_log(
+    user_id: Optional[int] = Query(None, description="Mitarbeiter: betroffen oder handelnd"),
+    from_: Optional[date] = Query(None, alias="from"),
+    to: Optional[date] = None,
+    category: Optional[str] = Query(None, description=", ".join(AUDIT_CATEGORIES)),
+    q: Optional[str] = Query(None, max_length=100, description="Suchtext"),
+    before_id: Optional[int] = Query(None, description="zum Nachladen: nur Einträge älter als diese ID"),
+    limit: int = Query(200, ge=1, le=1000),
+    admin=Depends(admin_user),
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    """Protokoll aller Änderungen – wichtig für nachvollziehbare Arbeitszeitnachweise. Neueste zuerst."""
+    where, args = _audit_query(conn, user_id, from_, to, category, q)
+    return _audit_rows(conn, where, args, limit, before_id)
+
+
+@router.get("/audit/categories", tags=["Einstellungen"])
+def audit_categories(admin=Depends(admin_user)):
+    return AUDIT_CATEGORIES
+
+
+@router.get("/audit/export.csv", tags=["Einstellungen"])
+def audit_export(
+    user_id: Optional[int] = None,
+    from_: Optional[date] = Query(None, alias="from"),
+    to: Optional[date] = None,
+    category: Optional[str] = None,
+    q: Optional[str] = Query(None, max_length=100),
+    admin=Depends(admin_user),
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    """Änderungsprotokoll als CSV (Semikolon, für Excel)."""
+    where, args = _audit_query(conn, user_id, from_, to, category, q)
+    rows = _audit_rows(conn, where, args, 100000)
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
+    w.writerow(["Zeitpunkt", "Wer", "Betrifft", "Bereich", "Aktion", "Details"])
+    for r in rows:
+        ts = r["ts_local"][:16].replace("T", " ") if r["ts_local"] else ""
+        w.writerow([ts, r["actor"] or "System", r["subject"] or "", AUDIT_CATEGORIES.get(r["category"], ""),
+                    r["label"], r["text"]])
+    audit(conn, admin["id"], "export_csv", "audit", f"Änderungsprotokoll, {len(rows)} Einträge")
+    return Response(content="\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="aenderungsprotokoll.csv"'})

@@ -61,7 +61,9 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - **Excel**: Monat mit allen Tagen; Jahr mit Monatssummen und einem Blatt pro Monat
 - **Per Mail**: eigener SMTP-Server; automatisch am 1. des Monats (Vormonat) und am 1. Januar (Vorjahr),
   jeder Bericht nur einmal, mit Versandprotokoll – oder jederzeit von Hand
-- CSV-Export, CSV-Import (z. B. aus [gleitzeit](https://github.com/rinkelzz/gleitzeit)), Änderungsprotokoll
+- CSV-Export, CSV-Import (z. B. aus [gleitzeit](https://github.com/rinkelzz/gleitzeit))
+- **Änderungsprotokoll** in der Verwaltung: wer hat wann was geändert, filterbar nach Mitarbeiter,
+  Zeitraum, Bereich und Suchtext, als CSV exportierbar
 
 **Synology-Integration**
 - Eigenes **DSM-Fenster** (kein neuer Tab) und **Single Sign-on** mit dem DSM-Konto

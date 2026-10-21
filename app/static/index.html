@@ -318,6 +318,23 @@
       <h3>Feiertage <span id="holYear"></span></h3>
       <div class="scroll"><table id="holTable"></table></div>
     </section>
+    <section class="card">
+      <h2>Änderungsprotokoll</h2>
+      <p class="muted small" style="margin-top:0">Jede Änderung an Buchungen, Abwesenheiten, Mitarbeitern und Einstellungen – wer, wann, was.
+        Einträge lassen sich nicht ändern oder löschen.</p>
+      <div class="row">
+        <label>Mitarbeiter <select id="alUser"><option value="">alle</option></select></label>
+        <label>von <input type="date" id="alFrom"></label>
+        <label>bis <input type="date" id="alTo"></label>
+        <label>Bereich <select id="alCat"><option value="">alle</option></select></label>
+        <label>Suche <input id="alQ" placeholder="z. B. 14.10.2026" style="width:150px"></label>
+        <label>&nbsp;<button class="primary" id="alGo">Anzeigen</button></label>
+        <label>&nbsp;<button id="alCsv">CSV</button></label>
+      </div>
+      <div class="err" id="alErr"></div>
+      <div class="scroll" style="max-height:480px;margin-top:8px"><table id="alTable" class="audit"></table></div>
+      <div class="row" style="margin-top:8px"><button id="alMore" class="hidden">Ältere laden</button><span class="muted small" id="alCount"></span></div>
+    </section>
   </div>
 
   <!-- MEIN ZUGANG -->

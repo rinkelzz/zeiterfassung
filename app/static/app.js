@@ -475,6 +475,45 @@ async function decideRequest(id, ok) {
   } catch (e) { $("rqErr").textContent = e.message; }
 }
 
+// ---------- Änderungsprotokoll ----------
+const AUDIT_PAGE = 100;
+const audit = { rows: [], last: null };
+async function initAudit() {
+  if (!$("alCat").dataset.ready) {
+    const cats = await api("audit/categories");
+    $("alCat").innerHTML = '<option value="">alle</option>' + Object.entries(cats).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+    $("alCat").dataset.ready = "1";
+  }
+  const cur = $("alUser").value;
+  $("alUser").innerHTML = '<option value="">alle</option>' + state.users.map(u => `<option value="${u.id}">${esc(u.display_name)}</option>`).join("");
+  $("alUser").value = cur;
+  await loadAudit(false);
+}
+function auditFilter() {
+  const p = new URLSearchParams();
+  for (const [k, id] of [["user_id", "alUser"], ["from", "alFrom"], ["to", "alTo"], ["category", "alCat"], ["q", "alQ"]]) {
+    const v = $(id).value.trim(); if (v) p.set(k, v);
+  }
+  return p;
+}
+async function loadAudit(more) {
+  $("alErr").textContent = "";
+  const p = auditFilter(); p.set("limit", AUDIT_PAGE);
+  if (more && audit.last) p.set("before_id", audit.last);
+  const rows = await api("audit?" + p.toString());
+  audit.rows = more ? audit.rows.concat(rows) : rows;
+  audit.last = rows.length ? rows[rows.length - 1].id : audit.last;
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "";
+  $("alTable").innerHTML = audit.rows.length ? `<thead><tr><th>Zeitpunkt</th><th>Wer</th><th>Betrifft</th><th>Aktion</th><th>Details</th></tr></thead><tbody>` +
+    audit.rows.map(r => `<tr class="cat-${esc(r.category)}"><td class="nowrap">${fmt(r.ts_local)}</td>
+      <td>${r.actor ? esc(r.actor) : '<span class="muted">System</span>'}</td>
+      <td>${r.subject && r.subject !== r.actor ? esc(r.subject) : r.subject ? '<span class="muted">selbst</span>' : ""}</td>
+      <td class="nowrap">${esc(r.label)}</td><td class="small">${esc(r.text)}</td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted">Keine Einträge für diese Auswahl.</td></tr></tbody>';
+  $("alMore").classList.toggle("hidden", rows.length < AUDIT_PAGE);
+  $("alCount").textContent = audit.rows.length ? `${audit.rows.length} Einträge angezeigt` : "";
+}
+
 async function refreshRequestCount() {
   try {
     const c = await api("requests/count");
@@ -668,6 +707,7 @@ async function loadAdmin() {
   loadBackups().catch(e => { $("bkErr").textContent = e.message; });
   loadClosings().catch(e => { $("clErr").textContent = e.message; });
   loadAdminRequests().catch(e => { $("rqErr").textContent = e.message; });
+  initAudit().catch(e => { $("alErr").textContent = e.message; });
 }
 
 // Datensicherung
@@ -1069,6 +1109,11 @@ $("mailSave").onclick = saveMail;
 $("updCheck").onclick = checkUpdates;
 $("bkSave").onclick = saveBackups;
 $("clAll").onclick = closeAll;
+$("alGo").onclick = () => loadAudit(false).catch(e => { $("alErr").textContent = e.message; });
+$("alQ").addEventListener("keydown", e => { if (e.key === "Enter") $("alGo").click(); });
+$("alMore").onclick = () => loadAudit(true).catch(e => { $("alErr").textContent = e.message; });
+$("alCsv").onclick = () => downloadFile("api/v1/audit/export.csv?" + auditFilter().toString(), "aenderungsprotokoll.csv")
+  .catch(e => { $("alErr").textContent = e.message; });
 $("rqDone").onchange = () => loadAdminRequests().catch(e => { $("rqErr").textContent = e.message; });
 $("bkNow").onclick = backupNow;
 $("updCopy").onclick = async () => {
