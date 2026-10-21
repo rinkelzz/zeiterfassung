@@ -50,6 +50,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - Eigenes **DSM-Fenster** (kein neuer Tab) und **Single Sign-on** mit dem DSM-Konto
 - Login-Formular akzeptiert auch DSM-Benutzer und -Passwort (inkl. Zwei-Faktor-Code)
 - Läuft als eigener Paketbenutzer ohne Root-Rechte; alle Python-Bibliotheken sind im Paket enthalten
+- Nächtliche **Datensicherung** in einen freigegebenen Ordner (für Hyper Backup), Wiederherstellung per Klick
+- **Updates über das Paket-Zentrum** – die App ist ihre eigene Paketquelle
 
 ## Installation auf der Synology
 
@@ -65,6 +67,15 @@ Voraussetzung: DSM 7 auf einem Modell mit **Intel/AMD-Prozessor (x86_64)**, z. B
 Das Paket nutzt das Python der NAS (3.8 bis 3.13). Fehlt es, bricht die Installation mit einem
 Hinweis ab – dann im Paket-Zentrum „Python 3.9“ installieren. Daten liegen unter
 `/var/packages/zeiterfassung/var/` und bleiben bei Updates erhalten (beim Deinstallieren werden sie gelöscht).
+
+### Datensicherung
+
+Die App sichert die Datenbank jede Nacht. Weil DSM den Paketordner beim Deinstallieren löscht und
+Hyper Backup ihn nicht erfasst, sollte zusätzlich ein **freigegebener Ordner** eingetragen werden
+(Verwaltung → Datensicherung, z. B. `/volume1/backup/zeiterfassung`). Dafür in DSM unter
+**Systemsteuerung → Freigegebener Ordner → Bearbeiten → Berechtigungen → System-interner Benutzer**
+dem Benutzer `zeiterfassung` Lesen/Schreiben geben. Sicherungen lassen sich in der Verwaltung
+herunterladen und wiederherstellen.
 
 ### Updates über das Paket-Zentrum
 

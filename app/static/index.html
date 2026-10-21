@@ -196,6 +196,37 @@
     </section>
 
     <section class="card">
+      <h2>Datensicherung</h2>
+      <p class="muted small" style="margin-top:0">Jede Nacht eine geprüfte Sicherung der Datenbank: immer im Paketordner (die letzten 7)
+        und zusätzlich in einem freigegebenen Ordner, den Hyper Backup mitsichern kann. Achtung: Beim Deinstallieren des Pakets
+        wird der Paketordner gelöscht – deshalb unbedingt einen freigegebenen Ordner eintragen.</p>
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="bkEnabled"> jede Nacht sichern um</label>
+        <select id="bkHour" style="width:90px"></select>
+        <label style="flex:1;min-width:260px">Freigegebener Ordner
+          <input id="bkDir" placeholder="/volume1/backup/zeiterfassung"></label>
+        <label>aufheben (Tage) <input id="bkKeep" type="number" min="1" max="3650" class="w80"></label>
+        <label>&nbsp;<button class="primary" id="bkSave">Speichern</button></label>
+      </div>
+      <details class="small" style="margin:8px 0">
+        <summary>Schreibrechte für den Ordner einrichten</summary>
+        <ol style="padding-left:20px;margin:6px 0">
+          <li>DSM → <b>Systemsteuerung</b> → <b>Freigegebener Ordner</b> → z. B. <code>backup</code> auswählen (oder neu anlegen) → <b>Bearbeiten</b>.</li>
+          <li>Reiter <b>Berechtigungen</b> → oben links im Auswahlfeld <b>System-interner Benutzer</b> wählen.</li>
+          <li>Bei <b>zeiterfassung</b> den Haken <b>Lesen/Schreiben</b> setzen → <b>Speichern</b>.</li>
+          <li>Hier als Ordner z. B. <code>/volume1/backup/zeiterfassung</code> eintragen und speichern – der Unterordner wird angelegt.</li>
+        </ol>
+        Die Sicherungen enthalten alle Arbeitszeiten, Passwort-Hashes und das Mail-Passwort – den Ordner bitte nicht für alle freigeben.
+      </details>
+      <div class="row">
+        <span id="bkInfo" class="muted small"></span>
+        <button id="bkNow">Sicherung jetzt erstellen</button>
+      </div>
+      <div class="err" id="bkErr"></div>
+      <div class="scroll" style="max-height:260px;margin-top:8px"><table id="bkTable"></table></div>
+    </section>
+
+    <section class="card">
       <h2>Updates</h2>
       <div class="row">
         <span id="updInfo" class="muted">…</span>

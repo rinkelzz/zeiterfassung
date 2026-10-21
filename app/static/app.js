@@ -461,6 +461,58 @@ async function loadAdmin() {
     }).join("") + "</tbody>";
   await loadSettingsForm();
   loadUpdates().catch(() => {});
+  loadBackups().catch(e => { $("bkErr").textContent = e.message; });
+}
+
+// Datensicherung
+const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+function showBackups(o) {
+  if (!$("bkHour").options.length) $("bkHour").innerHTML = Array.from({ length: 24 }, (_, h) => `<option value="${h}">${p2(h)}:00</option>`).join("");
+  $("bkEnabled").checked = o.enabled; $("bkHour").value = String(o.hour);
+  $("bkDir").value = o.dir || ""; $("bkKeep").value = o.keep_days;
+  const status = !o.last ? "noch keine Sicherung" :
+    `letzte Sicherung: ${new Date(o.last).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` +
+    (o.last_status && o.last_status !== "ok" ? ` – <span class="neg">Ordner: ${esc(o.last_status)}</span>` : "");
+  $("bkInfo").innerHTML = status + (o.dir ? "" : ' · <span class="neg">kein freigegebener Ordner – nur Paketordner</span>');
+  const reasons = { "manuell": "von Hand", "vor-wiederherstellung": "vor Wiederherstellung" };
+  $("bkTable").innerHTML = o.backups.length ? `<thead><tr><th>Datum</th><th>Uhrzeit</th><th>Art</th><th class="num">Größe</th><th>liegt in</th><th></th></tr></thead><tbody>` +
+    o.backups.map(b => `<tr><td>${deDate(b.date)}</td><td>${b.time}</td><td>${esc(reasons[b.reason] || "automatisch")}</td>
+      <td class="num">${fmtSize(b.size)}</td><td>${b.where.map(w => w === "lokal" ? "Paketordner" : "Freigabe").join(", ")}</td>
+      <td><button class="mini" data-bkdl="${esc(b.name)}">Herunterladen</button>
+          <button class="mini danger" data-bkrs="${esc(b.name)}">Wiederherstellen</button></td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted">Noch keine Sicherungen.</td></tr></tbody>';
+  $$("#bkTable [data-bkdl]").forEach(b => b.onclick = () =>
+    downloadFile(`api/v1/backups/${encodeURIComponent(b.dataset.bkdl)}/download`, b.dataset.bkdl).catch(e => { $("bkErr").textContent = e.message; }));
+  $$("#bkTable [data-bkrs]").forEach(b => b.onclick = () => restoreBackup(b.dataset.bkrs));
+}
+async function loadBackups() { showBackups(await api("backups")); }
+async function saveBackups() {
+  $("bkErr").textContent = "";
+  try {
+    showBackups(await api("backups/settings", { method: "PATCH", body: { enabled: $("bkEnabled").checked,
+      hour: Number($("bkHour").value), keep_days: Number($("bkKeep").value || 30), dir: $("bkDir").value.trim() } }));
+    okMsg($("bkErr"), "Gespeichert.");
+  } catch (e) { $("bkErr").textContent = e.message; }
+}
+async function backupNow() {
+  $("bkErr").textContent = ""; $("bkNow").disabled = true;
+  try {
+    const r = await api("backups", { method: "POST" });
+    showBackups(r);
+    if (r.shared_error) $("bkErr").textContent = "Im Paketordner gesichert, aber nicht im freigegebenen Ordner: " + r.shared_error;
+    else okMsg($("bkErr"), r.shared ? "Gesichert: " + r.shared : "Gesichert (nur Paketordner).");
+  } catch (e) { $("bkErr").textContent = e.message; }
+  finally { $("bkNow").disabled = false; }
+}
+async function restoreBackup(name) {
+  if (!confirm(`Sicherung „${name}“ wiederherstellen?\n\nAlle Änderungen seit dieser Sicherung gehen verloren. ` +
+               "Der aktuelle Stand wird vorher automatisch gesichert und kann so wieder zurückgeholt werden.")) return;
+  $("bkErr").textContent = "";
+  try {
+    const r = await api(`backups/${encodeURIComponent(name)}/restore`, { method: "POST", body: { confirm: name } });
+    alert(`Wiederhergestellt. Der vorherige Stand liegt in „${r.safety_backup}“.`);
+    location.reload();
+  } catch (e) { $("bkErr").textContent = e.message; }
 }
 
 // Updates (Paketquelle fürs Paket-Zentrum)
@@ -805,6 +857,8 @@ $$(".dl").forEach(b => b.onclick = () => downloadReport(b));
 $$(".mailRep").forEach(b => b.onclick = () => mailReport(b));
 $("mailSave").onclick = saveMail;
 $("updCheck").onclick = checkUpdates;
+$("bkSave").onclick = saveBackups;
+$("bkNow").onclick = backupNow;
 $("updCopy").onclick = async () => {
   const t = $("updSrc").textContent;
   try { await navigator.clipboard.writeText(t); $("updCopy").textContent = "Kopiert ✓"; } catch (e) { prompt("Adresse kopieren:", t); }

@@ -220,6 +220,14 @@ def _loop(interval: float) -> None:
                 conn.close()
         except Exception as e:  # noqa: BLE001
             print(f"[zeiterfassung] Mail-Zeitplan: {e}", flush=True)
+        try:
+            from . import backup  # nächtliche Datensicherung
+            b = backup.run_due()
+            if b:
+                print(f"[zeiterfassung] Sicherung {b['name']} erstellt"
+                      + (f" – Ordner: {b['shared_error']}" if b["shared_error"] else ""), flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"[zeiterfassung] Datensicherung FEHLER: {e}", flush=True)
         if settings.update_check:
             from . import updates  # neue Version auf GitHub? (höchstens alle 30 Minuten)
             st = updates.check()

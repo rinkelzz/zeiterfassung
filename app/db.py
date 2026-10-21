@@ -104,6 +104,11 @@ DEFAULT_SETTINGS = {
     "mail_monthly": "0",           # am 1. des Monats ab 6 Uhr: Bericht für den Vormonat
     "mail_yearly": "0",            # am 1. Januar ab 6 Uhr: Jahresbericht fürs Vorjahr
     "mail_formats": "pdf,xlsx",    # Anhänge
+    # Datensicherung: jede Nacht, lokal + optional in einen freigegebenen Ordner
+    "backup_enabled": "1",
+    "backup_hour": "2",
+    "backup_keep_days": "30",
+    "backup_dir": "",              # z. B. /volume1/backup/zeiterfassung
     # Bundesland für die Feiertage (Kürzel wie NW, BY, …)
     "bundesland": "NW",
     # Betriebsfreie Tage, jedes Jahr gleich: "12-24, 12-31"

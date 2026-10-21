@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.9.0] – 2026-10-21
+
+### Neu
+- **Datensicherung:** jede Nacht (Uhrzeit wählbar) eine geprüfte, komprimierte Sicherung der Datenbank –
+  immer im Paketordner (die letzten 7) und zusätzlich in einem freigegebenen Ordner
+  (z. B. `/volume1/backup/zeiterfassung`, Aufbewahrung in Tagen einstellbar), den Hyper Backup mitsichern kann
+- Verwaltung → **Datensicherung**: Ordner einrichten (mit Prüfung der Schreibrechte und Anleitung),
+  „Sicherung jetzt erstellen“, Liste aller Sicherungen, Herunterladen, **Wiederherstellen**
+  (der aktuelle Stand wird vorher automatisch gesichert)
+
 ## [0.8.2] – 2026-10-21
 
 ### Neu
@@ -42,6 +52,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.9.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.9.0
 [0.8.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.2
 [0.8.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.1
 [0.8.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.0
