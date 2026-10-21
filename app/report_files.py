@@ -156,6 +156,8 @@ def _day_note(d: Dict) -> str:
         parts.append(f"{d['segments']} Buchungen")
     if d["running"]:
         parts.append("läuft")
+    if d.get("needs_check"):
+        parts.insert(0, "autom. beendet – prüfen")
     if d["before_start"]:
         parts.append("vor Erfassungsbeginn")
     return ", ".join(parts)
@@ -402,6 +404,8 @@ def _xlsx_month_sheet(ws, data: Dict, days: List[Dict], title_line: str) -> None
             note.append("Ü-Tag")
         if d["running"]:
             note.append("läuft")
+        if d.get("needs_check"):
+            note.append("automatisch beendet – bitte prüfen")
         if d["before_start"]:
             note.append("vor Erfassungsbeginn")
         ws.append([

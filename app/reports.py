@@ -187,9 +187,13 @@ def compute_report(
     per_day: Dict[date, List[tuple]] = {d: [] for d in daterange(d_from, d_to)}
     entries_per_day: Dict[date, List[int]] = {d: [] for d in daterange(d_from, d_to)}
     open_days = set()
+    check_days = set()  # automatisch beendete Buchungen → „bitte prüfen“
     travel_per_day: Dict[date, int] = {}
     for e in fetch_entries(conn, user["id"], range_start, range_end):
         keys = e.keys()
+        if "auto_closed" in keys and e["auto_closed"] and e["end_utc"]:
+            check_days.add(to_local(parse_utc(e["start_utc"])).date())
+            check_days.add(to_local(parse_utc(e["end_utc"]) - timedelta(seconds=1)).date())
         for col, ts in (("travel_in_min", e["start_utc"]), ("travel_out_min", e["end_utc"])):
             minutes = e[col] if col in keys else 0
             if minutes and ts:
@@ -286,6 +290,7 @@ def compute_report(
                     else local_hhmm(intervals[-1][1])
                 ) if intervals else None,
                 "running": d in open_days,
+                "needs_check": d in check_days,
                 "segments": len(intervals),
                 "entry_ids": sorted(set(entries_per_day[d])),
                 "absence": kind,

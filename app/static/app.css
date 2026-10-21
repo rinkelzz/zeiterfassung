@@ -116,3 +116,5 @@ body.is-admin .cell.d { cursor: pointer; }
 
 .btngroup { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .btngroup button { padding-left: 10px; padding-right: 10px; }
+.tag.warn { background: #fff3cd; border-color: #f0c36d; color: #7a5200; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .tag.warn { background: #4a3a10; border-color: #8a6a1a; color: #ffd98a; } }

@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.10.0] – 2026-10-21
+
+### Neu
+- **Vergessenes Ausstempeln:** Läuft eine Buchung länger als 12 Stunden (einstellbar, 0 = aus), bekommen
+  der Mitarbeiter und alle Admins mit Mailadresse eine Erinnerung. Ist sie um Mitternacht noch offen,
+  endet sie automatisch zur Grenze (z. B. 06:50 + 12 h → 18:50).
+- Automatisch beendete Tage sind in Monatsansicht, PDF und Excel mit „⚠ bitte prüfen“ markiert,
+  bis ein Admin die Buchung korrigiert; alles steht im Änderungsprotokoll.
+
 ## [0.9.0] – 2026-10-21
 
 ### Neu
@@ -52,6 +61,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.10.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.10.0
 [0.9.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.9.0
 [0.8.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.2
 [0.8.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.1

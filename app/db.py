@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -104,6 +104,9 @@ DEFAULT_SETTINGS = {
     "mail_monthly": "0",           # am 1. des Monats ab 6 Uhr: Bericht für den Vormonat
     "mail_yearly": "0",            # am 1. Januar ab 6 Uhr: Jahresbericht fürs Vorjahr
     "mail_formats": "pdf,xlsx",    # Anhänge
+    # Vergessenes Ausstempeln: nach X Stunden erinnern (0 = aus), um Mitternacht danach beenden
+    "open_limit_hours": "12",
+    "open_auto_close": "1",
     # Datensicherung: jede Nacht, lokal + optional in einen freigegebenen Ordner
     "backup_enabled": "1",
     "backup_hour": "2",
@@ -201,6 +204,13 @@ def migrate(conn: sqlite3.Connection) -> None:
             " last_attempt TEXT, sent_at TEXT, recipient TEXT, error TEXT,"
             " PRIMARY KEY (user_id, period))"
         )
+    if version < 7:
+        cols = _columns(conn, "entries")
+        # Vergessenes Ausstempeln: wann erinnert, ob automatisch beendet (Tag „bitte prüfen“)
+        if "reminded_at" not in cols:
+            conn.execute("ALTER TABLE entries ADD COLUMN reminded_at TEXT")
+        if "auto_closed" not in cols:
+            conn.execute("ALTER TABLE entries ADD COLUMN auto_closed INTEGER NOT NULL DEFAULT 0")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

@@ -267,6 +267,14 @@
         <label class="inline"><input type="checkbox" class="travSrc" value="web"> Weboberfläche</label>
       </div>
       <p class="muted small">Beispiel: 10 Minuten – wer per NFC um 07:00 kommt, wird ab 06:50 erfasst; wer um 16:00 geht, bis 16:10. Die Wegezeit wird bei jeder Buchung vermerkt und im CSV ausgewiesen.</p>
+      <h3>Vergessenes Ausstempeln</h3>
+      <div class="row">
+        <label>erinnern nach (Stunden, 0 = aus) <input id="setOpenLimit" type="number" min="0" max="48" step="0.5" class="w80"></label>
+        <label class="inline"><input type="checkbox" id="setOpenAuto"> danach um Mitternacht automatisch beenden</label>
+      </div>
+      <p class="muted small">Läuft eine Buchung länger, bekommen der Mitarbeiter und alle Admins mit Mailadresse eine Erinnerung.
+        Ist sie um Mitternacht noch offen, endet sie zur Grenze (z. B. Kommen 06:50 + 12 h → 18:50) und der Tag ist mit
+        „⚠ bitte prüfen“ markiert, bis ein Admin die Buchung korrigiert.</p>
       <h3>Anmeldung mit DSM-Konten</h3>
       <div class="row">
         <label class="inline"><input type="checkbox" id="setDsmLogin"> Login mit DSM-Benutzer und -Passwort erlauben</label>

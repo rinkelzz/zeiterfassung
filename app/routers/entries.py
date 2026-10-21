@@ -45,6 +45,7 @@ def entry_out(r: sqlite3.Row) -> dict:
         "edited": r["updated_by"] is not None,
         "travel_in_min": r["travel_in_min"],
         "travel_out_min": r["travel_out_min"],
+        "auto_closed": bool(r["auto_closed"]) if "auto_closed" in r.keys() else False,
     }
 
 
@@ -133,7 +134,9 @@ def update_entry(entry_id: int, data: EntryUpdate, admin=Depends(admin_user), co
     _check_entry(conn, e["user_id"], start, end, exclude_id=entry_id)
     try:
         conn.execute(
-            "UPDATE entries SET start_utc = ?, end_utc = ?, note = ?, updated_at = ?, updated_by = ? WHERE id = ?",
+            # eine Korrektur durch den Admin gilt als geprüft
+            "UPDATE entries SET start_utc = ?, end_utc = ?, note = ?, updated_at = ?, updated_by = ?, auto_closed = 0 "
+            "WHERE id = ?",
             (start, end, note, now_utc_str(), admin["id"], entry_id),
         )
     except sqlite3.IntegrityError:

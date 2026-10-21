@@ -221,6 +221,17 @@ def _loop(interval: float) -> None:
         except Exception as e:  # noqa: BLE001
             print(f"[zeiterfassung] Mail-Zeitplan: {e}", flush=True)
         try:
+            from . import forgotten  # vergessenes Ausstempeln: erinnern / beenden
+            conn = connect()
+            try:
+                f = forgotten.run(conn)
+            finally:
+                conn.close()
+            if f["reminded"] or f["closed"]:
+                print(f"[zeiterfassung] Offene Buchungen: erinnert {f['reminded']}, beendet {f['closed']}", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"[zeiterfassung] Offene Buchungen FEHLER: {e}", flush=True)
+        try:
             from . import backup  # nächtliche Datensicherung
             b = backup.run_due()
             if b:
