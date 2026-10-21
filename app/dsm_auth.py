@@ -173,14 +173,16 @@ def dsm_password_check(conn: sqlite3.Connection, username: str, password: str, o
 _fails: Dict[str, list] = {}
 _lock = threading.Lock()
 MAX_FAILS, WINDOW_S = 5, 15 * 60
+# Zusätzlich pro Benutzername, egal von welcher Adresse (gegen verteiltes Durchprobieren)
+MAX_FAILS_PER_NAME = 10
 
 
-def too_many_attempts(key: str) -> bool:
+def too_many_attempts(key: str, limit: int = MAX_FAILS) -> bool:
     now = time.time()
     with _lock:
         recent = [t for t in _fails.get(key, []) if now - t < WINDOW_S]
         _fails[key] = recent
-        return len(recent) >= MAX_FAILS
+        return len(recent) >= limit
 
 
 def note_failure(key: str) -> None:

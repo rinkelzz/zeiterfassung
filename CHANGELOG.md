@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.13.1] – 2026-10-21
+
+### Sicherheit
+- Die echte Absenderadresse hinter dem Reverse Proxy (`X-Forwarded-For`/`-Proto`) wird nur noch
+  ausgewertet, wenn die Anfrage von der NAS selbst kommt (127.0.0.1/::1); maßgeblich ist die Adresse,
+  die der Proxy anhängt. Vorher ließ sich eine Heimnetz-Adresse vortäuschen – damit kam man an die
+  Paketquelle und konnte die Login-Sperre umgehen.
+- Login-Sperre zusätzlich pro Benutzername: nach 10 Fehlversuchen in 15 Minuten, egal von welcher
+  Adresse (bisher nur 5 pro Name und Adresse).
+
 ## [0.13.0] – 2026-10-21
 
 ### Neu
@@ -99,6 +109,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.13.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.1
 [0.13.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.13.0
 [0.12.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.12.0
 [0.11.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.11.0

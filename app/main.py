@@ -41,6 +41,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Echte Absenderadresse hinter dem Reverse Proxy (X-Forwarded-For/-Proto) – aber nur, wenn die Anfrage
+# von der NAS selbst kommt (DSM-Reverse-Proxy, 127.0.0.1). Direkt aus dem Netz mitgeschickte Header werden
+# ignoriert; bei einer Kette zählt die letzte Adresse, die nicht von der NAS stammt (die trägt der Proxy ein).
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
+
+TRUSTED_PROXIES = ["127.0.0.1", "::1"]
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=TRUSTED_PROXIES)
+
 for r in (auth.router, backup.router, clock.router, closings.router, entries.router, importer.router, reports.router, requests.router, updates.router, users.router):
     app.include_router(r)
 
@@ -89,8 +97,7 @@ def run() -> None:
         "app.main:app",
         host=settings.host,
         port=settings.port,
-        proxy_headers=True,
-        forwarded_allow_ips="*",
+        proxy_headers=False,  # übernimmt die Middleware oben (nur 127.0.0.1/::1 vertraut)
     )
 
 

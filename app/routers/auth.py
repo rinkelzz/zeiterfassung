@@ -18,6 +18,7 @@ from ..dsm_auth import (
     is_dsm_admin,
     note_failure,
     too_many_attempts,
+    MAX_FAILS_PER_NAME,
 )
 from ..db import audit, get_db, get_setting
 from ..security import (
@@ -76,8 +77,12 @@ def user_out(row: sqlite3.Row) -> dict:
 @router.post("/auth/login")
 def login(data: LoginIn, request: Request, response: Response, conn: sqlite3.Connection = Depends(get_db)):
     username = data.username.strip()
+    # Sperre pro Name+Adresse (5 Fehlversuche) und pro Name insgesamt (10), je 15 Minuten.
+    # Die Adresse kommt hinter dem Reverse Proxy aus X-Forwarded-For – ausgewertet nur, wenn die
+    # Anfrage vom Proxy auf der NAS selbst kommt (siehe main.py), sonst ist sie nicht fälschbar.
     key = f"{username.lower()}|{request.client.host if request.client else ''}"
-    if too_many_attempts(key):
+    name_key = f"{username.lower()}|*"
+    if too_many_attempts(key) or too_many_attempts(name_key, MAX_FAILS_PER_NAME):
         raise HTTPException(429, "Zu viele Fehlversuche – bitte in 15 Minuten erneut versuchen")
     user = conn.execute("SELECT * FROM users WHERE username = ? AND active = 1", (username,)).fetchone()
     via = "local"
@@ -90,6 +95,7 @@ def login(data: LoginIn, request: Request, response: Response, conn: sqlite3.Con
                 raise HTTPException(401, "otp_required")
             if result == "otp_wrong":
                 note_failure(key)
+                note_failure(name_key)
                 raise HTTPException(401, "Zwei-Faktor-Code falsch")
             if result == "ok":
                 user, error = dsm_user_row(conn, username, is_dsm_admin(username))
@@ -98,6 +104,7 @@ def login(data: LoginIn, request: Request, response: Response, conn: sqlite3.Con
                 via = "dsm"
         if not user:
             note_failure(key)
+            note_failure(name_key)
             raise HTTPException(401, "Benutzername oder Passwort falsch")
     clear_failures(key)
     token = create_session(conn, user["id"])
