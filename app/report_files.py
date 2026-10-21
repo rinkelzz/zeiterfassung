@@ -158,6 +158,8 @@ def _day_note(d: Dict) -> str:
         parts.append("läuft")
     if d.get("needs_check"):
         parts.insert(0, "autom. beendet – prüfen")
+    for w in reversed(d.get("warnings") or []):
+        parts.insert(0, "ArbZG: " + w["text"])
     if d["before_start"]:
         parts.append("vor Erfassungsbeginn")
     return ", ".join(parts)
@@ -303,6 +305,11 @@ def month_pdf(data: Dict) -> bytes:
     travel = sum(d["travel_min"] for d in data["report"]["days"])
     if travel:
         pdf.text(cell_x(9), y + 10, f"davon Wegezeit {fmt_duration(travel * 60)} h", 7.5, color=GREY)
+    if t.get("warnings"):
+        n = t["warnings"]
+        pdf.text(L, y + 26, f"{n} Hinweis{'e' if n != 1 else ''} nach Arbeitszeitgesetz (über 10 h am Tag oder unter "
+                            "11 h Ruhezeit) – siehe Bemerkung.", 8, color=NEG)
+        y += 14
     y += 30
 
     end_label = "Stand heute" if data["end_is_today"] else f"Stand {data['to']:%d.%m.%Y}"
@@ -406,6 +413,7 @@ def _xlsx_month_sheet(ws, data: Dict, days: List[Dict], title_line: str) -> None
             note.append("läuft")
         if d.get("needs_check"):
             note.append("automatisch beendet – bitte prüfen")
+        note += ["ArbZG: " + w["text"] for w in d.get("warnings") or []]
         if d["before_start"]:
             note.append("vor Erfassungsbeginn")
         ws.append([

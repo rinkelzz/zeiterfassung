@@ -205,7 +205,9 @@ async function loadMonth() {
     <div class="stat"><span class="muted">Ist / Soll</span><b>${t.worked} / ${t.target}</b></div>
     <div class="stat"><span class="muted">Saldo Monat</span><b>${signed(t.diff_s, t.diff)}</b></div>
     <div class="stat"><span class="muted">davon Gleitzeit / Überstunden</span><b>${signed(t.gleitzeit_s, t.gleitzeit)} / ${signed(t.ueberstunden_s, t.ueberstunden)}</b></div>
-    <div class="stat"><span class="muted">Urlaub im Monat</span><b>${fmtDays(rep.days.reduce((s, d) => s + d.vacation_days, 0))} Tage</b></div>`;
+    <div class="stat"><span class="muted">Urlaub im Monat</span><b>${fmtDays(rep.days.reduce((s, d) => s + d.vacation_days, 0))} Tage</b></div>` +
+    (t.warnings ? `<div class="stat" style="grid-column:1/-1"><span class="tag warn">⚠ ${t.warnings} Hinweis${t.warnings === 1 ? "" : "e"} nach Arbeitszeitgesetz</span>
+      <span class="muted small">über 10 Stunden am Tag oder weniger als 11 Stunden Ruhezeit – Details in der Tabelle</span></div>` : "");
   const today = todayIso();
   const rows = rep.days.map(d => {
     const off = (!d.workday || d.before_start) && !d.worked_s;
@@ -219,11 +221,14 @@ async function loadMonth() {
     const brk = (d.break_deducted_s ? ` <span class="muted small">−${Math.round(d.break_deducted_s / 60)} min Pause</span>` : "") +
       (d.travel_min ? ` <span class="tag" title="beim Stempeln dazugerechnete Wegezeit">+${d.travel_min} min Weg</span>` : "");
     const multi = d.segments > 1 ? ` <span class="muted small">(${d.segments}×)</span>` : "";
+    const warn = (d.warnings || []).map(w => `<span class="tag warn" title="${w.code === "max10"
+      ? "Mehr als 10 Stunden Arbeitszeit an einem Tag (§ 3 Arbeitszeitgesetz)"
+      : "Weniger als 11 Stunden Ruhezeit seit dem letzten Arbeitstag (§ 5 Arbeitszeitgesetz)"}">⚠ ${esc(w.text)}</span> `).join("");
     const check = d.needs_check ? '<span class="tag warn" title="Ausstempeln vergessen – die Buchung wurde automatisch beendet. Bitte Gehen-Zeit prüfen und korrigieren.">⚠ bitte prüfen</span> ' : "";
     const row = `<tr class="day ${off ? "weekend" : ""} ${d.date === today ? "today" : ""}" data-day="${d.date}">
       <td>${d.weekday} ${deShort(d.date)}</td><td>${d.first_in || ""}</td><td>${d.running ? "läuft" : d.last_out || ""}${multi}</td>
       <td class="num">${d.worked_s ? d.worked : ""}</td><td class="num">${d.target_s ? d.target : ""}</td>
-      <td class="num">${diff}</td><td>${ue}</td><td>${check}${info}${brk}</td></tr>`;
+      <td class="num">${diff}</td><td>${ue}</td><td>${check}${warn}${info}${brk}</td></tr>`;
     return row + (state.openDay === d.date ? detailRow(d) : "");
   }).join("");
   $("mTable").innerHTML = `<thead><tr><th>Tag</th><th>Kommen</th><th>Gehen</th><th class="num">Ist</th><th class="num">Soll</th><th class="num">Saldo</th><th></th><th></th></tr></thead>
@@ -641,6 +646,7 @@ async function loadSettingsForm() {
   $("setBreak").innerHTML = Object.entries(s.break_modes).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   $("setBreak").value = s.break_mode; $("setMin").value = s.break_minutes;
   $("setOpenLimit").value = s.open_limit_hours; $("setOpenAuto").checked = s.open_auto_close;
+  $("setArbzg").checked = s.arbzg_warnings;
   $("setMinWrap").classList.toggle("hidden", s.break_mode !== "fixed");
   // Mailversand
   $("mailMonthly").checked = s.mail_monthly; $("mailYearly").checked = s.mail_yearly;
@@ -665,7 +671,8 @@ async function saveSettings() {
       dsm_url: $("setDsmUrl").value.trim() || null,
       travel_in_minutes: Number($("setTravIn").value || 0), travel_out_minutes: Number($("setTravOut").value || 0),
       travel_sources: $$(".travSrc").filter(c => c.checked).map(c => c.value),
-      open_limit_hours: Number($("setOpenLimit").value || 0), open_auto_close: $("setOpenAuto").checked } });
+      open_limit_hours: Number($("setOpenLimit").value || 0), open_auto_close: $("setOpenAuto").checked,
+      arbzg_warnings: $("setArbzg").checked } });
     await loadSettingsForm();
     okMsg($("setErr"), "Gespeichert.");
   } catch (e) { $("setErr").textContent = e.message; }

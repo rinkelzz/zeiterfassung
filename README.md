@@ -48,6 +48,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
   Mehrarbeit-Entnahme, Sonderurlaub), auch als halber Tag
 - Feiertage aller 16 Bundesländer, betriebsfreie Tage, Erfassungsbeginn und Überträge pro Person
 - Pausenabzug wählbar: keiner, nach ArbZG (über 6 h: 30 min, über 9 h: 45 min) oder fest
+- **Hinweise nach Arbeitszeitgesetz:** über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5) –
+  in Monatsansicht und Berichten markiert, abschaltbar
 - Monatsansicht zum Korrigieren, Jahreskalender zum Eintragen von Abwesenheiten per Ziehen
 
 **Berichte**
@@ -223,6 +225,7 @@ Synology DSM 7 (x86_64). The user interface is German.
 - Forgotten clock-outs: email reminder after 12 hours, auto-close at midnight, flagged for review
 - Separate flextime and overtime accounts, weekly hours with effective dates, vacation tracking,
   public holidays for all 16 German states, break deduction per German working-time law (ArbZG)
+- Working-time-law hints: more than 10 hours a day, less than 11 hours rest between working days
 - Monthly and yearly reports as PDF and Excel, delivered automatically by email (own SMTP server)
 - Runs in its own DSM window with single sign-on for DSM users; login with DSM credentials incl. 2FA
 - Nightly database backup to a shared folder (for Hyper Backup) with one-click restore

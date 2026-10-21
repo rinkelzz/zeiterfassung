@@ -283,6 +283,7 @@ class SettingsIn(BaseModel):
     mail_formats: Optional[List[str]] = None
     open_limit_hours: Optional[float] = Field(None, ge=0, le=48, description="Erinnern nach X Stunden, 0 = aus")
     open_auto_close: Optional[bool] = Field(None, description="Um Mitternacht nach der Grenze automatisch beenden")
+    arbzg_warnings: Optional[bool] = Field(None, description="Hinweise: über 10 h am Tag, unter 11 h Ruhezeit")
 
 
 def _settings_out(conn) -> dict:
@@ -318,6 +319,7 @@ def _settings_out(conn) -> dict:
         "mail_formats": [x for x in (get_setting(conn, "mail_formats") or "").split(",") if x],
         "open_limit_hours": float(get_setting(conn, "open_limit_hours") or 0),
         "open_auto_close": get_setting(conn, "open_auto_close") == "1",
+        "arbzg_warnings": get_setting(conn, "arbzg_warnings") != "0",
     }
 
 
@@ -396,6 +398,8 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         _set(conn, "smtp_password", data.smtp_password)
     if changes.get("open_limit_hours") is not None:
         _set(conn, "open_limit_hours", f"{data.open_limit_hours:g}")
+    if changes.get("arbzg_warnings") is not None:
+        _set(conn, "arbzg_warnings", "1" if data.arbzg_warnings else "0")
     if changes.get("open_auto_close") is not None:
         _set(conn, "open_auto_close", "1" if data.open_auto_close else "0")
     for key in ("mail_monthly", "mail_yearly"):

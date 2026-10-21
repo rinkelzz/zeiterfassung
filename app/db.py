@@ -106,6 +106,8 @@ DEFAULT_SETTINGS = {
     "mail_formats": "pdf,xlsx",    # Anhänge
     # Vergessenes Ausstempeln: nach X Stunden erinnern (0 = aus), um Mitternacht danach beenden
     "open_limit_hours": "12",
+    # Hinweise nach Arbeitszeitgesetz (über 10 h am Tag, unter 11 h Ruhezeit)
+    "arbzg_warnings": "1",
     "open_auto_close": "1",
     # Datensicherung: jede Nacht, lokal + optional in einen freigegebenen Ordner
     "backup_enabled": "1",

@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.11.0] – 2026-10-21
+
+### Neu
+- **Hinweise nach Arbeitszeitgesetz:** Tage mit mehr als 10 Stunden Arbeitszeit (§ 3) und weniger als
+  11 Stunden Ruhezeit seit dem letzten Arbeitstag (§ 5) werden in Monatsansicht, PDF und Excel markiert;
+  die Monatsübersicht zeigt die Anzahl. Ein zweiter Einsatz am selben Tag zählt nicht als Ruhezeit,
+  Dienste über Mitternacht werden richtig erkannt. Abschaltbar unter Verwaltung → Einstellungen.
+
+### Behoben
+- PDF: Pfeile und Sonderzeichen (z. B. „6 h → 30 min“) wurden als „?“ gedruckt
+
 ## [0.10.0] – 2026-10-21
 
 ### Neu
@@ -61,6 +72,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.11.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.11.0
 [0.10.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.10.0
 [0.9.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.9.0
 [0.8.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.8.2

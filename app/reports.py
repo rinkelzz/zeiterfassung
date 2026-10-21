@@ -52,7 +52,10 @@ def required_break_s(worked_s: float) -> int:
     return 0
 
 
-FOREVER = "1970-01-01"  # Verlaufseintrag „von Anfang an“
+FOREVER = "1970-01-01"
+MAX_DAY_S = 10 * 3600     # § 3 ArbZG: höchstens 10 Stunden am Tag
+MIN_REST_S = 11 * 3600    # § 5 ArbZG: mindestens 11 Stunden Ruhezeit
+  # Verlaufseintrag „von Anfang an“
 
 
 def _target(weekly_hours: float, workdays_csv: str, d: date) -> float:
@@ -122,6 +125,37 @@ def fetch_entries(conn: sqlite3.Connection, user_id: int, start: datetime, end: 
     ).fetchall()
 
 
+def _short_rests(conn: sqlite3.Connection, user_id: int, rows: List[sqlite3.Row], d_from: date, d_to: date) -> Dict[date, float]:
+    """Tage, an denen die Ruhezeit seit dem letzten Arbeitstag unter 11 Stunden lag (§ 5 ArbZG).
+
+    Ruhezeit = Lücke zwischen dem Ende der letzten Buchung eines Arbeitstags und dem Beginn der
+    ersten Buchung eines späteren Arbeitstags (Arbeitstag = Tag, an dem die Buchung beginnt).
+    Unterbrechungen am selben Tag (Pause, zweiter Einsatz) zählen nicht als Ruhezeit.
+    Ergebnis: Tag → kürzeste Ruhezeit in Sekunden."""
+    out: Dict[date, float] = {}
+    if not rows:
+        return out
+    prev = conn.execute(
+        "SELECT start_utc, end_utc FROM entries WHERE user_id = ? AND end_utc IS NOT NULL AND start_utc < ? "
+        "ORDER BY end_utc DESC LIMIT 1", (user_id, rows[0]["start_utc"])).fetchone()
+    last_end = parse_utc(prev["end_utc"]) if prev else None
+    last_day = to_local(parse_utc(prev["start_utc"])).date() if prev else None
+    for e in rows:
+        start = parse_utc(e["start_utc"])
+        day = to_local(start).date()
+        if last_end is not None and last_day is not None and day != last_day:
+            gap = (start - last_end).total_seconds()
+            if 0 <= gap < MIN_REST_S and d_from <= day <= d_to:
+                out[day] = min(out.get(day, gap), gap)
+        if e["end_utc"] is None:
+            break
+        end = parse_utc(e["end_utc"])
+        if last_end is None or end > last_end or day != last_day:
+            last_end = end
+        last_day = day
+    return out
+
+
 def break_rule(conn: sqlite3.Connection) -> Dict:
     mode = get_setting(conn, "break_mode")
     try:
@@ -189,7 +223,10 @@ def compute_report(
     open_days = set()
     check_days = set()  # automatisch beendete Buchungen → „bitte prüfen“
     travel_per_day: Dict[date, int] = {}
-    for e in fetch_entries(conn, user["id"], range_start, range_end):
+    rows = fetch_entries(conn, user["id"], range_start, range_end)
+    warn_on = get_setting(conn, "arbzg_warnings") != "0"
+    rest_short = _short_rests(conn, user["id"], rows, d_from, d_to) if warn_on else {}
+    for e in rows:
         keys = e.keys()
         if "auto_closed" in keys and e["auto_closed"] and e["end_utc"]:
             check_days.add(to_local(parse_utc(e["start_utc"])).date())
@@ -219,7 +256,8 @@ def compute_report(
             d += timedelta(days=1)
 
     days = []
-    tot = {"target": 0.0, "worked": 0.0, "break": 0.0, "gleitzeit": 0.0, "ueberstunden": 0.0, "vacation": 0.0}
+    tot = {"target": 0.0, "worked": 0.0, "break": 0.0, "gleitzeit": 0.0, "ueberstunden": 0.0, "vacation": 0.0,
+           "warnings": 0}
     for d in daterange(d_from, d_to):
         key = d.isoformat()
         intervals = sorted(per_day[d])
@@ -278,6 +316,13 @@ def compute_report(
         tot["gleitzeit"] += part_gz
         tot["ueberstunden"] += part_ue
         tot["vacation"] += vac if d <= today else 0
+        warnings = []
+        if warn_on and not before_start:
+            if worked > MAX_DAY_S:
+                warnings.append({"code": "max10", "text": f"über 10 h ({fmt_duration(worked)} h)"})
+            if d in rest_short:
+                warnings.append({"code": "rest11", "text": f"Ruhezeit nur {fmt_duration(rest_short[d])} h"})
+        tot["warnings"] += len(warnings)
         days.append(
             {
                 "date": key,
@@ -291,6 +336,7 @@ def compute_report(
                 ) if intervals else None,
                 "running": d in open_days,
                 "needs_check": d in check_days,
+                "warnings": warnings,
                 "segments": len(intervals),
                 "entry_ids": sorted(set(entries_per_day[d])),
                 "absence": kind,
@@ -336,6 +382,7 @@ def compute_report(
             "gleitzeit": fmt_duration(tot["gleitzeit"]),
             "ueberstunden": fmt_duration(tot["ueberstunden"]),
             "vacation_days": tot["vacation"],
+            "warnings": tot["warnings"],
             "absence_days": {
                 k: sum(
                     (0.5 if x["half_day"] else 1)
