@@ -11,13 +11,25 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 
 *English summary: [below](#english).*
 
-| Übersicht | Monat |
+| Übersicht mit Team | Monat mit Hinweisen und Ü-Tag |
 |---|---|
 | ![Übersicht](docs/screenshots/uebersicht.png) | ![Monatsansicht](docs/screenshots/monat.png) |
 
-| Jahreskalender | Bericht (PDF) | iPhone-Einrichtung |
-|---|---|---|
-| ![Jahr](docs/screenshots/jahr.png) | ![Arbeitszeitnachweis](docs/screenshots/bericht-pdf.png) | ![Einrichtungsseite](docs/screenshots/iphone-setup.png) |
+| Kiosk-Tablet an der Wache | Kommen/Gehen nach PIN |
+|---|---|
+| ![Kiosk](docs/screenshots/kiosk.png) | ![Kiosk – Gehen](docs/screenshots/kiosk-gehen.png) |
+
+| Korrekturanträge | Monatsabschluss |
+|---|---|
+| ![Korrekturanträge](docs/screenshots/antraege.png) | ![Monatsabschluss](docs/screenshots/abschluss.png) |
+
+| Jahreskalender | Änderungsprotokoll |
+|---|---|
+| ![Jahr](docs/screenshots/jahr.png) | ![Änderungsprotokoll](docs/screenshots/protokoll.png) |
+
+| Arbeitszeitnachweis (PDF) | iPhone-Einrichtung |
+|---|---|
+| ![Arbeitszeitnachweis](docs/screenshots/bericht-pdf.png) | ![Einrichtungsseite](docs/screenshots/iphone-setup.png) |
 
 > Alle Namen und Zahlen in den Screenshots sind erfunden.
 

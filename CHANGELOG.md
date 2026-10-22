@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.16.1] – 2026-10-22
+
+### Behoben
+- Monatsansicht: Mit Hinweisen nach Arbeitszeitgesetz wurden die vier Kennzahlen oben zusammengedrückt
+  (Zahlen brachen um). Der Hinweis steht jetzt in einer eigenen Zeile darunter.
+
+### Dokumentation
+- Neue Screenshots in der README: Kiosk-Tablet, Korrekturanträge, Monatsabschluss, Änderungsprotokoll,
+  dazu aktualisierte Übersicht, Monat, Jahr, PDF und iPhone-Einrichtung (alle Daten erfunden).
+
 ## [0.16.0] – 2026-10-21
 
 ### Neu
@@ -141,6 +151,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.16.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.1
 [0.16.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.0
 [0.15.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.15.0
 [0.14.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.14.0

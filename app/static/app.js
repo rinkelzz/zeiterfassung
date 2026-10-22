@@ -218,9 +218,10 @@ async function loadMonth() {
     <div class="stat"><span class="muted">Ist / Soll</span><b>${t.worked} / ${t.target}</b></div>
     <div class="stat"><span class="muted">Saldo Monat</span><b>${signed(t.diff_s, t.diff)}</b></div>
     <div class="stat"><span class="muted">davon Gleitzeit / Überstunden</span><b>${signed(t.gleitzeit_s, t.gleitzeit)} / ${signed(t.ueberstunden_s, t.ueberstunden)}</b></div>
-    <div class="stat"><span class="muted">Urlaub im Monat</span><b>${fmtDays(rep.days.reduce((s, d) => s + d.vacation_days, 0))} Tage</b></div>` +
-    (t.warnings ? `<div class="stat" style="grid-column:1/-1"><span class="tag warn">⚠ ${t.warnings} Hinweis${t.warnings === 1 ? "" : "e"} nach Arbeitszeitgesetz</span>
-      <span class="muted small">über 10 Stunden am Tag oder weniger als 11 Stunden Ruhezeit – Details in der Tabelle</span></div>` : "");
+    <div class="stat"><span class="muted">Urlaub im Monat</span><b>${fmtDays(rep.days.reduce((s, d) => s + d.vacation_days, 0))} Tage</b></div>`;
+  // eigener Block unter den Kennzahlen (im Raster würde er die vier Kacheln zusammendrücken)
+  $("mWarn").innerHTML = t.warnings ? `<span class="tag warn">⚠ ${t.warnings} Hinweis${t.warnings === 1 ? "" : "e"} nach Arbeitszeitgesetz</span>
+      <span class="muted small">über 10 Stunden am Tag oder weniger als 11 Stunden Ruhezeit – Details in der Tabelle</span>` : "";
   const today = todayIso();
   const rows = rep.days.map(d => {
     const off = (!d.workday || d.before_start) && !d.worked_s;
