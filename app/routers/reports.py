@@ -474,6 +474,7 @@ AUDIT_ACTIONS = {
     "backup_created": ("einstellungen", "Sicherung erstellt"),
     "backup_download": ("einstellungen", "Sicherung heruntergeladen"),
     "backup_restored": ("einstellungen", "Sicherung wiederhergestellt"),
+    "backup_deleted": ("einstellungen", "Sicherung gelöscht"),
     "export_csv": ("berichte", "CSV-Export"),
     "report_download": ("berichte", "Bericht heruntergeladen"),
     "report_mailed": ("berichte", "Bericht per Mail"),

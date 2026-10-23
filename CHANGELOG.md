@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.17.0] – 2026-10-23
+
+### Neu
+- **Sicherungen löschen** unter Verwaltung → Datensicherung: einzeln per Mülleimer oder mehrere per Häkchen
+  („alle auswählen“ inklusive). Gelöscht wird im Paketordner und im freigegebenen Ordner. Die neueste Sicherung
+  ist geschützt, damit nie alle weg sind. Jede Löschung steht im Änderungsprotokoll.
+
+### Behoben
+- Mehrere Sicherungen in derselben Minute werden jetzt richtig nach Zeit sortiert.
+
 ## [0.16.3] – 2026-10-23
 
 ### Sicherheit
@@ -181,6 +191,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.17.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.17.0
 [0.16.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.3
 [0.16.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.2
 [0.16.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.1

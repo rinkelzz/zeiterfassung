@@ -128,3 +128,40 @@ def test_smtp_password_not_in_backup(admin):
         assert r["smtp_password_missing"] is True
     finally:
         admin.patch("/api/v1/settings", json={"smtp_host": ""})
+
+
+def test_delete_backups(admin, tmp_path):
+    import shutil
+    shared = tmp_path / "share"
+    assert admin.patch("/api/v1/backups/settings", json={"dir": str(shared)}).status_code == 200
+    try:
+        newest = admin.post("/api/v1/backups").json()["name"]
+        src = backup.local_dir() / newest
+        old = ["zeiterfassung_2020-01-01_0200.db.gz", "zeiterfassung_2020-01-02_0200.db.gz",
+               "zeiterfassung_2020-01-03_0900_manuell.db.gz"]
+        for n in old:
+            shutil.copyfile(src, backup.local_dir() / n)
+            shutil.copyfile(src, shared / n)
+        names = [b["name"] for b in admin.get("/api/v1/backups").json()["backups"]]
+        assert names[0] == newest and set(old) <= set(names)
+
+        # einzeln
+        r = admin.post("/api/v1/backups/delete", json={"names": [old[0]]})
+        assert r.status_code == 200 and r.json()["deleted"] == [old[0]]
+        assert not (backup.local_dir() / old[0]).exists() and not (shared / old[0]).exists()
+        # mehrere auf einmal – die neueste ist geschützt, Unbekanntes wird gemeldet
+        r = admin.post("/api/v1/backups/delete", json={"names": [old[1], old[2], newest, "../zeiterfassung.db"]}).json()
+        assert r["deleted"] == [old[1], old[2]]
+        assert {e["name"] for e in r["errors"]} == {newest, "../zeiterfassung.db"}
+        assert (backup.local_dir() / newest).exists() and (shared / newest).exists()
+        assert [b["name"] for b in r["backups"]][0] == newest
+        # nur die neueste → 400
+        r = admin.post("/api/v1/backups/delete", json={"names": [newest]})
+        assert r.status_code == 400 and "neueste" in r.json()["detail"]
+        assert admin.post("/api/v1/backups/delete", json={"names": []}).status_code == 422
+        log = admin.get("/api/v1/audit", params={"category": "einstellungen"}).json()
+        assert any(e["action"] == "backup_deleted" for e in log)
+        with TestClient(app) as c:  # Mitarbeiter dürfen nicht
+            assert c.post("/api/v1/backups/delete", json={"names": [newest]}).status_code == 401
+    finally:
+        admin.patch("/api/v1/backups/settings", json={"dir": ""})

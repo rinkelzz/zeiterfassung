@@ -773,17 +773,41 @@ function showBackups(o) {
     (o.last_status && o.last_status !== "ok" ? ` – <span class="neg">Ordner: ${esc(o.last_status)}</span>` : "");
   $("bkInfo").innerHTML = status + (o.dir ? "" : ' · <span class="neg">kein freigegebener Ordner – nur Paketordner</span>');
   const reasons = { "manuell": "von Hand", "vor-wiederherstellung": "vor Wiederherstellung" };
-  $("bkTable").innerHTML = o.backups.length ? `<thead><tr><th>Datum</th><th>Uhrzeit</th><th>Art</th><th class="num">Größe</th><th>liegt in</th><th></th></tr></thead><tbody>` +
-    o.backups.map(b => `<tr><td>${deDate(b.date)}</td><td>${b.time}</td><td>${esc(reasons[b.reason] || "automatisch")}</td>
+  // die neueste Sicherung (erste Zeile) ist geschützt und lässt sich nicht löschen
+  $("bkTable").innerHTML = o.backups.length ? `<thead><tr><th><input type="checkbox" id="bkAll" title="alle auswählen" ${o.backups.length < 2 ? "disabled" : ""}></th>` +
+    `<th>Datum</th><th>Uhrzeit</th><th>Art</th><th class="num">Größe</th><th>liegt in</th><th></th></tr></thead><tbody>` +
+    o.backups.map((b, i) => `<tr><td>${i === 0 ? '<span class="muted small" title="Die neueste Sicherung ist geschützt">🔒</span>'
+                                               : `<input type="checkbox" data-bksel="${esc(b.name)}">`}</td>
+      <td>${deDate(b.date)}</td><td>${b.time}</td><td>${esc(reasons[b.reason] || "automatisch")}${i === 0 ? ' <span class="muted small">(neueste)</span>' : ""}</td>
       <td class="num">${fmtSize(b.size)}</td><td>${b.where.map(w => w === "lokal" ? "Paketordner" : "Freigabe").join(", ")}</td>
       <td><button class="mini" data-bkdl="${esc(b.name)}">Herunterladen</button>
-          <button class="mini danger" data-bkrs="${esc(b.name)}">Wiederherstellen</button></td></tr>`).join("") + "</tbody>"
+          <button class="mini danger" data-bkrs="${esc(b.name)}">Wiederherstellen</button>
+          ${i === 0 ? "" : `<button class="mini danger" data-bkrm="${esc(b.name)}" title="Sicherung löschen">🗑</button>`}</td></tr>`).join("") + "</tbody>"
     : '<tbody><tr><td class="muted">Noch keine Sicherungen.</td></tr></tbody>';
+  const sel = () => $$("#bkTable [data-bksel]").filter(c => c.checked).map(c => c.dataset.bksel);
+  const upd = () => { const n = sel().length; $("bkDel").classList.toggle("hidden", !n); $("bkDel").textContent = `${n} ausgewählte löschen`; };
+  $$("#bkTable [data-bksel]").forEach(c => c.onchange = upd);
+  if ($("bkAll")) $("bkAll").onchange = () => { $$("#bkTable [data-bksel]").forEach(c => { c.checked = $("bkAll").checked; }); upd(); };
+  $("bkDel").onclick = () => deleteBackups(sel());
+  $$("#bkTable [data-bkrm]").forEach(b => b.onclick = () => deleteBackups([b.dataset.bkrm]));
+  upd();
   $$("#bkTable [data-bkdl]").forEach(b => b.onclick = () =>
     downloadFile(`api/v1/backups/${encodeURIComponent(b.dataset.bkdl)}/download`, b.dataset.bkdl).catch(e => { $("bkErr").textContent = e.message; }));
   $$("#bkTable [data-bkrs]").forEach(b => b.onclick = () => restoreBackup(b.dataset.bkrs));
 }
 async function loadBackups() { showBackups(await api("backups")); }
+async function deleteBackups(names) {
+  if (!names.length) return;
+  const what = names.length === 1 ? `die Sicherung „${names[0]}“` : `${names.length} Sicherungen`;
+  if (!confirm(`Wirklich ${what} löschen?\n\nSie wird im Paketordner und im freigegebenen Ordner entfernt und lässt sich nicht zurückholen.`)) return;
+  $("bkErr").textContent = "";
+  try {
+    const r = await api("backups/delete", { method: "POST", body: { names } });
+    showBackups(r);
+    if (r.errors.length) $("bkErr").textContent = `${r.deleted.length} gelöscht, ${r.errors.length} nicht: ` + r.errors.map(e => e.error).join("; ");
+    else okMsg($("bkErr"), r.deleted.length === 1 ? "Sicherung gelöscht." : `${r.deleted.length} Sicherungen gelöscht.`);
+  } catch (e) { $("bkErr").textContent = e.message; }
+}
 async function saveBackups() {
   $("bkErr").textContent = "";
   try {

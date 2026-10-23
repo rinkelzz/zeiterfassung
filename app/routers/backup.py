@@ -1,6 +1,6 @@
-"""Datensicherung: Einstellungen, Liste, Sicherung jetzt, Download, Wiederherstellen (nur Admins)."""
+"""Datensicherung: Einstellungen, Liste, Sicherung jetzt, Download, Wiederherstellen, Löschen (nur Admins)."""
 import sqlite3
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -96,3 +96,17 @@ def restore(name: str, data: RestoreIn, admin=Depends(admin_user)):
         return backup.restore(name, admin["id"])
     except backup.BackupError as e:
         raise HTTPException(400, str(e))
+
+
+class DeleteIn(BaseModel):
+    names: List[str] = Field(..., min_length=1, max_length=500, description="Dateinamen der Sicherungen")
+
+
+@router.post("/delete")
+def delete_backups(data: DeleteIn, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
+    """Eine oder mehrere Sicherungen löschen (lokal und im freigegebenen Ordner). Die neueste bleibt geschützt."""
+    with backup._lock:
+        result = backup.delete(conn, data.names, admin["id"])
+    if not result["deleted"] and result["errors"]:
+        raise HTTPException(400, result["errors"][0]["error"])
+    return {**result, **_overview(conn)}

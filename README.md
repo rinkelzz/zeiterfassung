@@ -132,8 +132,9 @@ gehört zusätzlich ein **freigegebener Ordner** dazu:
    (die App prüft die Schreibrechte), und die Aufbewahrung in Tagen festlegen (Standard 30).
 3. Den freigegebenen Ordner in Hyper Backup aufnehmen.
 
-Sicherungen lassen sich dort auch von Hand erstellen, herunterladen und wiederherstellen; vor dem
-Wiederherstellen wird der aktuelle Stand automatisch gesichert. Die Sicherungen enthalten
+Sicherungen lassen sich dort auch von Hand erstellen, herunterladen, wiederherstellen und löschen
+(einzeln oder mehrere per Häkchen, die neueste ist geschützt); vor dem Wiederherstellen wird der aktuelle
+Stand automatisch gesichert. Die Sicherungen enthalten
 Arbeitszeiten und Passwort-Hashes. Das **Mail-Passwort wird nicht mitgesichert** – beim Wiederherstellen auf
 derselben NAS bleibt es erhalten, auf einer neuen NAS trägst du es einmal neu ein. Trotzdem:
 

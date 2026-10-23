@@ -167,7 +167,15 @@ def list_backups(conn: sqlite3.Connection) -> List[Dict]:
             e = out.setdefault(f.name, {"name": f.name, "date": m.group(1), "time": m.group(2)[:2] + ":" + m.group(2)[2:],
                                         "reason": m.group(3) or "", "size": f.stat().st_size, "where": []})
             e["where"].append(where)
-    return sorted(out.values(), key=lambda e: e["name"], reverse=True)
+            try:
+                e["_mtime"] = max(e.get("_mtime", 0.0), f.stat().st_mtime)
+            except OSError:
+                pass
+    # neueste zuerst; mehrere Sicherungen in derselben Minute nach Dateizeit
+    ordered = sorted(out.values(), key=lambda e: (e["date"], e["time"], e.get("_mtime", 0.0)), reverse=True)
+    for e in ordered:
+        e.pop("_mtime", None)
+    return ordered
 
 
 def find(conn: sqlite3.Connection, name: str) -> Optional[Path]:
@@ -177,6 +185,36 @@ def find(conn: sqlite3.Connection, name: str) -> Optional[Path]:
         if folder and (folder / name).is_file():
             return folder / name
     return None
+
+
+def delete(conn: sqlite3.Connection, names: List[str], actor_id: Optional[int] = None) -> Dict:
+    """Sicherungen löschen – im Paketordner und im freigegebenen Ordner. Die neueste bleibt immer stehen."""
+    existing = list_backups(conn)
+    newest = existing[0]["name"] if existing else None
+    known = {b["name"] for b in existing}
+    deleted, errors = [], []
+    for name in dict.fromkeys(names):  # Reihenfolge behalten, doppelte weg
+        if not NAME_RE.match(name or "") or name not in known:
+            errors.append({"name": name, "error": "Sicherung nicht gefunden"})
+            continue
+        if name == newest:
+            errors.append({"name": name, "error": "Die neueste Sicherung kann nicht gelöscht werden"})
+            continue
+        failed = None
+        for folder in (local_dir(), shared_dir(conn)):
+            if folder and (folder / name).is_file():
+                try:
+                    (folder / name).unlink()
+                except OSError as e:
+                    failed = f"{folder}: {e}"
+        if failed:
+            errors.append({"name": name, "error": failed})
+        else:
+            deleted.append(name)
+    if deleted:
+        audit(conn, actor_id, "backup_deleted", "backup",
+              f"{len(deleted)} Sicherung{'en' if len(deleted) != 1 else ''}: {', '.join(deleted)}"[:500])
+    return {"deleted": deleted, "errors": errors}
 
 
 def restore(name: str, actor_id: Optional[int] = None) -> Dict:
