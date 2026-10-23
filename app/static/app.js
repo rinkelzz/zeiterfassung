@@ -107,6 +107,7 @@ async function start() {
   document.body.classList.toggle("is-admin", isAdmin());
   $$(".admin").forEach(el => el.classList.toggle("hidden", !isAdmin()));
   $("empTip").classList.toggle("hidden", isAdmin());
+  $("httpWarn").classList.toggle("hidden", !state.me.insecure_http);
   state.uid = state.uid || state.me.id;
   const now = new Date();
   state.month = state.month || `${now.getFullYear()}-${p2(now.getMonth() + 1)}`;

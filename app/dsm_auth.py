@@ -52,6 +52,9 @@ def proxy_secret() -> str:
     return _secret
 
 
+LOOPBACK = frozenset({"127.0.0.1", "::1", "::ffff:127.0.0.1"})
+
+
 def publish_proxy_files() -> bool:
     """Schlüssel und Port für ui/app.cgi neben das Paket legen (Paketordner, nicht im Web-Ordner)."""
     if not settings.ui_dir:
@@ -73,7 +76,13 @@ def publish_proxy_files() -> bool:
 def proxy_info(request) -> Optional[Dict]:
     """Prüft, ob die Anfrage über ui/app.cgi kam. Liefert {user, admin, base} oder None."""
     sent = request.headers.get("x-ze-proxy-secret")
-    if not sent or not hmac.compare_digest(sent, proxy_secret()):
+    if not sent:
+        return None
+    # app.cgi läuft auf der NAS und verbindet sich immer über 127.0.0.1 – von woanders zählt der Schlüssel nicht
+    peer = request.scope.get("ze_peer", request.client.host if request.client else "")
+    # Über den Reverse Proxy weitergereichte Anfragen kommen zwar auch von 127.0.0.1, tragen aber X-Forwarded-For
+    forwarded = any(request.headers.get(h) for h in ("x-forwarded-for", "x-real-ip", "forwarded"))
+    if peer not in LOOPBACK or forwarded or not hmac.compare_digest(sent, proxy_secret()):
         return None
     user = urllib.parse.unquote(request.headers.get("x-dsm-user", "")).strip()
     return {
@@ -185,9 +194,24 @@ def too_many_attempts(key: str, limit: int = MAX_FAILS) -> bool:
         return len(recent) >= limit
 
 
+MAX_KEYS = 50000  # Obergrenze, damit viele verschiedene Namen den Speicher nicht füllen (≈ wenige MB)
+
+
+def _prune(now: float) -> None:
+    """Abgelaufene Einträge entfernen; ist es danach immer noch zu viel, die ältesten verwerfen."""
+    for k in [k for k, v in _fails.items() if not v or now - v[-1] >= WINDOW_S]:
+        del _fails[k]
+    if len(_fails) > MAX_KEYS:
+        for k in sorted(_fails, key=lambda k: _fails[k][-1])[: len(_fails) - MAX_KEYS]:
+            del _fails[k]
+
+
 def note_failure(key: str) -> None:
+    now = time.time()
     with _lock:
-        _fails.setdefault(key, []).append(time.time())
+        if len(_fails) >= MAX_KEYS:
+            _prune(now)
+        _fails.setdefault(key, []).append(now)
 
 
 def clear_failures(key: str) -> None:

@@ -80,7 +80,11 @@ def test_employee_cannot_admin(tim):
         h = bearer(tim["token"])
         assert c.get("/api/v1/users", headers=h).status_code == 403
         assert c.get("/api/v1/reports/user", params={"user_id": 1}, headers=h).status_code == 403
-        assert c.get("/api/v1/reports/user", headers=h).status_code == 200
+    with TestClient(app) as c:  # mit Login (nicht Stempel-Schlüssel): eigener Bericht ja, fremder nein
+        assert c.post("/api/v1/auth/login", json={"username": "tim", "password": "geheim123"}).status_code == 200
+        assert c.get("/api/v1/reports/user").status_code == 200
+        assert c.get("/api/v1/reports/user", params={"user_id": 1}).status_code == 403
+        assert c.get("/api/v1/users").status_code == 403
 
 
 def test_manual_entries_and_report(admin, tim):

@@ -2,6 +2,28 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.16.2] – 2026-10-23
+
+### Sicherheit
+Härtung nach einem externen Sicherheitsreview:
+- **Schutz vor CSRF:** Ändernde Anfragen mit Login-Cookie werden nur noch von der eigenen Seite angenommen.
+  Eine fremde Webseite konnte bisher einen angemeldeten Nutzer z. B. ein- oder ausstempeln lassen.
+- **DSM-Fenster:** Der interne Proxy-Schlüssel gilt nur noch für Verbindungen von der NAS selbst
+  (127.0.0.1, ohne `X-Forwarded-For`).
+- **Kurzbefehl-/NFC-Schlüssel gelten nur noch zum Stempeln.** Bisher hatten sie alle Rechte des Benutzers –
+  beim Admin also auch die Verwaltung. Kurzbefehle, NFC und die Einrichtungsseite funktionieren unverändert.
+- **CSV- und Excel-Exporte:** Freitext, der mit `=`, `+`, `-` oder `@` beginnt, wird entschärft, damit Excel
+  daraus keine Formel macht.
+- **Login-Sperre:** Die Liste der Fehlversuche wird aufgeräumt und ist in der Größe begrenzt.
+
+### Neu
+- Gelber **Warnhinweis**, wenn die App per unverschlüsseltem `http://` von außerhalb des Heimnetzes
+  aufgerufen wird (Port direkt im Router freigegeben statt Reverse Proxy mit HTTPS).
+
+### Dokumentation
+- README: Hinweise zum Verschlüsseln der Datensicherung (Hyper Backup, verschlüsselter Ordner) und
+  zum Reverse Proxy. SECURITY.md ergänzt.
+
 ## [0.16.1] – 2026-10-22
 
 ### Behoben
@@ -151,6 +173,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.16.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.2
 [0.16.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.1
 [0.16.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.0
 [0.15.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.15.0

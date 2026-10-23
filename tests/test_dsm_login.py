@@ -23,7 +23,7 @@ def proxy_headers(user=None, admin=False, secret=None):
 
 @pytest.fixture()
 def admin():
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         c.post("/api/v1/auth/login", json={"username": "admin", "password": os.environ["ZE_ADMIN_PASSWORD"]})
         yield c
         c.patch("/api/v1/settings", json={"dsm_login": True, "dsm_auto_create": True, "dsm_admins": True})
@@ -32,7 +32,7 @@ def admin():
 # --- Single Sign-on ----------------------------------------------------------
 
 def test_sso_creates_user_and_maps_admin(admin):
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         me = c.get("/api/v1/me", headers=proxy_headers("sso_hans"))
         assert me.status_code == 200 and me.json()["via_dsm"] and not me.json()["is_admin"]
         assert me.json()["has_password"] is False
@@ -45,7 +45,7 @@ def test_sso_creates_user_and_maps_admin(admin):
 
 
 def test_sso_rejects_wrong_secret_and_missing_user():
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         # gefälschter Benutzer ohne gültigen Schlüssel wird ignoriert → nicht angemeldet
         assert c.get("/api/v1/me", headers=proxy_headers("admin", True, secret="falsch" * 8)).status_code == 401
         assert c.get("/api/v1/me", headers={"X-DSM-User": "admin", "X-DSM-Admin": "1"}).status_code == 401
@@ -55,19 +55,19 @@ def test_sso_rejects_wrong_secret_and_missing_user():
 
 def test_sso_respects_settings_and_inactive(admin):
     admin.patch("/api/v1/settings", json={"dsm_auto_create": False, "dsm_admins": False})
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         r = c.get("/api/v1/me", headers=proxy_headers("sso_fremd"))
         assert r.status_code == 403 and "beim Admin" in r.json()["detail"]
         assert not c.get("/api/v1/me", headers=proxy_headers("sso_hans", admin=True)).json()["is_admin"]
     uid = [u for u in admin.get("/api/v1/users").json() if u["username"] == "sso_hans"][0]["id"]
     admin.patch(f"/api/v1/users/{uid}", json={"active": False})
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         assert c.get("/api/v1/me", headers=proxy_headers("sso_hans")).status_code == 403
     admin.patch(f"/api/v1/users/{uid}", json={"active": True})
 
 
 def test_index_uses_proxy_base():
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         html = c.get("/", headers=proxy_headers()).text
         assert 'window.ZE_PROXY="app.cgi"' in html and '"app.cgi?p=/static/app.js' in html
         plain = c.get("/").text
@@ -89,7 +89,7 @@ def test_login_with_dsm_password(admin, monkeypatch):
 
     monkeypatch.setattr(auth_router, "dsm_password_check", fake_check)
     monkeypatch.setattr(auth_router, "is_dsm_admin", lambda u: u == "dsm_admin")
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         r = c.post("/api/v1/auth/login", json={"username": "dsm_lisa", "password": "dsm-pass"})
         assert r.status_code == 200 and r.json()["username"] == "dsm_lisa" and not r.json()["is_admin"]
         assert c.get("/api/v1/me").status_code == 200
@@ -108,13 +108,13 @@ def test_login_with_dsm_password(admin, monkeypatch):
         r = c.post("/api/v1/me/password", json={"old_password": "x", "new_password": "neuesPasswort1"})
         assert r.status_code == 400 and "DSM" in r.json()["detail"]
     admin.patch("/api/v1/settings", json={"dsm_login": False})
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         assert c.post("/api/v1/auth/login", json={"username": "dsm_lisa", "password": "dsm-pass"}).status_code == 401
 
 
 def test_login_rate_limit(monkeypatch):
     monkeypatch.setattr(auth_router, "dsm_password_check", lambda *a, **k: "wrong")
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
         for _ in range(5):
             assert c.post("/api/v1/auth/login", json={"username": "brute", "password": "x"}).status_code == 401
         assert c.post("/api/v1/auth/login", json={"username": "brute", "password": "x"}).status_code == 429

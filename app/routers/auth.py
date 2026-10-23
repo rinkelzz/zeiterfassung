@@ -1,6 +1,7 @@
 """Login, Logout, eigenes Profil, eigene API-Tokens und Einrichtungs-QR-Code."""
 import io
 import json
+import ipaddress
 import sqlite3
 from typing import Optional
 
@@ -137,7 +138,23 @@ def logout(request: Request, response: Response, conn: sqlite3.Connection = Depe
 
 @router.get("/me")
 def me(request: Request, user=Depends(current_user)):
-    return {**user_out(user), "via_dsm": bool(getattr(request.state, "via_dsm", False))}
+    return {**user_out(user), "via_dsm": bool(getattr(request.state, "via_dsm", False)),
+            "insecure_http": insecure_http(request)}
+
+
+_CGNAT = ipaddress.ip_network("100.64.0.0/10")
+
+
+def insecure_http(request: Request) -> bool:
+    """True, wenn jemand per unverschlüsseltem http von außerhalb des Heimnetzes zugreift."""
+    if request.url.scheme != "http" or getattr(request.state, "via_dsm", False):
+        return False
+    try:
+        ip = ipaddress.ip_address(request.client.host if request.client else "")
+    except ValueError:
+        return False
+    # 100.64.0.0/10: Carrier-NAT bzw. Tailscale/VPN – zählt als eigenes Netz
+    return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip in _CGNAT)
 
 
 class ProfileIn(BaseModel):

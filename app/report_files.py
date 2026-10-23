@@ -4,6 +4,7 @@ import sqlite3
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 
+from . import csvsafe
 from .pdf import PDF, fit
 from .reports import (
     ABSENCE_KINDS,
@@ -396,6 +397,7 @@ def _xlsx_month_sheet(ws, data: Dict, days: List[Dict], title_line: str) -> None
     ws.append([title_line])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([f"{u['display_name']} ({u['username']})", "", "", "", "", "Sollarbeitszeit:", data["schedule"]])
+    csvsafe.no_formulas(ws)
     ws.append([])
     header = ["Datum", "Tag", "Kommen", "Gehen", "Pause (min)", "Ist (h)", "Soll (h)", "Differenz (h)",
               "davon Gleitzeit (h)", "davon Überstunden (h)", "Wegezeit (min)", "Abwesenheit / Feiertag", "Bemerkung"]
@@ -516,6 +518,7 @@ def year_xlsx(data: Dict) -> bytes:
     ws.append([f"Jahresübersicht {data['from'].year}"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([f"{u['display_name']} ({u['username']})", "", "", "", "", "Sollarbeitszeit:", data["schedule"]])
+    csvsafe.no_formulas(ws)
     ws.append([])
     kinds = list(ABSENCE_KINDS)
     ws.append(["Monat", "Soll (h)", "Ist (h)", "Differenz (h)", "Gleitzeit (h)", "Überstunden (h)", "Wegezeit (min)"]

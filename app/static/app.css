@@ -130,3 +130,6 @@ button.mini.primary { background: var(--accent); color: var(--accent-ink); borde
 .nowrap { white-space: nowrap; }
 table.audit td { vertical-align: top; }
 table.audit tr.cat-anmeldung td, table.audit tr.cat-berichte td { color: var(--muted); }
+
+.httpwarn { background: #fef3c7; color: #78350f; border: 1px solid #f59e0b; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; }
+@media (prefers-color-scheme: dark) { .httpwarn { background: #422006; color: #fde68a; border-color: #b45309; } }

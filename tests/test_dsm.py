@@ -75,7 +75,7 @@ def test_qr_in_dsm_window_uses_browser_host(monkeypatch):
     from app import dsm_auth
     monkeypatch.setattr(settings, "public_url", "")
     h = {"X-ZE-Proxy-Secret": dsm_auth.proxy_secret(), "X-ZE-Proxy-Base": "app.cgi", "X-DSM-User": "qr_tim", "X-DSM-Admin": "0"}
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:  # app.cgi verbindet sich immer über 127.0.0.1
         r = c.post("/api/v1/me/tokens", json={"label": "iPhone", "host_hint": "192.168.178.20"}, headers=h).json()
         assert r["setup"]["server"] == f"http://192.168.178.20:{settings.port}"
         assert r["setup_url"].startswith(f"http://192.168.178.20:{settings.port}/setup#t=ze_")

@@ -3,10 +3,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
+from . import csrf
 from .config import settings
 from .db import connect, init_db
 from .dsm import write_ui_config
@@ -49,8 +50,33 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E40
 TRUSTED_PROXIES = ["127.0.0.1", "::1"]
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=TRUSTED_PROXIES)
 
+
+class _RememberPeer:
+    """Merkt sich die echte TCP-Gegenstelle, bevor X-Forwarded-For sie umschreibt
+    (für die Prüfung, ob eine Anfrage wirklich von ui/app.cgi auf der NAS kommt)."""
+
+    def __init__(self, app_):
+        self.app = app_
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            client = scope.get("client")
+            scope["ze_peer"] = client[0] if client else ""
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(_RememberPeer)  # zuletzt hinzugefügt = läuft zuerst
+
 for r in (auth.router, backup.router, clock.router, closings.router, entries.router, importer.router, kiosk.router, reports.router, requests.router, updates.router, users.router):
     app.include_router(r)
+
+
+@app.middleware("http")
+async def csrf_guard(request: Request, call_next):
+    reason = csrf.blocked(request.method, request.url.path, request.headers)
+    if reason:
+        return JSONResponse({"detail": reason}, status_code=403)
+    return await call_next(request)
 
 
 @app.middleware("http")

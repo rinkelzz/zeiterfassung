@@ -6,10 +6,11 @@ import sqlite3
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from .. import csvsafe
 from ..config import settings as app_settings
 from ..db import audit, get_db, get_setting
 from ..mailer import FORMATS, MailError, send_mail, send_report, smtp_config, valid_email
@@ -28,6 +29,16 @@ from ..reports import (
 from ..security import admin_user, current_user
 from ..timeutil import today_local
 from .entries import default_range, resolve_user_id
+
+class _SafeWriter:
+    """csv.writer, der Freitext gegen Formel-Injektion entschärft (siehe csvsafe)."""
+
+    def __init__(self, w):
+        self._w = w
+
+    def writerow(self, values):
+        self._w.writerow(csvsafe.row(values))
+
 
 router = APIRouter(prefix="/api/v1", tags=["Auswertungen"])
 
@@ -145,7 +156,7 @@ def export_csv(
     vac = vacation_account(conn, target, d_to.year)
 
     buf = io.StringIO()
-    w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
+    w = _SafeWriter(csv.writer(buf, delimiter=";", lineterminator="\r\n"))
     w.writerow(["Mitarbeiter", target["display_name"]])
     w.writerow(["Zeitraum", f"{d_from:%d.%m.%Y} – {d_to:%d.%m.%Y}"])
     w.writerow([])
@@ -332,9 +343,10 @@ def _set(conn, key: str, value: str) -> None:
 
 
 @router.get("/settings", tags=["Einstellungen"])
-def get_settings(user=Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+def get_settings(request: Request, user=Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
     out = _settings_out(conn)
-    if not user["is_admin"]:  # Mailserver-Zugang geht nur Admins etwas an
+    # Mailserver-Zugang geht nur Admins etwas an – und nie über einen Stempel-Schlüssel
+    if not user["is_admin"] or getattr(request.state, "via_token", False):
         for k in [k for k in out if k.startswith("smtp_")]:
             out.pop(k)
     return out
@@ -588,7 +600,7 @@ def audit_export(
     where, args = _audit_query(conn, user_id, from_, to, category, q)
     rows = _audit_rows(conn, where, args, 100000)
     buf = io.StringIO()
-    w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
+    w = _SafeWriter(csv.writer(buf, delimiter=";", lineterminator="\r\n"))
     w.writerow(["Zeitpunkt", "Wer", "Betrifft", "Bereich", "Aktion", "Details"])
     for r in rows:
         ts = r["ts_local"][:16].replace("T", " ") if r["ts_local"] else ""

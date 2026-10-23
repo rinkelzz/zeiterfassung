@@ -134,7 +134,14 @@ gehört zusätzlich ein **freigegebener Ordner** dazu:
 
 Sicherungen lassen sich dort auch von Hand erstellen, herunterladen und wiederherstellen; vor dem
 Wiederherstellen wird der aktuelle Stand automatisch gesichert. Die Sicherungen enthalten
-Arbeitszeiten, Passwort-Hashes und das Mail-Passwort – den Ordner nicht für alle freigeben.
+Arbeitszeiten, Passwort-Hashes und das Mail-Passwort. Deshalb:
+
+- Den Ordner **nicht für alle freigeben** – nur Admins und der System-Benutzer `zeiterfassung` brauchen Zugriff.
+- In **Hyper Backup** beim Sicherungsauftrag die **Client-seitige Verschlüsselung** einschalten (vor allem bei
+  Sicherungen in die Cloud oder auf USB-Platten).
+- Optional den freigegebenen Ordner selbst **verschlüsseln** (Systemsteuerung → Freigegebener Ordner → Bearbeiten →
+  Verschlüsselung).
+- Fürs Mail-Passwort am besten ein eigenes Konto oder App-Passwort nur für den Versand verwenden.
 
 ### Von unterwegs erreichbar machen (Reverse Proxy)
 
@@ -149,11 +156,16 @@ Fürs iPhone unterwegs braucht die App eine eigene https-Adresse, z. B. `https:/
 
 Die Adresse von DSM selbst (z. B. `https://nas.meinedomain.de`) ist **nicht** die richtige – die App braucht ihre eigene.
 
+**Wichtig:** Port 8765 im Router **nicht** direkt freigeben – dann laufen Passwörter unverschlüsselt durchs Internet.
+Greift jemand per `http://` von außerhalb des Heimnetzes zu, zeigt die App oben einen gelben Warnhinweis.
+
 ### iPhone und NFC einrichten
 
 Unter **Mein Zugang → QR-Code erzeugen** und mit der iPhone-Kamera scannen. Die Einrichtungsseite
 erklärt Schritt für Schritt die Kurzbefehle „Kommen“/„Gehen“, die Standort-Automation und NFC.
-Technisch ist es jeweils ein `POST` mit `Authorization: Bearer <token>`:
+Technisch ist es jeweils ein `POST` mit `Authorization: Bearer <token>`. Diese Schlüssel gelten **nur zum
+Stempeln** – geht ein Handy oder NFC-Aufkleber verloren, kommt damit niemand an Konten, Berichte oder die
+Verwaltung. Trotzdem das verlorene Gerät unter „Mein Zugang“ bzw. in der Verwaltung sperren.
 
 | Zweck | Adresse |
 |---|---|
@@ -292,9 +304,11 @@ then DSM → Package Center → Manual Install. Afterwards:
 - *Updates:* Package Center → Settings → General → trust level "Any publisher"; Settings → Package Sources →
   add `http://127.0.0.1:8765/spk`.
 - *Backup:* give the system user `zeiterfassung` read/write access to a shared folder and enter it under
-  *Verwaltung → Datensicherung* (the package folder is deleted on uninstall).
+  *Verwaltung → Datensicherung* (the package folder is deleted on uninstall). Backups contain password hashes
+  and the SMTP password – keep the folder private and enable client-side encryption in Hyper Backup.
 - *Remote access:* DSM reverse proxy (`https://time.example.com` → `http://localhost:8765`), then enter that
-  address under *Verwaltung → Einstellungen → Öffentliche Adresse*.
+  address under *Verwaltung → Einstellungen → Öffentliche Adresse*. Never forward port 8765 directly.
+- *Shortcut/NFC tokens* can only clock in/out; they cannot access reports or administration.
 
 **Develop:** `pip install -r requirements-dev.txt && python -m app.main` (API docs at `/docs`), `pytest` to run the tests.
 

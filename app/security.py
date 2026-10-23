@@ -95,6 +95,22 @@ def _user_from_api_token(conn: sqlite3.Connection, token: str) -> Optional[sqlit
     return row
 
 
+# Schlüssel für Kurzbefehle/NFC dürfen nur stempeln (plus die zwei Abfragen der Einrichtungsseite).
+# Geht ein Aufkleber oder Handy verloren, kommt damit niemand an Konten, Berichte oder die Verwaltung.
+TOKEN_PREFIXES = ("/api/v1/clock/",)
+TOKEN_GET_PATHS = ("/api/v1/me", "/api/v1/settings")
+
+
+def token_allowed(request: Request) -> bool:
+    path = request.url.path
+    root = settings.root_path
+    if root and path.startswith(root + "/"):
+        path = path[len(root):]
+    if path.startswith(TOKEN_PREFIXES):
+        return True
+    return request.method in ("GET", "HEAD") and path.rstrip("/") in TOKEN_GET_PATHS
+
+
 def current_user(request: Request, conn: sqlite3.Connection = Depends(get_db)) -> sqlite3.Row:
     """Login per Session (Cookie oder X-Session-Token-Header, Weboberfläche) oder
     Bearer-Token (Kurzbefehle, NFC, Kiosk)."""
@@ -102,6 +118,7 @@ def current_user(request: Request, conn: sqlite3.Connection = Depends(get_db)) -
     from .dsm_auth import dsm_user_row, proxy_info  # spät importiert, vermeidet Zyklus
     proxied = proxy_info(request)
     request.state.via_dsm = False
+    request.state.via_token = False
     if proxied and proxied["user"]:
         user, error = dsm_user_row(conn, proxied["user"], proxied["admin"])
         if not user:
@@ -110,7 +127,11 @@ def current_user(request: Request, conn: sqlite3.Connection = Depends(get_db)) -
         return user
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
+        if not token_allowed(request):
+            raise HTTPException(status.HTTP_403_FORBIDDEN,
+                                "Dieser Schlüssel (Kurzbefehl/NFC) gilt nur zum Stempeln.")
         user = _user_from_api_token(conn, auth[7:].strip())
+        request.state.via_token = True
     else:
         token = request.headers.get(SESSION_HEADER) or request.cookies.get(SESSION_COOKIE)
         user = _user_from_session(conn, token) if token else None

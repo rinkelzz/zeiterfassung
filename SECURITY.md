@@ -12,8 +12,15 @@ Unterstützt wird jeweils die neueste Version unter [Releases](https://github.co
 - Der Reverse Proxy sollte der von DSM auf derselben NAS sein: Nur Anfragen von 127.0.0.1 dürfen die
   echte Absenderadresse (`X-Forwarded-For`) mitliefern. Bei einem Proxy auf einem anderen Gerät sieht die
   App dessen Adresse – die Login-Sperre greift dann nur noch pro Benutzername.
-- Die QR-Code-Links enthalten persönliche Schlüssel. Verlorene Geräte unter „Mein Zugang“ bzw. in der
-  Verwaltung sperren.
+- Die QR-Code-Links enthalten persönliche Schlüssel. Sie gelten nur zum Stempeln (`/api/v1/clock/…`),
+  trotzdem verlorene Geräte unter „Mein Zugang“ bzw. in der Verwaltung sperren.
+- Änderungen per Login-Cookie werden nur von der eigenen Seite angenommen (Schutz vor CSRF über
+  `Sec-Fetch-Site` bzw. `Origin`). Läuft die App hinter einem Proxy, der den `Host`-Header umschreibt, die
+  **Öffentliche Adresse** in den Einstellungen eintragen.
+- Der Schlüssel für das DSM-Fenster (`.proxy_secret` im Paketordner) wird nur von Verbindungen über
+  127.0.0.1 ohne `X-Forwarded-For` angenommen, also nur von `app.cgi` auf der NAS selbst.
+- Updates kommen aus den GitHub-Releases dieses Repos. Sie sind nicht zusätzlich signiert – geschützt
+  sind sie durch HTTPS und das (per Zwei-Faktor gesicherte) GitHub-Konto des Maintainers.
 - Das SMTP-Passwort liegt in der Datenbank der App (`/var/packages/zeiterfassung/var/`), lesbar nur für
   den Paketbenutzer. Am besten ein eigenes Mail-Konto oder App-Passwort nur für den Versand verwenden.
 
