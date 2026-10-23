@@ -106,3 +106,25 @@ def test_download_and_rights(admin):
         c.post("/api/v1/auth/login", json={"username": "bert", "password": "geheim123"})
         assert c.get("/api/v1/backups").status_code == 403
         assert c.get(f"/api/v1/backups/{name}/download").status_code == 403
+
+
+def test_smtp_password_not_in_backup(admin):
+    pw = "Sehr-Geheimes-Mailpasswort-4711"
+    assert admin.patch("/api/v1/settings", json={"smtp_host": "mail.example.de", "smtp_password": pw}).status_code == 200
+    try:
+        name = admin.post("/api/v1/backups").json()["name"]
+        raw = gzip.decompress(admin.get(f"/api/v1/backups/{name}/download").content)
+        assert raw[:15] == b"SQLite format 3"
+        assert pw.encode() not in raw                                   # auch nicht in freien Seiten
+        # Wiederherstellen auf derselben NAS: aktuelles Passwort bleibt
+        r = admin.post(f"/api/v1/backups/{name}/restore", json={"confirm": name}).json()
+        assert r["smtp_password_missing"] is False
+        with connect() as conn:
+            assert conn.execute("SELECT value FROM app_settings WHERE key = 'smtp_password'").fetchone()[0] == pw
+        # „neue NAS“: kein Passwort vorhanden → Hinweis
+        with connect() as conn:
+            conn.execute("UPDATE app_settings SET value = '' WHERE key = 'smtp_password'")
+        r = admin.post(f"/api/v1/backups/{name}/restore", json={"confirm": name}).json()
+        assert r["smtp_password_missing"] is True
+    finally:
+        admin.patch("/api/v1/settings", json={"smtp_host": ""})

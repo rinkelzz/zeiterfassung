@@ -808,7 +808,9 @@ async function restoreBackup(name) {
   $("bkErr").textContent = "";
   try {
     const r = await api(`backups/${encodeURIComponent(name)}/restore`, { method: "POST", body: { confirm: name } });
-    alert(`Wiederhergestellt. Der vorherige Stand liegt in „${r.safety_backup}“.`);
+    alert(`Wiederhergestellt. Der vorherige Stand liegt in „${r.safety_backup}“.` +
+          (r.smtp_password_missing ? "\n\nDas Mail-Passwort wird aus Sicherheitsgründen nicht mitgesichert – bitte unter " +
+                                     "Verwaltung → Mailserver (SMTP) neu eintragen." : ""));
     location.reload();
   } catch (e) { $("bkErr").textContent = e.message; }
 }

@@ -134,14 +134,14 @@ gehört zusätzlich ein **freigegebener Ordner** dazu:
 
 Sicherungen lassen sich dort auch von Hand erstellen, herunterladen und wiederherstellen; vor dem
 Wiederherstellen wird der aktuelle Stand automatisch gesichert. Die Sicherungen enthalten
-Arbeitszeiten, Passwort-Hashes und das Mail-Passwort. Deshalb:
+Arbeitszeiten und Passwort-Hashes. Das **Mail-Passwort wird nicht mitgesichert** – beim Wiederherstellen auf
+derselben NAS bleibt es erhalten, auf einer neuen NAS trägst du es einmal neu ein. Trotzdem:
 
 - Den Ordner **nicht für alle freigeben** – nur Admins und der System-Benutzer `zeiterfassung` brauchen Zugriff.
 - In **Hyper Backup** beim Sicherungsauftrag die **Client-seitige Verschlüsselung** einschalten (vor allem bei
   Sicherungen in die Cloud oder auf USB-Platten).
 - Optional den freigegebenen Ordner selbst **verschlüsseln** (Systemsteuerung → Freigegebener Ordner → Bearbeiten →
   Verschlüsselung).
-- Fürs Mail-Passwort am besten ein eigenes Konto oder App-Passwort nur für den Versand verwenden.
 
 ### Von unterwegs erreichbar machen (Reverse Proxy)
 
@@ -305,7 +305,7 @@ then DSM → Package Center → Manual Install. Afterwards:
   add `http://127.0.0.1:8765/spk`.
 - *Backup:* give the system user `zeiterfassung` read/write access to a shared folder and enter it under
   *Verwaltung → Datensicherung* (the package folder is deleted on uninstall). Backups contain password hashes
-  and the SMTP password – keep the folder private and enable client-side encryption in Hyper Backup.
+  (the SMTP password is left out) – keep the folder private and enable client-side encryption in Hyper Backup.
 - *Remote access:* DSM reverse proxy (`https://time.example.com` → `http://localhost:8765`), then enter that
   address under *Verwaltung → Einstellungen → Öffentliche Adresse*. Never forward port 8765 directly.
 - *Shortcut/NFC tokens* can only clock in/out; they cannot access reports or administration.

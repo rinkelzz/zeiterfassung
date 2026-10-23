@@ -7,6 +7,8 @@
 - Gesichert wird über die Online-Backup-API von SQLite: konsistent, auch während jemand stempelt.
 - Wiederherstellen schreibt die Sicherung über dieselbe API in die laufende Datenbank zurück
   (vorher wird automatisch der aktuelle Stand gesichert) und bringt das Schema auf den neuesten Stand.
+- Das Mail-Passwort wird nicht mitgesichert. Beim Wiederherstellen bleibt das aktuelle erhalten; auf einer
+  neuen NAS muss es einmal neu eingetragen werden.
 """
 import gzip
 import os
@@ -60,6 +62,18 @@ def check_dir(path: str) -> Path:
     return p
 
 
+# Zugangsdaten, die nicht in die Sicherung gehören (nach dem Wiederherstellen auf einer anderen NAS neu eintragen)
+SECRET_SETTINGS = ("smtp_password",)
+
+
+def _strip_secrets(db: sqlite3.Connection) -> None:
+    """Mail-Passwort in der Sicherungskopie leeren – und per VACUUM auch aus freien Seiten entfernen."""
+    db.execute("PRAGMA secure_delete = ON")
+    db.executemany("UPDATE app_settings SET value = '' WHERE key = ?", [(k,) for k in SECRET_SETTINGS])
+    db.commit()
+    db.execute("VACUUM")
+
+
 def _snapshot(dest_gz: Path) -> int:
     """Konsistente Kopie der laufenden DB, prüfen, gzip schreiben. Gibt die Größe zurück."""
     with tempfile.TemporaryDirectory(dir=str(settings.data_dir)) as tmp:
@@ -71,6 +85,7 @@ def _snapshot(dest_gz: Path) -> int:
         finally:
             src.close()
         try:
+            _strip_secrets(dst)
             ok = dst.execute("PRAGMA integrity_check").fetchone()[0]
         finally:
             dst.close()
@@ -193,14 +208,21 @@ def restore(name: str, actor_id: Optional[int] = None) -> Dict:
             src = sqlite3.connect(str(raw))
             live = connect()
             try:
+                # Mail-Passwort steht nicht in der Sicherung → auf derselben NAS das aktuelle behalten
+                kept = {k: get_setting(live, k) for k in SECRET_SETTINGS}
                 src.backup(live)
                 live.row_factory = sqlite3.Row
                 migrate(live)  # ältere Sicherung → aktuelles Schema
+                for k, v in kept.items():
+                    if v and not get_setting(live, k):
+                        live.execute("INSERT INTO app_settings(key, value) VALUES (?, ?) "
+                                     "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (k, v))
+                smtp_missing = bool(get_setting(live, "smtp_host")) and not get_setting(live, "smtp_password")
                 audit(live, actor_id, "backup_restored", name, f"vorher gesichert als {before['name']}")
             finally:
                 src.close()
                 live.close()
-    return {"restored": name, "safety_backup": before["name"]}
+    return {"restored": name, "safety_backup": before["name"], "smtp_password_missing": smtp_missing}
 
 
 def due(conn: sqlite3.Connection, now_local: datetime) -> bool:

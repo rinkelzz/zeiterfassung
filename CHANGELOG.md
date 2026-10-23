@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.16.3] – 2026-10-23
+
+### Sicherheit
+- **Das Mail-Passwort (SMTP) wird nicht mehr mitgesichert.** Bisher stand es im Klartext in jeder Sicherung.
+  Beim Wiederherstellen auf derselben NAS bleibt das aktuelle Passwort erhalten; fehlt es (z. B. nach dem
+  Umzug auf eine neue NAS), weist die App darauf hin, es unter Verwaltung → Mailserver neu einzutragen.
+  Ältere Sicherungen enthalten es noch – sie werden nach der eingestellten Aufbewahrung automatisch gelöscht.
+
 ## [0.16.2] – 2026-10-23
 
 ### Sicherheit
@@ -173,6 +181,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.16.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.3
 [0.16.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.2
 [0.16.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.1
 [0.16.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.0

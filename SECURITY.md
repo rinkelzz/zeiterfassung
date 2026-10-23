@@ -22,7 +22,8 @@ Unterstützt wird jeweils die neueste Version unter [Releases](https://github.co
 - Updates kommen aus den GitHub-Releases dieses Repos. Sie sind nicht zusätzlich signiert – geschützt
   sind sie durch HTTPS und das (per Zwei-Faktor gesicherte) GitHub-Konto des Maintainers.
 - Das SMTP-Passwort liegt in der Datenbank der App (`/var/packages/zeiterfassung/var/`), lesbar nur für
-  den Paketbenutzer. Am besten ein eigenes Mail-Konto oder App-Passwort nur für den Versand verwenden.
+  den Paketbenutzer, und wird **nicht** in die Datensicherungen übernommen. Am besten ein eigenes Mail-Konto
+  oder App-Passwort nur für den Versand verwenden.
 
 # Security (English)
 
