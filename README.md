@@ -40,7 +40,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
   [Datensicherung](#datensicherung) · [Von unterwegs (Reverse Proxy)](#von-unterwegs-erreichbar-machen-reverse-proxy) ·
   [iPhone & NFC](#iphone-und-nfc-einrichten) · [Kiosk-Tablet](#kiosk-tablet) · [Berichte per Mail](#berichte-per-mail) ·
   [Vergessenes Ausstempeln](#vergessenes-ausstempeln) · [Korrekturanträge](#korrekturanträge) ·
-  [Monatsabschluss](#monatsabschluss)
+  [Monatsabschluss](#monatsabschluss) · [Arbeitszeit & Pausen je Wochentag](#arbeitszeit-und-pausen-je-wochentag) ·
+  [Mitarbeiter deaktivieren oder löschen](#mitarbeiter-deaktivieren-oder-löschen)
 - [Entwicklung](#entwicklung) · [Hinweise](#hinweise) · [Lizenz](#lizenz) · [English](#english)
 
 ## Funktionen
@@ -231,6 +232,28 @@ Mitarbeiter bis zu einem Monat. Danach sind Buchungen, Abwesenheiten, Ü-Tage un
 in diesem Monat gesperrt, und die Kontostände am Monatsende sind festgeschrieben. Abgeschlossen wird der
 Reihe nach; **Wieder öffnen** geht beim zuletzt abgeschlossenen Monat mit Begründung (Änderungsprotokoll).
 
+### Arbeitszeit und Pausen je Wochentag
+
+Unter **Verwaltung → Mitarbeiter → Verlauf** gilt jede Änderung ab einem Datum (ältere Monate bleiben unverändert):
+
+- **Gleichmäßig verteilen:** Wochenstunden und Arbeitstage, z. B. 40 h an Mo–Fr = 8 h pro Tag.
+- **Stunden je Tag:** für jeden Wochentag eine eigene Sollzeit, z. B. Mo 0 · Di–Fr 8,5 · Sa 4 · So 0 = 38 h/Woche.
+- **Pause je Tag:** *Standard* (Einstellung unter Verwaltung → Einstellungen), *keine*, *ArbZG* oder feste Minuten –
+  z. B. samstags kein Abzug.
+
+PDF und Excel zeigen die Tagesstunden und abweichende Pausen in der Kopfzeile.
+
+### Mitarbeiter deaktivieren oder löschen
+
+In der Mitarbeiterliste unter **Verwaltung**:
+
+- **Deaktivieren** sperrt den Zugang, alle Arbeitszeiten bleiben erhalten – das Richtige für ausgeschiedene
+  Mitarbeiter, denn Arbeitszeitnachweise müssen meist eine Zeit lang aufbewahrt werden. **Aktivieren** macht es rückgängig.
+- **Löschen** entfernt den Mitarbeiter endgültig mit allen Buchungen, Abwesenheiten, Anträgen und Abschlüssen.
+  Zur Bestätigung den Benutzernamen eintippen; vorher legt die App automatisch eine Sicherung an
+  („vor Löschen eines Mitarbeiters“), über die sich ein Versehen wiederherstellen lässt. Im Änderungsprotokoll
+  bleibt der Name als „(gelöscht)“ stehen. Sich selbst und den letzten Admin kann man nicht löschen.
+
 ## Entwicklung
 
 ```bash
@@ -291,8 +314,10 @@ Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The 
 - Clock in via web UI, iPhone Shortcuts (setup via QR code), geofence automation, NFC tags or a
   kiosk tablet (name + PIN, shows who is present); optional travel-time allowance
 - Forgotten clock-outs: email reminder after 12 hours, auto-close at midnight, flagged for review
-- Separate flextime and overtime accounts, weekly hours with effective dates, vacation tracking,
-  public holidays for all 16 German states, break deduction per German working-time law (ArbZG)
+- Separate flextime and overtime accounts, weekly hours with effective dates (evenly spread or hours per
+  weekday, e.g. Tue–Fri 8.5 h, Sat 4 h), vacation tracking, public holidays for all 16 German states,
+  break deduction per German working-time law (ArbZG), fixed or none – optionally different per weekday
+- Deactivate employees (data kept) or delete them permanently (name confirmation, automatic backup first)
 - Working-time-law hints: more than 10 hours a day, less than 11 hours rest between working days
 - Correction requests: employees request adding, changing or deleting a punch; admins approve (applied
   automatically) or reject with a reason, with email notifications
