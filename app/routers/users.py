@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field, field_validator
 
 from ..db import audit, get_db
 from ..security import admin_user, hash_password
-from ..reports import FOREVER, schedule_on, schedules, sync_current_schedule
+from ..reports import FOREVER, parse_day_hours, schedule_on, schedules, sync_current_schedule
 from ..timeutil import now_utc_str, today_local
 from .auth import TokenIn, issue_token_with_qr, list_tokens, user_out
 
 router = APIRouter(prefix="/api/v1/users", tags=["Nutzerverwaltung (Admin)"])
+WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 
 def _check_workdays(v):
@@ -101,8 +102,13 @@ def _active_admins(conn: sqlite3.Connection) -> int:
 
 @router.get("")
 def list_users(include_inactive: bool = False, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
-    sql = "SELECT * FROM users" + ("" if include_inactive else " WHERE active = 1") + " ORDER BY display_name"
-    return [user_out(r) for r in conn.execute(sql).fetchall()]
+    sql = "SELECT * FROM users" + ("" if include_inactive else " WHERE active = 1") + " ORDER BY active DESC, display_name"
+    today = today_local()
+    out = []
+    for r in conn.execute(sql).fetchall():
+        s = schedule_on(conn, r["id"], today)
+        out.append({**user_out(r), "day_hours": parse_day_hours(s["day_hours"]) if s else None})
+    return out
 
 
 @router.post("", status_code=201)
@@ -173,12 +179,14 @@ def update_user(user_id: int, data: UserUpdate, admin=Depends(admin_user), conn:
             cur_s["workdays"] if cur_s else user["workdays"])
         if cur_s and until and cur_s["valid_from"] <= until.isoformat():
             # Eintrag gilt auch für abgeschlossene Monate → neuen Eintrag ab dem ersten offenen Tag anlegen
-            conn.execute("INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, created_at) "
-                         "VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, valid_from) DO UPDATE SET "
-                         "weekly_hours = excluded.weekly_hours, workdays = excluded.workdays",
-                         (user_id, (until + timedelta(days=1)).isoformat(), hours, days, now_utc_str()))
+            # gleichmäßig verteilen (Stunden je Tag entfallen), Pausen je Tag bleiben
+            conn.execute("INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, day_breaks, created_at) "
+                         "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, valid_from) DO UPDATE SET "
+                         "weekly_hours = excluded.weekly_hours, workdays = excluded.workdays, day_hours = NULL",
+                         (user_id, (until + timedelta(days=1)).isoformat(), hours, days, cur_s["day_breaks"], now_utc_str()))
         elif cur_s:
-            conn.execute("UPDATE work_schedules SET weekly_hours = ?, workdays = ? WHERE id = ?", (hours, days, cur_s["id"]))
+            conn.execute("UPDATE work_schedules SET weekly_hours = ?, workdays = ?, day_hours = NULL WHERE id = ?",
+                         (hours, days, cur_s["id"]))
         else:
             conn.execute("INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, created_at) "
                          "VALUES (?, ?, ?, ?, ?)", (user_id, FOREVER, hours, days, now_utc_str()))
@@ -219,6 +227,48 @@ def deactivate_user(user_id: int, admin=Depends(admin_user), conn: sqlite3.Conne
     return update_user(user_id, UserUpdate(active=False), admin, conn)
 
 
+class PurgeIn(BaseModel):
+    confirm: str = Field(..., description="Zur Sicherheit der Benutzername des Mitarbeiters")
+
+
+@router.post("/{user_id}/purge")
+def purge_user(user_id: int, data: PurgeIn, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
+    """Mitarbeiter endgültig löschen – mit allen Buchungen, Abwesenheiten, Anträgen und Abschlüssen.
+
+    Vorher wird automatisch eine Datensicherung erstellt („vor-loeschen“), damit sich ein Versehen
+    rückgängig machen lässt. Arbeitszeitnachweise unterliegen Aufbewahrungsfristen – für ausgeschiedene
+    Mitarbeiter ist „Deaktivieren“ meist die bessere Wahl."""
+    user = _get_user(conn, user_id)
+    if data.confirm.strip() != user["username"]:
+        raise HTTPException(400, f"Bitte zur Bestätigung genau den Benutzernamen „{user['username']}“ eingeben")
+    if user_id == admin["id"]:
+        raise HTTPException(400, "Du kannst dich nicht selbst löschen")
+    if user["is_admin"] and user["active"] and _active_admins(conn) <= 1:
+        raise HTTPException(400, "Der letzte aktive Admin kann nicht gelöscht werden")
+    from .. import backup
+    try:
+        safety = backup.create("vor-loeschen", admin["id"])["name"]
+    except (backup.BackupError, OSError, sqlite3.Error) as e:
+        raise HTTPException(500, f"Sicherung vor dem Löschen fehlgeschlagen – nichts gelöscht: {e}")
+    counts = {t: conn.execute(f"SELECT COUNT(*) FROM {t} WHERE user_id = ?", (user_id,)).fetchone()[0]
+              for t in ("entries", "absences")}
+    conn.execute("BEGIN")
+    try:
+        conn.execute("UPDATE entries SET updated_by = NULL WHERE updated_by = ?", (user_id,))
+        conn.execute("INSERT OR REPLACE INTO deleted_users(id, username, display_name, deleted_at, deleted_by) "
+                     "VALUES (?, ?, ?, ?, ?)", (user_id, user["username"], user["display_name"], now_utc_str(), admin["id"]))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.execute("COMMIT")
+    except sqlite3.Error:
+        conn.execute("ROLLBACK")
+        raise
+    audit(conn, admin["id"], "user_purged", f"user:{user_id}",
+          f"{user['display_name']} ({user['username']}): {counts['entries']} Buchungen, "
+          f"{counts['absences']} Abwesenheiten gelöscht; Sicherung vorher: {safety}")
+    return {"deleted": user["username"], "entries": counts["entries"], "absences": counts["absences"],
+            "safety_backup": safety}
+
+
 @router.get("/{user_id}/tokens")
 def user_tokens(user_id: int, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
     _get_user(conn, user_id)
@@ -243,23 +293,71 @@ def delete_user_token(user_id: int, token_id: int, admin=Depends(admin_user), co
 
 # --- Wochenarbeitszeit mit „gilt ab“ ------------------------------------------
 
+BREAK_CHOICES = ("", "none", "arbzg")
+
+
 class ScheduleIn(BaseModel):
     valid_from: date = Field(description="gilt ab diesem Tag")
-    weekly_hours: float = Field(ge=0, le=80)
+    weekly_hours: float = Field(0, ge=0, le=80, description="wird bei day_hours aus den Tagesstunden berechnet")
     workdays: List[int] = [1, 2, 3, 4, 5]
+    day_hours: Optional[List[float]] = Field(
+        None, description="Stunden je Wochentag Mo..So (7 Werte), z. B. [0, 8.5, 8.5, 8.5, 8.5, 4, 0]; "
+                          "leer = Wochenstunden gleichmäßig auf die Arbeitstage verteilen")
+    day_breaks: Optional[List[Optional[str]]] = Field(
+        None, description="Pausenabzug je Wochentag Mo..So (7 Werte): leer = Standard aus den Einstellungen, "
+                          "'none' = kein Abzug, 'arbzg' = nach ArbZG, Zahl = feste Minuten")
 
     @field_validator("workdays")
     @classmethod
     def _wd(cls, v):
         return _check_workdays(v)
 
+    @field_validator("day_hours")
+    @classmethod
+    def _dh(cls, v):
+        if v is None:
+            return v
+        if len(v) != 7 or any(h < 0 or h > 24 for h in v):
+            raise ValueError("Stunden je Tag: 7 Werte (Mo bis So) zwischen 0 und 24")
+        if not any(h > 0 for h in v):
+            raise ValueError("Mindestens ein Tag braucht Stunden")
+        return [round(float(h), 2) for h in v]
+
+    @field_validator("day_breaks")
+    @classmethod
+    def _db(cls, v):
+        if v is None:
+            return v
+        if len(v) != 7:
+            raise ValueError("Pausen je Tag: 7 Werte (Mo bis So)")
+        out = []
+        for x in v:
+            x = (x or "").strip().lower()
+            if x not in BREAK_CHOICES and not (x.isdigit() and int(x) <= 120):
+                raise ValueError("Pause je Tag: leer, none, arbzg oder Minuten (0–120)")
+            out.append(x)
+        return out
+
+
+def _fmt_h(h: float) -> str:
+    return (f"{h:g}").replace(".", ",")
+
 
 def _schedule_out(r: sqlite3.Row, current_id: Optional[int]) -> dict:
+    day_hours = parse_day_hours(r["day_hours"])
+    breaks_raw = (r["day_breaks"] or "").split(",")
+    day_breaks = breaks_raw if len(breaks_raw) == 7 else [""] * 7
+    workdays = [int(d) for d in r["workdays"].split(",") if d]
+    per_day = day_hours or [round(r["weekly_hours"] / len(workdays), 2) if (i + 1) in workdays and workdays else 0
+                            for i in range(7)]
     return {
         "id": r["id"],
         "valid_from": None if r["valid_from"] == FOREVER else r["valid_from"],
         "weekly_hours": r["weekly_hours"],
-        "workdays": [int(d) for d in r["workdays"].split(",") if d],
+        "workdays": workdays,
+        "day_hours": day_hours,          # None = gleichmäßig verteilt
+        "per_day_hours": per_day,        # immer 7 Werte (zum Anzeigen)
+        "day_breaks": day_breaks,
         "current": r["id"] == current_id,
     }
 
@@ -282,15 +380,29 @@ def add_schedule(user_id: int, data: ScheduleIn, admin=Depends(admin_user), conn
     list_schedules(user_id, admin, conn)  # stellt sicher, dass es einen Anfangseintrag gibt
     from ..closing import ensure_open
     ensure_open(conn, user_id, [data.valid_from])
-    days = ",".join(str(d) for d in data.workdays)
+    hours, workdays, day_hours_raw = data.weekly_hours, data.workdays, None
+    if data.day_hours:
+        hours = round(sum(data.day_hours), 2)
+        workdays = [i + 1 for i, h in enumerate(data.day_hours) if h > 0]
+        day_hours_raw = ",".join(f"{h:g}" for h in data.day_hours)
+    breaks_raw = ",".join(data.day_breaks) if data.day_breaks and any(data.day_breaks) else None
+    days = ",".join(str(d) for d in workdays)
     conn.execute(
-        "INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, created_at) VALUES (?, ?, ?, ?, ?) "
-        "ON CONFLICT(user_id, valid_from) DO UPDATE SET weekly_hours = excluded.weekly_hours, workdays = excluded.workdays",
-        (user_id, data.valid_from.isoformat(), data.weekly_hours, days, now_utc_str()),
+        "INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, day_hours, day_breaks, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, valid_from) DO UPDATE SET weekly_hours = excluded.weekly_hours, "
+        "workdays = excluded.workdays, day_hours = excluded.day_hours, day_breaks = excluded.day_breaks",
+        (user_id, data.valid_from.isoformat(), hours, days, day_hours_raw, breaks_raw, now_utc_str()),
     )
     sync_current_schedule(conn, user_id)
-    audit(conn, admin["id"], "schedule_set", f"user:{user_id}",
-          f"ab {data.valid_from}: {data.weekly_hours} h, Tage {days}")
+    detail = f"ab {data.valid_from}: {_fmt_h(hours)} h"
+    if data.day_hours:
+        detail += " (" + ", ".join(f"{WD[i]} {_fmt_h(h)}" for i, h in enumerate(data.day_hours) if h > 0) + ")"
+    else:
+        detail += f", Tage {days}"
+    if breaks_raw:
+        names = {"none": "keine Pause", "arbzg": "ArbZG"}
+        detail += "; Pausen: " + ", ".join(f"{WD[i]} {names.get(b, b + ' min')}" for i, b in enumerate(data.day_breaks) if b)
+    audit(conn, admin["id"], "schedule_set", f"user:{user_id}", detail)
     return list_schedules(user_id, admin, conn)
 
 

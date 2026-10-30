@@ -10,6 +10,8 @@ from .reports import (
     ABSENCE_KINDS,
     BREAK_MODES,
     break_rule,
+    parse_day_breaks,
+    parse_day_hours,
     compute_report,
     schedule_on,
     tracking_start,
@@ -72,15 +74,57 @@ def _absence_counts(days: List[Dict]) -> Dict[str, float]:
     return out
 
 
+def _day_groups(values: List, skip=None) -> List[Tuple[str, object]]:
+    """[0, 8.5, 8.5, 8.5, 8.5, 4, 0] → [("Di–Fr", 8.5), ("Sa", 4)] (zusammenhängende gleiche Tage)."""
+    out, i = [], 0
+    while i < 7:
+        if values[i] == skip:
+            i += 1
+            continue
+        j = i
+        while j + 1 < 7 and values[j + 1] == values[i]:
+            j += 1
+        label = WD_DE[i] if i == j else f"{WD_DE[i]}–{WD_DE[j]}" if j - i >= 2 else f"{WD_DE[i]}, {WD_DE[j]}"
+        out.append((label, values[i]))
+        i = j + 1
+    return out
+
+
 def _schedule_text(conn, user, d: date) -> str:
     s = schedule_on(conn, user["id"], d)
     hours = s["weekly_hours"] if s else user["weekly_hours"]
+    day_hours = parse_day_hours(s["day_hours"]) if s else None
+    if day_hours:
+        return f"{_num(hours)} Std./Woche (" + ", ".join(f"{lbl} {_num(h)} h" for lbl, h in _day_groups(day_hours, 0.0)) + ")"
     days = [int(x) for x in ((s["workdays"] if s else user["workdays"]) or "").split(",") if x]
     if days == [1, 2, 3, 4, 5]:
         dl = "Mo–Fr"
     else:
         dl = ", ".join(WD_DE[x - 1] for x in sorted(days))
     return f"{_num(hours)} Std./Woche ({dl})"
+
+
+def _rule_text(rule: Optional[Dict]) -> str:
+    if not rule:
+        return ""
+    if rule["mode"] == "fixed":
+        return f"fest {rule['minutes']} min" if rule["minutes"] else "kein Abzug"
+    return {"none": "kein Abzug", "arbzg": "nach ArbZG"}.get(rule["mode"], "")
+
+
+def _break_text(conn, user, d: date) -> str:
+    """Pausenabzug für die Kopfzeile, z. B. „nach ArbZG; Sa kein Abzug“."""
+    rule = break_rule(conn)
+    base = BREAK_MODES.get(rule["mode"], "")
+    if rule["mode"] == "fixed":
+        base = f"fest {rule['minutes']} min pro Arbeitstag"
+    s = schedule_on(conn, user["id"], d)
+    per_day = parse_day_breaks(s["day_breaks"]) if s else [None] * 7
+    if not any(per_day):
+        return base
+    texts = [_rule_text(r) if r else None for r in per_day]
+    extra = "; ".join(f"{lbl} {t}" for lbl, t in _day_groups(texts, None))
+    return f"{base}; abweichend: {extra}" if any(t is None for t in texts) else extra
 
 
 def build_data(conn: sqlite3.Connection, user: sqlite3.Row, period: str) -> Dict:
@@ -102,6 +146,7 @@ def build_data(conn: sqlite3.Connection, user: sqlite3.Row, period: str) -> Dict
         "vacation": vacation_account(conn, user, d_to.year),
         "absences": _absence_counts(rep["days"]),
         "schedule": _schedule_text(conn, user, min(d_to, today_local()) if d_from <= today_local() else d_from),
+        "break_text": _break_text(conn, user, min(d_to, today_local()) if d_from <= today_local() else d_from),
         "break_rule": break_rule(conn),
         "created": to_local(now_utc()),
         "closed_at": None,
@@ -186,10 +231,7 @@ def _pdf_header(pdf: PDF, data: Dict, heading: str) -> float:
     pdf.text(R, 58, data["title"], 13, True, align="right")
     pdf.text(L, 78, f"{u['display_name']}  ({u['username']})", 10)
     pdf.text(R, 78, f"{data['from']:%d.%m.%Y} – {data['to']:%d.%m.%Y}", 10, align="right")
-    rule = data["break_rule"]
-    brk = BREAK_MODES.get(rule["mode"], "")
-    if rule["mode"] == "fixed":
-        brk = f"fest {rule['minutes']} min pro Arbeitstag"
+    brk = data.get("break_text") or ""
     pdf.text(L, 92, f"Sollarbeitszeit: {data['schedule']}   ·   Pausenabzug: {brk}", 8, color=GREY)
     if data.get("closed_at"):
         pdf.text(R, 92, f"Monat abgeschlossen am {data['closed_at']:%d.%m.%Y}", 8, True, "right", (0.14, 0.25, 0.48))

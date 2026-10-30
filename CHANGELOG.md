@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.18.0] – 2026-10-30
+
+### Neu
+- **Stunden je Wochentag:** Unter Verwaltung → Mitarbeiter → „Verlauf“ lässt sich statt „Wochenstunden
+  gleichmäßig verteilen“ für jeden Tag eine eigene Sollzeit eintragen, z. B. 38 h als Di–Fr 8,5 h und Sa 4 h.
+  Wie bisher mit „gilt ab“-Datum, ältere Monate bleiben unverändert.
+- **Pausenabzug je Wochentag** pro Mitarbeiter: „Standard“ (Einstellung für alle), „keine“, „ArbZG“ oder feste
+  Minuten – z. B. samstags kein Abzug. Steht auch im Kopf von PDF und Excel.
+- **Mitarbeiter deaktivieren und wieder aktivieren** direkt in der Mitarbeiterliste; deaktivierte erscheinen
+  grau am Ende der Liste.
+- **Mitarbeiter endgültig löschen** – mit allen Buchungen, Abwesenheiten, Anträgen und Abschlüssen. Zur
+  Sicherheit muss der Benutzername eingetippt werden, vorher entsteht automatisch eine Datensicherung
+  („vor Löschen eines Mitarbeiters“). Im Änderungsprotokoll bleibt der Name als „(gelöscht)“ erhalten.
+  Sich selbst und den letzten Admin kann man nicht löschen.
+
 ## [0.17.0] – 2026-10-23
 
 ### Neu
@@ -191,6 +206,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.18.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.0
 [0.17.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.17.0
 [0.16.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.3
 [0.16.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.2

@@ -133,3 +133,11 @@ table.audit tr.cat-anmeldung td, table.audit tr.cat-berichte td { color: var(--m
 
 .httpwarn { background: #fef3c7; color: #78350f; border: 1px solid #f59e0b; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; }
 @media (prefers-color-scheme: dark) { .httpwarn { background: #422006; color: #fde68a; border-color: #b45309; } }
+
+tr.inactive td { opacity: .6; }
+.tag.off { background: #e5e7eb; color: #374151; }
+.w48 { width: 48px; } .w56 { width: 56px; }
+.sDays td, .sDays th { padding: 3px 4px; }
+.detailbox > table { justify-self: start; }
+.detailbox > span { white-space: normal; max-width: 900px; }
+tr.inactive td:last-child { opacity: 1; }

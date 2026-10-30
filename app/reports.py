@@ -58,11 +58,46 @@ MIN_REST_S = 11 * 3600    # § 5 ArbZG: mindestens 11 Stunden Ruhezeit
   # Verlaufseintrag „von Anfang an“
 
 
-def _target(weekly_hours: float, workdays_csv: str, d: date) -> float:
+def _target(weekly_hours: float, workdays_csv: str, d: date, day_hours: Optional[List[float]] = None) -> float:
+    if day_hours:  # Stunden je Wochentag festgelegt
+        return float(day_hours[d.isoweekday() - 1]) * 3600
     workdays = [int(x) for x in (workdays_csv or "").split(",") if x]
     if not workdays or d.isoweekday() not in workdays:
         return 0.0
     return weekly_hours * 3600 / len(workdays)
+
+
+def parse_day_hours(raw: Optional[str]) -> Optional[List[float]]:
+    """'0,8.5,8.5,8.5,8.5,4,0' → [0.0, 8.5, …] (7 Werte Mo..So) oder None (gleichmäßig verteilen)."""
+    if not raw:
+        return None
+    try:
+        vals = [float(x) for x in raw.split(",")]
+    except ValueError:
+        return None
+    return vals if len(vals) == 7 else None
+
+
+def parse_day_breaks(raw: Optional[str]) -> List[Optional[Dict]]:
+    """7 Einträge Mo..So: None = Standard aus den Einstellungen, sonst {"mode": none|arbzg|fixed, "minutes": n}."""
+    out: List[Optional[Dict]] = [None] * 7
+    parts = (raw or "").split(",")
+    if len(parts) != 7:
+        return out
+    for i, p in enumerate(parts):
+        p = p.strip()
+        if p in ("none", "arbzg"):
+            out[i] = {"mode": p, "minutes": 0}
+        elif p.isdigit():
+            out[i] = {"mode": "fixed", "minutes": max(0, min(120, int(p)))}
+    return out
+
+
+def _row_get(r, key):
+    try:
+        return r[key]
+    except (IndexError, KeyError):
+        return None
 
 
 def daily_target_s(user: sqlite3.Row, d: date) -> float:
@@ -76,23 +111,33 @@ def schedules(conn: sqlite3.Connection, user_id: int) -> List[sqlite3.Row]:
     ).fetchall()
 
 
-def target_fn(conn: sqlite3.Connection, user: sqlite3.Row):
-    """Liefert eine Funktion d → Tagessoll, die den zum Datum gültigen Verlaufseintrag nutzt."""
-    rows = [(date.fromisoformat(r["valid_from"]), r["weekly_hours"], r["workdays"]) for r in schedules(conn, user["id"])]
+def schedule_fn(conn: sqlite3.Connection, user: sqlite3.Row):
+    """Liefert eine Funktion d → (Tagessoll in s, Pausenregel des Tages oder None = Standard),
+    die den zum Datum gültigen Verlaufseintrag nutzt."""
+    rows = [(date.fromisoformat(r["valid_from"]), r["weekly_hours"], r["workdays"],
+             parse_day_hours(_row_get(r, "day_hours")), parse_day_breaks(_row_get(r, "day_breaks")))
+            for r in schedules(conn, user["id"])]
     if not rows:
-        return lambda d: daily_target_s(user, d)
+        return lambda d: (daily_target_s(user, d), None)
 
-    def fn(d: date) -> float:
+    def fn(d: date):
         current = None
-        for start, hours, days in rows:
-            if start <= d:
-                current = (hours, days)
+        for row in rows:
+            if row[0] <= d:
+                current = row
             else:
                 break
         if current is None:  # vor dem ersten Eintrag: der früheste gilt
-            current = (rows[0][1], rows[0][2])
-        return _target(current[0], current[1], d)
+            current = rows[0]
+        _, hours, days, day_hours, day_breaks = current
+        return _target(hours, days, d, day_hours), day_breaks[d.isoweekday() - 1]
     return fn
+
+
+def target_fn(conn: sqlite3.Connection, user: sqlite3.Row):
+    """Liefert eine Funktion d → Tagessoll, die den zum Datum gültigen Verlaufseintrag nutzt."""
+    fn = schedule_fn(conn, user)
+    return lambda d: fn(d)[0]
 
 
 def schedule_on(conn: sqlite3.Connection, user_id: int, d: date) -> Optional[sqlite3.Row]:
@@ -215,7 +260,7 @@ def compute_report(
     }
     holidays = holidays_between(conn, d_from, d_to)
     t_start = tracking_start(user)
-    day_target = target_fn(conn, user)
+    day_schedule = schedule_fn(conn, user)
 
     # Intervalle je lokalem Tag sammeln
     per_day: Dict[date, List[tuple]] = {d: [] for d in daterange(d_from, d_to)}
@@ -271,9 +316,9 @@ def compute_report(
         kind = ab["kind"] if ab else None
         half = bool(ab["half_day"]) if ab else False
         holiday = holidays.get(d)
-        regular = day_target(d)
+        regular, day_rule = day_schedule(d)
 
-        deducted = _break_for_day(rule, gross, gaps, half and kind in ZERO_TARGET_KINDS)
+        deducted = _break_for_day(day_rule or rule, gross, gaps, half and kind in ZERO_TARGET_KINDS)
         worked = gross - deducted
 
         if kind in ZERO_TARGET_KINDS:

@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -261,6 +261,16 @@ def migrate(conn: sqlite3.Connection) -> None:
             " token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, created_by INTEGER,"
             " last_used_at TEXT)"
         )
+    if version < 12:
+        # Wochenarbeitszeit: Stunden und Pausenabzug je Wochentag (optional)
+        cols = _columns(conn, "work_schedules")
+        if "day_hours" not in cols:
+            conn.execute("ALTER TABLE work_schedules ADD COLUMN day_hours TEXT")   # 7 Werte Mo..So, z. B. "0,8.5,8.5,8.5,8.5,4,0"
+        if "day_breaks" not in cols:
+            conn.execute("ALTER TABLE work_schedules ADD COLUMN day_breaks TEXT")  # 7 Werte: leer=Standard, none, arbzg, Minuten
+        # Endgültig gelöschte Mitarbeiter: Name bleibt fürs Änderungsprotokoll erhalten
+        conn.execute("CREATE TABLE IF NOT EXISTS deleted_users (id INTEGER PRIMARY KEY, username TEXT NOT NULL,"
+                     " display_name TEXT NOT NULL, deleted_at TEXT NOT NULL, deleted_by INTEGER)")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

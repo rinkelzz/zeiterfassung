@@ -729,16 +729,17 @@ function setupYearSelection() {
 // ---------- Verwaltung ----------
 async function loadAdmin() {
   await loadUsers();
+  state.allUsers = await api("users?include_inactive=true");
   const ov = await api("reports/overview?from=" + todayIso() + "&to=" + todayIso());
   const bal = Object.fromEntries(ov.users.map(u => [u.id, u]));
   $("usersTable").innerHTML = `<thead><tr><th>Name</th><th>Wochenarbeitszeit</th><th>Erfassungsbeginn</th>
       <th>Übertrag GZ</th><th>Übertrag Ü</th><th class="num">Urlaub/Jahr</th><th class="num">Resturlaub-Übertrag</th>
       <th>E-Mail (Berichte)</th><th>PIN</th><th>Neues Passwort</th><th class="num">Gleitzeit</th><th class="num">Überst.</th><th class="num">Urlaub Rest</th><th></th></tr></thead><tbody>` +
-    state.users.map(u => {
+    state.allUsers.map(u => {
       const b = bal[u.id] || {};
-      return `<tr data-id="${u.id}">
-        <td>${esc(u.display_name)} <span class="muted small">${esc(u.username)}</span>${u.is_admin ? ' <span class="tag">Admin</span>' : ""}${u.has_password ? "" : ' <span class="tag" title="meldet sich mit dem DSM-Konto an">DSM</span>'}</td>
-        <td>${fmtNum(u.weekly_hours)} h · ${daysLabel(u.workdays)} <button class="mini usched" title="Wochenarbeitszeit mit gilt-ab-Datum ändern">Verlauf</button></td>
+      return `<tr data-id="${u.id}" data-username="${esc(u.username)}" class="${u.active ? "" : "inactive"}">
+        <td>${esc(u.display_name)} <span class="muted small">${esc(u.username)}</span>${u.active ? "" : ' <span class="tag off">deaktiviert</span>'}${u.is_admin ? ' <span class="tag">Admin</span>' : ""}${u.has_password ? "" : ' <span class="tag" title="meldet sich mit dem DSM-Konto an">DSM</span>'}</td>
+        <td>${fmtNum(u.weekly_hours)} h · ${daysLabel(u.workdays)}${u.day_hours ? " <span class=\"muted small\">(je Tag)</span>" : ""} <button class="mini usched" title="Wochenarbeitszeit mit gilt-ab-Datum ändern">Verlauf</button></td>
         <td><input class="us" type="date" value="${u.tracking_start || ""}"></td>
         <td><input class="uc w80" value="${minToHm(u.carryover_minutes)}"></td>
         <td><input class="uo w80" value="${minToHm(u.carryover_overtime_minutes)}"></td>
@@ -751,7 +752,11 @@ async function loadAdmin() {
         <td class="num">${b.account_gleitzeit != null ? signed(b.account_gleitzeit_s, b.account_gleitzeit) : ""}</td>
         <td class="num">${b.account_ueberstunden != null ? signed(b.account_ueberstunden_s, b.account_ueberstunden) : ""}</td>
         <td class="num">${b.vacation_remaining != null ? fmtDays(b.vacation_remaining) : ""}</td>
-        <td><button class="mini usave">Speichern</button></td></tr>`;
+        <td class="nowrap"><button class="mini usave">Speichern</button>
+          ${u.id === state.me.id ? "" : u.active
+            ? `<button class="mini" data-uact="off" title="Kann sich nicht mehr anmelden, Daten bleiben erhalten">Deaktivieren</button>`
+            : `<button class="mini" data-uact="on">Aktivieren</button>`}
+          ${u.id === state.me.id ? "" : `<button class="mini danger" data-uact="purge" title="Mit allen Buchungen endgültig löschen">Löschen</button>`}</td></tr>`;
     }).join("") + "</tbody>";
   await loadSettingsForm();
   loadUpdates().catch(() => {});
@@ -772,7 +777,7 @@ function showBackups(o) {
     `letzte Sicherung: ${new Date(o.last).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` +
     (o.last_status && o.last_status !== "ok" ? ` – <span class="neg">Ordner: ${esc(o.last_status)}</span>` : "");
   $("bkInfo").innerHTML = status + (o.dir ? "" : ' · <span class="neg">kein freigegebener Ordner – nur Paketordner</span>');
-  const reasons = { "manuell": "von Hand", "vor-wiederherstellung": "vor Wiederherstellung" };
+  const reasons = { "manuell": "von Hand", "vor-wiederherstellung": "vor Wiederherstellung", "vor-loeschen": "vor Löschen eines Mitarbeiters" };
   // die neueste Sicherung (erste Zeile) ist geschützt und lässt sich nicht löschen
   $("bkTable").innerHTML = o.backups.length ? `<thead><tr><th><input type="checkbox" id="bkAll" title="alle auswählen" ${o.backups.length < 2 ? "disabled" : ""}></th>` +
     `<th>Datum</th><th>Uhrzeit</th><th>Art</th><th class="num">Größe</th><th>liegt in</th><th></th></tr></thead><tbody>` +
@@ -869,32 +874,83 @@ function daysLabel(days) {
   return consecutive && days.length > 2 ? `${WD[days[0] - 1]}–${WD[days[days.length - 1] - 1]}` : days.map(d => WD[d - 1]).join(", ");
 }
 
+const BREAK_OPTS = [["", "Standard"], ["none", "keine"], ["arbzg", "ArbZG"], ["fixed", "fest"]];
+function breakLabel(b) {
+  if (!b) return "";
+  if (b === "none") return "keine Pause";
+  if (b === "arbzg") return "ArbZG";
+  return b + " min";
+}
+function scheduleText(x) {
+  let t = `${fmtNum(x.weekly_hours)} h`;
+  if (x.day_hours) {
+    const parts = []; let i = 0;
+    while (i < 7) {
+      if (!x.day_hours[i]) { i++; continue; }
+      let j = i; while (j + 1 < 7 && x.day_hours[j + 1] === x.day_hours[i]) j++;
+      parts.push(`${j - i >= 2 ? WD[i] + "–" + WD[j] : j > i ? WD[i] + ", " + WD[j] : WD[i]} ${fmtNum(x.day_hours[i])} h`);
+      i = j + 1;
+    }
+    t += " · " + parts.join(", ");
+  } else t += " · " + daysLabel(x.workdays);
+  const br = (x.day_breaks || []).map((b, i) => b ? `${WD[i]} ${breakLabel(b)}` : "").filter(Boolean);
+  if (br.length) t += ` <span class="muted small">· Pause: ${esc(br.join(", "))}</span>`;
+  return t;
+}
+
 async function toggleSchedules(tr) {
   const next = tr.nextElementSibling;
   if (next && next.classList.contains("sched")) { next.remove(); return; }
   const uid = tr.dataset.id;
   const list = await api(`users/${uid}/schedules`);
+  const last = list[list.length - 1];
+  const perDay = !!last.day_hours;
   const row = document.createElement("tr");
   row.className = "detail sched"; row.dataset.uid = uid;
   const today = isoDay(new Date());
-  row.innerHTML = `<td colspan="12"><div class="detailbox">
+  const brSel = (b) => {
+    const mode = !b ? "" : (b === "none" || b === "arbzg") ? b : "fixed";
+    return `<select class="sbm">${BREAK_OPTS.map(([v, l]) => `<option value="${v}" ${v === mode ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <input class="sbmin w48 ${mode === "fixed" ? "" : "hidden"}" type="number" min="0" max="120" step="5" value="${mode === "fixed" ? b : 30}" title="Minuten">`;
+  };
+  row.innerHTML = `<td colspan="14"><div class="detailbox">
     <b>Wochenarbeitszeit – Verlauf</b>
     <table style="width:auto"><tbody>${list.map(x => `<tr><td>${x.valid_from ? "ab " + deDate(x.valid_from) : "von Anfang an"}</td>
-      <td class="num">${fmtNum(x.weekly_hours)} h</td><td>${daysLabel(x.workdays)}</td>
+      <td>${scheduleText(x)}</td>
       <td>${x.valid_from ? `<button class="mini danger" data-sact="del" data-sid="${x.id}">Löschen</button>` : ""}</td>
       <td>${x.current ? '<span class="tag">gilt heute</span>' : ""}</td></tr>`).join("")}</tbody></table>
     <div class="row">
       <label>gilt ab <input type="date" class="sf" value="${today}"></label>
-      <label>Std./Woche <input type="number" class="sh w80" step="0.5" min="0" max="80" value="${list[list.length - 1].weekly_hours}"></label>
-      <span class="muted small">Arbeitstage:</span>
-      ${WD.map((w, i) => `<label class="inline"><input type="checkbox" class="sd" value="${i + 1}" ${list[list.length - 1].workdays.includes(i + 1) ? "checked" : ""}> ${w}</label>`).join("")}
-      <button class="mini primary" data-sact="add">Hinzufügen</button>
+      <label class="inline"><input type="radio" name="smode${uid}" class="smode" value="even" ${perDay ? "" : "checked"}> gleichmäßig verteilen</label>
+      <label class="inline"><input type="radio" name="smode${uid}" class="smode" value="day" ${perDay ? "checked" : ""}> Stunden je Tag</label>
     </div>
-    <span class="muted small">Ändert die Arbeitszeit ab dem gewählten Tag. Tage davor werden weiter mit der alten Arbeitszeit gerechnet. Gleiches Datum ersetzt einen Eintrag.</span>
+    <div class="row sEven ${perDay ? "hidden" : ""}">
+      <label>Std./Woche <input type="number" class="sh w80" step="0.5" min="0" max="80" value="${last.weekly_hours}"></label>
+      <span class="muted small">Arbeitstage:</span>
+      ${WD.map((w, i) => `<label class="inline"><input type="checkbox" class="sd" value="${i + 1}" ${last.workdays.includes(i + 1) ? "checked" : ""}> ${w}</label>`).join("")}
+    </div>
+    <table class="sDays" style="width:auto"><thead><tr><th></th>${WD.map(w => `<th>${w}</th>`).join("")}<th></th></tr></thead><tbody>
+      <tr class="sDayRow ${perDay ? "" : "hidden"}"><td class="small">Stunden</td>${WD.map((w, i) =>
+        `<td><input class="sdh w56" type="number" step="0.25" min="0" max="24" value="${fmtIn(last.per_day_hours[i])}"></td>`).join("")}
+        <td class="small nowrap">= <b class="ssum"></b> h/Woche</td></tr>
+      <tr><td class="small">Pause</td>${WD.map((w, i) => `<td class="nowrap">${brSel((last.day_breaks || [])[i])}</td>`).join("")}<td></td></tr>
+    </tbody></table>
+    <div class="row"><button class="mini primary" data-sact="add">Speichern</button></div>
+    <span class="muted small">Ändert die Arbeitszeit ab dem gewählten Tag; Tage davor werden weiter mit der alten gerechnet. Gleiches Datum ersetzt einen Eintrag.
+      Pause „Standard“ = Einstellung unter Verwaltung → Einstellungen; „keine“ zieht an dem Tag nichts ab (z. B. Samstag).</span>
     <div class="err" data-serr></div>
   </div></td>`;
   tr.after(row);
+  const sum = () => { row.querySelector(".ssum").textContent = fmtNum(Math.round($$(".sdh", row).reduce((a, i) => a + (Number(i.value) || 0), 0) * 100) / 100); };
+  $$(".sdh", row).forEach(i => i.oninput = sum); sum();
+  $$(".smode", row).forEach(r => r.onchange = () => {
+    const day = row.querySelector(".smode:checked").value === "day";
+    row.querySelector(".sEven").classList.toggle("hidden", day);
+    row.querySelector(".sDayRow").classList.toggle("hidden", !day);
+  });
+  $$(".sbm", row).forEach(sel => sel.onchange = () => sel.nextElementSibling.classList.toggle("hidden", sel.value !== "fixed"));
 }
+const fmtIn = (n) => String(Math.round((n || 0) * 100) / 100);
 
 async function scheduleAction(btn) {
   const row = btn.closest("tr.sched"); const uid = row.dataset.uid;
@@ -904,10 +960,17 @@ async function scheduleAction(btn) {
       if (!confirm("Diesen Eintrag löschen? Ab dem Datum gilt dann wieder der vorherige.")) return;
       await api(`users/${uid}/schedules/${btn.dataset.sid}`, { method: "DELETE" });
     } else {
-      const days = $$(".sd", row).filter(c => c.checked).map(c => Number(c.value));
-      if (!days.length) throw new Error("Bitte mindestens einen Arbeitstag wählen");
-      await api(`users/${uid}/schedules`, { method: "POST", body: {
-        valid_from: row.querySelector(".sf").value, weekly_hours: Number(row.querySelector(".sh").value), workdays: days } });
+      const body = { valid_from: row.querySelector(".sf").value };
+      if (row.querySelector(".smode:checked").value === "day") {
+        body.day_hours = $$(".sdh", row).map(i => Number(String(i.value).replace(",", ".")) || 0);
+        if (!body.day_hours.some(h => h > 0)) throw new Error("Bitte für mindestens einen Tag Stunden eintragen");
+      } else {
+        body.workdays = $$(".sd", row).filter(c => c.checked).map(c => Number(c.value));
+        if (!body.workdays.length) throw new Error("Bitte mindestens einen Arbeitstag wählen");
+        body.weekly_hours = Number(row.querySelector(".sh").value);
+      }
+      body.day_breaks = $$(".sbm", row).map(sel => sel.value === "fixed" ? String(Number(sel.nextElementSibling.value) || 0) : sel.value);
+      await api(`users/${uid}/schedules`, { method: "POST", body });
     }
     await loadAdmin();
     const tr = $("usersTable").querySelector(`tr[data-id="${uid}"]`);
@@ -933,6 +996,30 @@ async function saveUserRow(btn) {
     if (Number(tr.dataset.id) === state.me.id) state.me = await api("me");
     await loadAdmin();
     okMsg($("usersErr"), "Gespeichert.");
+  } catch (e) { $("usersErr").textContent = e.message; }
+}
+
+async function userAction(btn) {
+  const tr = btn.closest("tr"); const uid = tr.dataset.id; const name = tr.dataset.username;
+  $("usersErr").textContent = "";
+  try {
+    if (btn.dataset.uact === "off") {
+      if (!confirm(`„${name}“ deaktivieren?\n\nDer Zugang wird gesperrt, alle Arbeitszeiten bleiben erhalten. Später wieder aktivierbar.`)) return;
+      await api("users/" + uid, { method: "PATCH", body: { active: false } });
+      okMsg($("usersErr"), "Deaktiviert.");
+    } else if (btn.dataset.uact === "on") {
+      await api("users/" + uid, { method: "PATCH", body: { active: true } });
+      okMsg($("usersErr"), "Wieder aktiv.");
+    } else {
+      const typed = prompt(`„${name}“ ENDGÜLTIG löschen – mit allen Buchungen, Abwesenheiten, Anträgen und Monatsabschlüssen.\n\n` +
+        "Arbeitszeitnachweise müssen meist eine Zeit lang aufbewahrt werden; für ausgeschiedene Mitarbeiter ist „Deaktivieren“ oft besser. " +
+        "Vorher wird automatisch eine Datensicherung erstellt.\n\nZur Bestätigung den Benutzernamen eingeben:");
+      if (typed === null) return;
+      const r = await api(`users/${uid}/purge`, { method: "POST", body: { confirm: typed.trim() } });
+      if (Number(uid) === Number(state.uid)) state.uid = state.me.id;
+      okMsg($("usersErr"), `Gelöscht (${r.entries} Buchungen). Sicherung vorher: ${r.safety_backup}`);
+    }
+    await loadAdmin();
   } catch (e) { $("usersErr").textContent = e.message; }
 }
 
@@ -1223,6 +1310,7 @@ $("usersTable").addEventListener("click", e => {
     return api(`users/${tr.dataset.id}/pin`, { method: "PUT", body: { pin: null } }).then(loadAdmin)
       .catch(err => { $("usersErr").textContent = err.message; });
   }
+  const ua = e.target.closest("[data-uact]"); if (ua) return userAction(ua);
   const v = e.target.closest(".usched"); if (v) return toggleSchedules(v.closest("tr"));
   const a = e.target.closest("[data-sact]"); if (a) return scheduleAction(a);
 });

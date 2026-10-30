@@ -457,6 +457,7 @@ AUDIT_ACTIONS = {
     "user_created_dsm": ("mitarbeiter", "Mitarbeiter aus DSM angelegt"),
     "user_admin_dsm": ("mitarbeiter", "Admin-Recht aus DSM"),
     "user_updated": ("mitarbeiter", "Mitarbeiter geändert"),
+    "user_purged": ("mitarbeiter", "Mitarbeiter endgültig gelöscht"),
     "schedule_set": ("mitarbeiter", "Wochenarbeitszeit geändert"),
     "schedule_deleted": ("mitarbeiter", "Wochenarbeitszeit-Eintrag gelöscht"),
     "password_changed": ("mitarbeiter", "Passwort geändert"),
@@ -553,10 +554,13 @@ def _audit_rows(conn, where, args, limit, before_id=None):
         where += " AND a.id < ?"
         args = args + [before_id]
     rows = conn.execute(
-        "SELECT a.*, u.display_name AS actor, s.display_name AS subject FROM audit_log a "
-        "LEFT JOIN users u ON u.id = a.actor_id LEFT JOIN users s ON s.id = a.subject_user_id"
+        "SELECT a.*, COALESCE(u.display_name, du.display_name || ' (gelöscht)') AS actor, "
+        "COALESCE(s.display_name, ds.display_name || ' (gelöscht)') AS subject FROM audit_log a "
+        "LEFT JOIN users u ON u.id = a.actor_id LEFT JOIN users s ON s.id = a.subject_user_id "
+        "LEFT JOIN deleted_users du ON du.id = a.actor_id LEFT JOIN deleted_users ds ON ds.id = a.subject_user_id"
         + where + " ORDER BY a.id DESC LIMIT ?", args + [limit]).fetchall()
-    names = {r["id"]: r["display_name"] for r in conn.execute("SELECT id, display_name FROM users")}
+    names = {r["id"]: r["display_name"] + " (gelöscht)" for r in conn.execute("SELECT id, display_name FROM deleted_users")}
+    names.update({r["id"]: r["display_name"] for r in conn.execute("SELECT id, display_name FROM users")})
     out = []
     for r in rows:
         cat, label = AUDIT_ACTIONS.get(r["action"], ("", r["action"]))

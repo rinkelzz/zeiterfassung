@@ -57,11 +57,14 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 
 **Konten und Auswertung**
 - **Gleitzeit- und Überstunden-Konto** getrennt: „Ü“-Tage schieben die Zeit über dem Tagessoll aufs Überstunden-Konto
-- **Wochenarbeitszeit mit Verlauf** („ab 01.03. 30 Std. an Mo–Do“) – alte Monate bleiben richtig
+- **Wochenarbeitszeit mit Verlauf** („ab 01.03. 30 Std. an Mo–Do“) – alte Monate bleiben richtig;
+  auf Wunsch **Stunden je Wochentag** (z. B. 38 h: Di–Fr 8,5 h, Sa 4 h)
 - Urlaubskonto mit Resturlaub-Übertrag; Abwesenheiten (Urlaub, Krank, Bildungsurlaub, Gleittag,
   Mehrarbeit-Entnahme, Sonderurlaub), auch als halber Tag
 - Feiertage aller 16 Bundesländer, betriebsfreie Tage, Erfassungsbeginn und Überträge pro Person
-- Pausenabzug wählbar: keiner, nach ArbZG (über 6 h: 30 min, über 9 h: 45 min) oder fest
+- Pausenabzug wählbar: keiner, nach ArbZG (über 6 h: 30 min, über 9 h: 45 min) oder fest –
+  pro Mitarbeiter auch **je Wochentag** abweichend (z. B. samstags kein Abzug)
+- Mitarbeiter **deaktivieren** (Daten bleiben) oder **endgültig löschen** (mit Namensbestätigung und automatischer Sicherung vorher)
 - **Hinweise nach Arbeitszeitgesetz:** über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5) –
   in Monatsansicht und Berichten markiert, abschaltbar
 - Monatsansicht zum Korrigieren, Jahreskalender zum Eintragen von Abwesenheiten per Ziehen
