@@ -16,7 +16,7 @@ from ..db import audit, get_db, get_setting
 from ..mailer import FORMATS, MailError, send_mail, send_report, smtp_config, valid_email
 from ..report_files import parse_period, render
 from ..dsm import write_ui_config
-from ..holidays import BUNDESLAENDER, holidays_for_year, parse_company_free_days
+from ..holidays import BUNDESLAENDER, holidays_for_year, parse_company_free_days, parse_regional, regional_all, regional_options
 from ..reports import (
     ABSENCE_KINDS,
     BREAK_MODES,
@@ -101,7 +101,7 @@ def list_holidays(
     """Feiertage und betriebsfreie Tage eines Jahres für das eingestellte Bundesland."""
     year = year or today_local().year
     bl = get_setting(conn, "bundesland")
-    days = holidays_for_year(year, bl, get_setting(conn, "company_free_days"))
+    days = holidays_for_year(year, bl, get_setting(conn, "company_free_days"), get_setting(conn, "regional_holidays") or "default")
     return {
         "year": year,
         "bundesland": bl,
@@ -271,6 +271,8 @@ def mail_test(data: MailTestIn, admin=Depends(admin_user), conn: sqlite3.Connect
 class SettingsIn(BaseModel):
     bundesland: Optional[str] = None
     company_free_days: Optional[str] = Field(None, max_length=300, description="z. B. 12-24, 12-31")
+    regional_holidays: Optional[List[str]] = Field(
+        None, description="eingeschaltete regionale Feiertage des Bundeslands (Schlüssel aus regional_options)")
     break_mode: Optional[str] = Field(None, description="none, arbzg oder fixed")
     break_minutes: Optional[int] = Field(None, ge=0, le=120)
     auto_break: Optional[bool] = Field(None, description="veraltet – entspricht break_mode arbzg/none")
@@ -302,6 +304,10 @@ def _settings_out(conn) -> dict:
     return {
         "bundesland": get_setting(conn, "bundesland"),
         "company_free_days": get_setting(conn, "company_free_days"),
+        "regional_options": regional_options(get_setting(conn, "bundesland")),
+        "regional_by_land": regional_all(),
+        "regional_holidays": sorted(parse_regional(get_setting(conn, "regional_holidays") or "default",
+                                                   get_setting(conn, "bundesland"))),
         "break_mode": rule["mode"],
         "break_minutes": rule["minutes"],
         "auto_break": rule["mode"] == "arbzg",
@@ -359,7 +365,17 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         bl = (data.bundesland or "").upper()
         if bl not in BUNDESLAENDER:
             raise HTTPException(400, "Unbekanntes Bundesland")
+        if bl != get_setting(conn, "bundesland") and "regional_holidays" not in changes:
+            _set(conn, "regional_holidays", "default")  # neues Land → dessen Voreinstellung
         _set(conn, "bundesland", bl)
+    if "regional_holidays" in changes:
+        bl_now = get_setting(conn, "bundesland")
+        opts = regional_options(bl_now)
+        chosen = [k for k in (data.regional_holidays or []) if k in opts]
+        unknown = [k for k in (data.regional_holidays or []) if k not in opts]
+        if unknown:
+            raise HTTPException(400, f"Unbekannter regionaler Feiertag für {bl_now}: {', '.join(unknown)}")
+        _set(conn, "regional_holidays", ",".join(chosen) or "-")  # "-" = bewusst keine
     if "company_free_days" in changes:
         raw = data.company_free_days or ""
         parts = [p.strip() for p in raw.split(",") if p.strip()]

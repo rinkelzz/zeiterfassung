@@ -62,7 +62,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
   auf Wunsch **Stunden je Wochentag** (z. B. 38 h: Di–Fr 8,5 h, Sa 4 h)
 - Urlaubskonto mit Resturlaub-Übertrag; Abwesenheiten (Urlaub, Krank, Bildungsurlaub, Gleittag,
   Mehrarbeit-Entnahme, Sonderurlaub), auch als halber Tag
-- Feiertage aller 16 Bundesländer, betriebsfreie Tage, Erfassungsbeginn und Überträge pro Person
+- Feiertage aller 16 Bundesländer, regionale Feiertage zum Ankreuzen (z. B. Fronleichnam in Teilen von Sachsen
+  und Thüringen, Augsburger Friedensfest), betriebsfreie Tage, Erfassungsbeginn und Überträge pro Person
 - Pausenabzug wählbar: keiner, nach ArbZG (über 6 h: 30 min, über 9 h: 45 min) oder fest –
   pro Mitarbeiter auch **je Wochentag** abweichend (z. B. samstags kein Abzug)
 - Mitarbeiter **deaktivieren** (Daten bleiben) oder **endgültig löschen** (mit Namensbestätigung und automatischer Sicherung vorher)

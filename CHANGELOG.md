@@ -2,6 +2,18 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.18.1] – 2026-10-31
+
+### Behoben
+- **Fronleichnam in Sachsen und Thüringen:** Der Feiertag wurde landesweit gerechnet, gilt dort aber nur in
+  einzelnen Gemeinden (Sachsen: sorbisches Siedlungsgebiet im Landkreis Bautzen; Thüringen: Eichsfeld und einzelne
+  Gemeinden). Er ist jetzt standardmäßig aus. Danke an @ralfmehner-collab für den Hinweis (#1).
+
+### Neu
+- **Regionale Feiertage zum Ankreuzen** unter Verwaltung → Einstellungen, direkt unter dem Bundesland:
+  Fronleichnam (Sachsen, Thüringen), Mariä Himmelfahrt (Bayern, voreingestellt an – gilt in den meisten
+  Gemeinden) und das Augsburger Friedensfest (nur Stadt Augsburg).
+
 ## [0.18.0] – 2026-10-30
 
 ### Neu
@@ -206,6 +218,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.18.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.1
 [0.18.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.0
 [0.17.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.17.0
 [0.16.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.16.3

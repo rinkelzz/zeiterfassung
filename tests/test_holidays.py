@@ -134,3 +134,51 @@ def test_migration_from_v1(tmp_path):
         dbmod.init_db()  # zweiter Start ändert nichts
     finally:
         settings.data_dir, settings.db_path = saved
+
+
+# --- regionale Feiertage (gelten nur in Teilen eines Bundeslands) ------------
+
+def test_regional_defaults():
+    fl = date(2026, 6, 4)
+    sn = holidays_for_year(2026, "SN")
+    assert fl not in sn                                   # Fronleichnam nicht landesweit in Sachsen
+    assert sn[date(2026, 11, 18)] == "Buß- und Bettag" and sn[date(2026, 10, 31)] == "Reformationstag"
+    assert fl not in holidays_for_year(2026, "TH")
+    assert holidays_for_year(2026, "BY")[date(2026, 8, 15)] == "Mariä Himmelfahrt"   # Voreinstellung an
+    assert holidays_for_year(2026, "SL")[date(2026, 8, 15)] == "Mariä Himmelfahrt"   # Saarland: landesweit
+    assert date(2026, 8, 8) not in holidays_for_year(2026, "BY")
+
+
+def test_regional_choice():
+    assert holidays_for_year(2026, "SN", regional="fronleichnam_sn")[date(2026, 6, 4)] == "Fronleichnam"
+    assert holidays_for_year(2026, "TH", regional="fronleichnam_th")[date(2026, 6, 4)] == "Fronleichnam"
+    by = holidays_for_year(2026, "BY", regional="friedensfest_by")
+    assert by[date(2026, 8, 8)] == "Augsburger Friedensfest" and date(2026, 8, 15) not in by
+    assert date(2026, 8, 15) not in holidays_for_year(2026, "BY", regional="-")
+    # Schlüssel eines anderen Lands wirken nicht
+    assert date(2026, 6, 4) not in holidays_for_year(2026, "SN", regional="fronleichnam_th")
+
+
+def test_regional_settings_api():
+    with TestClient(app) as c:
+        c.post("/api/v1/auth/login", json={"username": "admin", "password": os.environ["ZE_ADMIN_PASSWORD"]})
+        before = c.get("/api/v1/settings").json()["bundesland"]
+        try:
+            s = c.patch("/api/v1/settings", json={"bundesland": "SN"}).json()
+            s = c.get("/api/v1/settings").json()
+            assert s["regional_holidays"] == [] and "fronleichnam_sn" in s["regional_options"]
+            days = {d["date"]: d["name"] for d in c.get("/api/v1/holidays", params={"year": 2026}).json()["days"]}
+            assert "2026-06-04" not in days
+            assert c.patch("/api/v1/settings", json={"regional_holidays": ["fronleichnam_sn"]}).status_code == 200
+            assert c.get("/api/v1/settings").json()["regional_holidays"] == ["fronleichnam_sn"]
+            days = {d["date"]: d["name"] for d in c.get("/api/v1/holidays", params={"year": 2026}).json()["days"]}
+            assert days["2026-06-04"] == "Fronleichnam"
+            assert c.patch("/api/v1/settings", json={"regional_holidays": ["friedensfest_by"]}).status_code == 400
+            # Wechsel nach Bayern → Voreinstellung dort (Mariä Himmelfahrt an)
+            c.patch("/api/v1/settings", json={"bundesland": "BY"})
+            assert c.get("/api/v1/settings").json()["regional_holidays"] == ["mariae_himmelfahrt_by"]
+            c.patch("/api/v1/settings", json={"regional_holidays": []})
+            days = {d["date"] for d in c.get("/api/v1/holidays", params={"year": 2026}).json()["days"]}
+            assert "2026-08-15" not in days
+        finally:
+            c.patch("/api/v1/settings", json={"bundesland": before})

@@ -1,6 +1,8 @@
 """Gesetzliche Feiertage in Deutschland nach Bundesland.
 
 Portiert aus rinkelzz/gleitzeit (includes/holidays.php), ergänzt um:
+- regionale Feiertage (Fronleichnam in Teilen von Sachsen/Thüringen, Mariä Himmelfahrt in Bayern,
+  Augsburger Friedensfest) als Auswahl statt landesweit
 - korrekten Buß- und Bettag (Mittwoch VOR dem 23.11., also 16.–22.11.)
 - Jahresregeln für neuere Feiertage (Frauentag BE/MV, Weltkindertag TH,
   Reformationstag in den Nordländern, Reformationsjubiläum 2017)
@@ -50,8 +52,39 @@ def buss_und_bettag(year: int) -> date:
     return nov22 - timedelta(days=(nov22.weekday() - 2) % 7)
 
 
+# Feiertage, die nur in einem Teil des Landes gelten. Landesweit rechnet die App sie nicht;
+# wer in einer solchen Gemeinde arbeitet, schaltet sie unter Verwaltung → Einstellungen ein.
+#   Schlüssel: (Bundesland, Name, Erklärung, standardmäßig an)
+REGIONAL = {
+    "fronleichnam_sn": ("SN", "Fronleichnam", "nur in einzelnen Gemeinden im sorbischen Siedlungsgebiet, Landkreis Bautzen", False),
+    "fronleichnam_th": ("TH", "Fronleichnam", "nur im Eichsfeld und einzelnen Gemeinden im Unstrut-Hainich- und Wartburgkreis", False),
+    "mariae_himmelfahrt_by": ("BY", "Mariä Himmelfahrt", "nur in Gemeinden mit überwiegend katholischer Bevölkerung (die meisten)", True),
+    "friedensfest_by": ("BY", "Augsburger Friedensfest", "nur in der Stadt Augsburg", False),
+}
+
+
+def regional_options(bl: str) -> Dict[str, Dict]:
+    return {k: {"name": n, "info": i, "default": d} for k, (land, n, i, d) in REGIONAL.items() if land == bl.upper()}
+
+
+def regional_all() -> Dict[str, Dict[str, Dict]]:
+    """Alle regionalen Feiertage nach Bundesland (für die Einstellungsseite)."""
+    out: Dict[str, Dict[str, Dict]] = {}
+    for k, (land, n, i, d) in REGIONAL.items():
+        out.setdefault(land, {})[k] = {"name": n, "info": i, "default": d}
+    return out
+
+
+def parse_regional(raw: str, bl: str) -> frozenset:
+    """Gespeicherte Auswahl ('default' = Voreinstellung des Bundeslands) → aktive Schlüssel."""
+    opts = regional_options(bl)
+    if (raw or "default") == "default":
+        return frozenset(k for k, o in opts.items() if o["default"])
+    return frozenset(k.strip() for k in raw.split(",") if k.strip() in opts)
+
+
 @lru_cache(maxsize=256)
-def _public_holidays(year: int, bl: str) -> Dict[date, str]:
+def _public_holidays(year: int, bl: str, regional: frozenset = frozenset()) -> Dict[date, str]:
     bl = bl.upper()
     e = easter_sunday(year)
     days: Dict[date, str] = {}
@@ -78,10 +111,12 @@ def _public_holidays(year: int, bl: str) -> Dict[date, str]:
     if bl == "BB":
         add(e, "Ostersonntag")
         add(e + timedelta(days=49), "Pfingstsonntag")
-    if bl in ("BW", "BY", "HE", "NW", "RP", "SL", "SN", "TH"):
+    if bl in ("BW", "BY", "HE", "NW", "RP", "SL") or regional & {"fronleichnam_sn", "fronleichnam_th"}:
         add(e + timedelta(days=60), "Fronleichnam")
-    if bl in ("BY", "SL"):
+    if bl == "SL" or "mariae_himmelfahrt_by" in regional:
         add(date(year, 8, 15), "Mariä Himmelfahrt")
+    if "friedensfest_by" in regional:
+        add(date(year, 8, 8), "Augsburger Friedensfest")
     if bl == "TH" and year >= 2019:
         add(date(year, 9, 20), "Weltkindertag")
     reformation = {"BB", "MV", "SN", "ST", "TH"}
@@ -110,9 +145,11 @@ def parse_company_free_days(raw: str) -> list:
     return result
 
 
-def holidays_for_year(year: int, bundesland: str, company_free_days: str = "") -> Dict[date, str]:
-    """Feiertage plus betriebsfreie Tage eines Jahres: {Datum: Name}."""
-    days = dict(_public_holidays(year, bundesland))
+def holidays_for_year(year: int, bundesland: str, company_free_days: str = "", regional: str = "default") -> Dict[date, str]:
+    """Feiertage plus betriebsfreie Tage eines Jahres: {Datum: Name}.
+    regional: gespeicherte Auswahl regionaler Feiertage (siehe REGIONAL), 'default' = Voreinstellung."""
+    bl = (bundesland or "").upper()
+    days = dict(_public_holidays(year, bl, parse_regional(regional, bl)))
     for mm, dd in parse_company_free_days(company_free_days):
         try:
             d = date(year, mm, dd)

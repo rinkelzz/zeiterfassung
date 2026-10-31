@@ -215,7 +215,7 @@ def holidays_between(conn: sqlite3.Connection, d_from: date, d_to: date) -> Dict
     free_days = get_setting(conn, "company_free_days")
     result: Dict[date, str] = {}
     for year in range(d_from.year, d_to.year + 1):
-        result.update(holidays_for_year(year, bundesland, free_days))
+        result.update(holidays_for_year(year, bundesland, free_days, get_setting(conn, "regional_holidays") or "default"))
     return result
 
 

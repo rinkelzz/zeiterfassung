@@ -1040,6 +1040,7 @@ async function loadSettingsForm() {
   const s = state.settings = await api("settings");
   $("setBl").innerHTML = Object.entries(s.bundeslaender).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   $("setBl").value = s.bundesland; $("setFree").value = s.company_free_days;
+  showRegional(s.bundesland, s.regional_holidays);
   $("setUrl").value = s.public_url || "";
   $("setTravIn").value = s.travel_in_minutes; $("setTravOut").value = s.travel_out_minutes;
   $$(".travSrc").forEach(c => { c.checked = (s.travel_sources || []).includes(c.value); });
@@ -1067,10 +1068,22 @@ async function loadSettingsForm() {
   $("holTable").innerHTML = "<tbody>" + h.days.map(d => `<tr><td>${d.weekday} ${deDate(d.date)}</td><td>${esc(d.name)}</td></tr>`).join("") + "</tbody>";
 }
 
+// Regionale Feiertage (gelten nur in Teilen des Bundeslands) – Auswahl unter dem Bundesland
+function showRegional(bl, active) {
+  const opts = (state.settings.regional_by_land || {})[bl] || {};
+  const keys = Object.keys(opts);
+  $("setRegional").classList.toggle("hidden", !keys.length);
+  $("setRegional").innerHTML = keys.length ? '<span class="muted">Regionale Feiertage (nur ankreuzen, wenn sie am Arbeitsort gelten):</span>' +
+    keys.map(k => `<label class="inline" title="${esc(opts[k].info)}"><input type="checkbox" class="regHol" value="${k}"
+      ${(active == null ? opts[k].default : active.includes(k)) ? "checked" : ""}> ${esc(opts[k].name)}
+      <span class="muted">(${esc(opts[k].info)})</span></label>`).join("") : "";
+}
+
 async function saveSettings() {
   $("setErr").textContent = "";
   try {
     await api("settings", { method: "PATCH", body: { bundesland: $("setBl").value, company_free_days: $("setFree").value,
+      regional_holidays: $$(".regHol").filter(c => c.checked).map(c => c.value),
       break_mode: $("setBreak").value, break_minutes: Number($("setMin").value || 0), public_url: $("setUrl").value.trim(),
       dsm_login: $("setDsmLogin").checked, dsm_auto_create: $("setDsmCreate").checked, dsm_admins: $("setDsmAdmins").checked,
       dsm_url: $("setDsmUrl").value.trim() || null,
@@ -1317,6 +1330,7 @@ $("usersTable").addEventListener("click", e => {
 $("newUserBtn").onclick = newUser;
 $("setBreak").onchange = () => $("setMinWrap").classList.toggle("hidden", $("setBreak").value !== "fixed");
 $("setBtn").onclick = saveSettings;
+$("setBl").onchange = () => showRegional($("setBl").value, $("setBl").value === state.settings.bundesland ? state.settings.regional_holidays : null);
 $("impPreview").onclick = () => runImport(false);
 $("impCommit").onclick = () => runImport(true);
 $("impFile").onchange = () => $("impResult").classList.add("hidden");

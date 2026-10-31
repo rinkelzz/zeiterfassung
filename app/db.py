@@ -118,6 +118,7 @@ DEFAULT_SETTINGS = {
     "bundesland": "NW",
     # Betriebsfreie Tage, jedes Jahr gleich: "12-24, 12-31"
     "company_free_days": "",
+    "regional_holidays": "default",
 }
 
 
