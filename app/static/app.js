@@ -518,21 +518,68 @@ async function loadAudit(more) {
 
 // ---------- Kiosk ----------
 async function loadKiosks() {
-  const list = await api("kiosks");
+  const [list, branches] = await Promise.all([api("kiosks"), api("branches")]);
+  state.branches = branches;
   const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie";
-  $("kTable").innerHTML = list.length ? `<thead><tr><th>Tablet</th><th>freigeschaltet</th><th>zuletzt benutzt</th><th></th></tr></thead><tbody>` +
-    list.map(k => `<tr><td>${esc(k.name)}</td><td>${fmt(k.created_at)}</td><td>${fmt(k.last_used_at)}</td>
+  const brOpts = (sel) => `<option value="">alle Mitarbeiter</option>` +
+    branches.map(b => `<option value="${b.id}" ${b.id === sel ? "selected" : ""}>${esc(b.name)}</option>`).join("");
+  $("kBranchWrap").classList.toggle("hidden", !branches.length);
+  $("kBranch").innerHTML = brOpts(null);
+  $("kTable").innerHTML = list.length ? `<thead><tr><th>Tablet</th>${branches.length ? "<th>Filiale</th>" : ""}<th>freigeschaltet</th><th>zuletzt benutzt</th><th></th></tr></thead><tbody>` +
+    list.map(k => `<tr><td>${esc(k.name)}</td>${branches.length ? `<td><select data-kbr="${k.id}">${brOpts(k.branch_id)}</select></td>` : ""}
+      <td>${fmt(k.created_at)}</td><td>${fmt(k.last_used_at)}</td>
       <td><button class="mini danger" data-kdel="${k.id}">Sperren</button></td></tr>`).join("") + "</tbody>"
     : '<tbody><tr><td class="muted">Noch kein Tablet freigeschaltet.</td></tr></tbody>';
   $$("#kTable [data-kdel]").forEach(b => b.onclick = async () => {
     if (!confirm("Dieses Tablet sperren? Es zeigt danach „nicht freigeschaltet“.")) return;
     try { await api("kiosks/" + b.dataset.kdel, { method: "DELETE" }); await loadKiosks(); } catch (e) { $("kErr").textContent = e.message; }
   });
+  $$("#kTable [data-kbr]").forEach(sel => sel.onchange = async () => {
+    try { await api("kiosks/" + sel.dataset.kbr, { method: "PATCH", body: { branch_id: sel.value ? Number(sel.value) : null } });
+          okMsg($("kErr"), "Filiale gespeichert."); }
+    catch (e) { $("kErr").textContent = e.message; }
+  });
+  showBranches();
+}
+
+// Filialen: Name + Mitarbeiter-Häkchen
+function showBranches() {
+  const users = (state.allUsers || state.users || []).filter(u => u.active !== false);
+  $("brList").innerHTML = (state.branches || []).map(b => `<div class="detailbox branch" data-bid="${b.id}">
+      <div class="row"><input class="brn" value="${esc(b.name)}" style="width:180px">
+        <span class="muted small">${b.user_ids.length} Mitarbeiter</span>
+        <button class="mini primary" data-bract="save">Speichern</button>
+        <button class="mini danger" data-bract="del">Löschen</button></div>
+      <div class="row">${users.map(u => `<label class="inline"><input type="checkbox" class="bru" value="${u.id}" ${b.user_ids.includes(u.id) ? "checked" : ""}> ${esc(u.display_name)}</label>`).join("")}</div>
+    </div>`).join("") || '<p class="muted small">Noch keine Filialen – alle Tablets zeigen alle Mitarbeiter.</p>';
+}
+async function branchAction(btn) {
+  const box = btn.closest(".branch"); const id = box.dataset.bid; $("brErr").textContent = "";
+  try {
+    if (btn.dataset.bract === "del") {
+      if (!confirm("Filiale löschen? Tablets dieser Filiale zeigen danach wieder alle Mitarbeiter.")) return;
+      state.branches = await api("branches/" + id, { method: "DELETE" });
+    } else {
+      state.branches = await api("branches/" + id, { method: "PATCH", body: { name: box.querySelector(".brn").value.trim(),
+        user_ids: $$(".bru", box).filter(c => c.checked).map(c => Number(c.value)) } });
+      okMsg($("brErr"), "Gespeichert.");
+    }
+    await loadKiosks();
+  } catch (e) { $("brErr").textContent = e.message; }
+}
+async function newBranch() {
+  $("brErr").textContent = "";
+  try {
+    await api("branches", { method: "POST", body: { name: $("brName").value.trim() } });
+    $("brName").value = "";
+    await loadKiosks();
+  } catch (e) { $("brErr").textContent = e.message; }
 }
 async function newKiosk() {
   $("kErr").textContent = "";
   try {
-    const r = await api("kiosks", { method: "POST", body: { name: $("kName").value.trim() || "Tablet", host_hint: location.hostname } });
+    const r = await api("kiosks", { method: "POST", body: { name: $("kName").value.trim() || "Tablet", host_hint: location.hostname,
+      branch_id: $("kBranch").value ? Number($("kBranch").value) : null } });
     $("kBox").innerHTML = `<div>${r.qr_svg.replace(/<\?xml[^>]*>/, "")}</div>
       <div><b>Mit dem Tablet scannen</b> oder den Link dort öffnen. Danach ist das Tablet dauerhaft freigeschaltet –
         den Link nicht weitergeben.<br><br><code>${esc(r.url)}</code><br><br>
@@ -1288,6 +1335,8 @@ $("updCheck").onclick = checkUpdates;
 $("bkSave").onclick = saveBackups;
 $("clAll").onclick = closeAll;
 $("kNew").onclick = newKiosk;
+$("brNew").onclick = newBranch;
+$("brList").addEventListener("click", e => { const b = e.target.closest("[data-bract]"); if (b) branchAction(b); });
 $("pinSave").onclick = () => savePin(false);
 $("pinDel").onclick = () => savePin(true);
 $("alGo").onclick = () => loadAudit(false).catch(e => { $("alErr").textContent = e.message; });

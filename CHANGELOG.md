@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.19.0] – 2026-10-31
+
+### Neu
+- **Filialen fürs Kiosk-Tablet:** Unter Verwaltung → Kiosk-Tablets Filialen anlegen, Mitarbeiter zuordnen (auch
+  mehreren) und jedem Tablet eine Filiale geben. Das Tablet zeigt dann nur die Mitarbeiter seiner Filiale –
+  plus alle ohne Filiale, damit ohne Einrichtung alles wie bisher bleibt. Stempeln an einem fremden Tablet
+  wird abgelehnt.
+- **Kontostände am Kiosk:** Nach der PIN und nach dem Stempeln sieht jeder heute gearbeitet (mit Soll und
+  Tagessaldo), sein Gleitzeit-Konto, das Überstunden-Konto (wenn er Ü-Tage oder einen Ü-Übertrag hat) und den
+  Resturlaub. Danke an @ralfmehner-collab für beide Wünsche (#1).
+
 ## [0.18.1] – 2026-10-31
 
 ### Behoben
@@ -218,6 +229,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.19.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.19.0
 [0.18.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.1
 [0.18.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.0
 [0.17.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.17.0

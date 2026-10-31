@@ -48,7 +48,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 
 **Stempeln**
 - Weboberfläche (auch am Handy), iPhone-Kurzbefehle, Standort-Automation, NFC-Aufkleber
-- **Kiosk-Tablet** an der Wache: Name antippen, PIN eingeben, Kommen/Gehen – mit Anzeige, wer gerade da ist
+- **Kiosk-Tablet** an der Wache: Name antippen, PIN eingeben, Kommen/Gehen – mit Anzeige, wer gerade da ist,
+  den eigenen Kontoständen nach der PIN und Filialen für mehrere Standorte
 - Einrichtung fürs iPhone per **QR-Code**: persönliche Seite mit Test-Knöpfen und Kopier-Feldern
 - **Umschalten** mit einem einzigen NFC-Aufkleber (kommt, wenn draußen – geht, wenn drin)
 - **Wegezeit**: für gewählte Stempelwege (z. B. NFC) beim Kommen früher und beim Gehen später, z. B. je 10 Minuten
@@ -197,6 +198,12 @@ Für ein Tablet an der Wache (oder für Kollegen ohne iPhone):
 2. Jeder Mitarbeiter setzt unter **Mein Zugang → PIN fürs Kiosk-Tablet** eine 4–6-stellige PIN.
    Nur wer eine PIN hat, erscheint am Tablet.
 3. Am Tablet: Namen antippen, PIN eingeben, **Kommen** bzw. **Gehen**. Ein grüner Punkt zeigt, wer gerade da ist.
+   Nach der PIN sieht jeder seine Konten: heute gearbeitet, Gleitzeit (Plus/Minus), Überstunden (wenn genutzt)
+   und Resturlaub.
+
+**Mehrere Filialen:** Unter **Verwaltung → Kiosk-Tablets → Filialen** Filialen anlegen und Mitarbeiter per Häkchen
+zuordnen (wer an beiden Standorten arbeitet, bekommt beide). Jedem Tablet die passende Filiale geben – es zeigt dann
+nur deren Mitarbeiter und alle, die keiner Filiale zugeordnet sind.
 
 Nach 5 falschen PINs ist der Name 15 Minuten gesperrt. Ein verlorenes Tablet lässt sich in der Verwaltung
 sperren, eine vergessene PIN in der Mitarbeitertabelle löschen.
@@ -313,7 +320,8 @@ Quellcode unter derselben Lizenz offenlegen.
 Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The user interface is German.
 
 - Clock in via web UI, iPhone Shortcuts (setup via QR code), geofence automation, NFC tags or a
-  kiosk tablet (name + PIN, shows who is present); optional travel-time allowance
+  kiosk tablet (name + PIN, shows who is present and the employee's balances; branches for several locations);
+  optional travel-time allowance
 - Forgotten clock-outs: email reminder after 12 hours, auto-close at midnight, flagged for review
 - Separate flextime and overtime accounts, weekly hours with effective dates (evenly spread or hours per
   weekday, e.g. Tue–Fri 8.5 h, Sat 4 h), vacation tracking, public holidays for all 16 German states,

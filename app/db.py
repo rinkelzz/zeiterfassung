@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -272,6 +272,16 @@ def migrate(conn: sqlite3.Connection) -> None:
         # Endgültig gelöschte Mitarbeiter: Name bleibt fürs Änderungsprotokoll erhalten
         conn.execute("CREATE TABLE IF NOT EXISTS deleted_users (id INTEGER PRIMARY KEY, username TEXT NOT NULL,"
                      " display_name TEXT NOT NULL, deleted_at TEXT NOT NULL, deleted_by INTEGER)")
+    if version < 13:
+        # Filialen: Mitarbeiter gehören zu einer oder mehreren Filialen, ein Kiosk-Tablet zu einer
+        conn.execute("CREATE TABLE IF NOT EXISTS branches (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                     " name TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL)")
+        conn.execute("CREATE TABLE IF NOT EXISTS user_branches ("
+                     " user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+                     " branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,"
+                     " PRIMARY KEY (user_id, branch_id))")
+        if "branch_id" not in _columns(conn, "kiosk_devices"):
+            conn.execute("ALTER TABLE kiosk_devices ADD COLUMN branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

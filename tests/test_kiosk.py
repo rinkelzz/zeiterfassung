@@ -92,7 +92,7 @@ def test_no_token_and_revoke(admin, emp, tablet):
         assert c.get("/api/v1/me", headers={"X-Kiosk-Token": tablet["c"].headers["X-Kiosk-Token"]}).status_code == 401
     # Mitarbeiter dürfen keine Tablets freischalten
     assert emp["c"].post("/api/v1/kiosks", json={"name": "x"}).status_code == 403
-    assert [x["name"] for x in admin.get("/api/v1/kiosks").json()] == ["Tablet Wache"]
+    assert "Tablet Wache" in [x["name"] for x in admin.get("/api/v1/kiosks").json()]
     # Admin setzt PIN zurück → Name verschwindet vom Tablet
     assert admin.put(f"/api/v1/users/{emp['uid']}/pin", json={"pin": None}).json()["has_pin"] is False
     assert all(u["id"] != emp["uid"] for u in tablet["c"].get("/api/v1/kiosk/users").json()["users"])

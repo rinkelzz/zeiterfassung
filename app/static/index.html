@@ -214,11 +214,23 @@
         Am Tablet erscheint, wer unter „Mein Zugang“ eine PIN gesetzt hat.</p>
       <div class="row">
         <label>Name <input id="kName" value="Tablet Wache" style="width:180px"></label>
+        <label id="kBranchWrap" class="hidden">Filiale <select id="kBranch"></select></label>
         <label>&nbsp;<button class="primary" id="kNew">Tablet freischalten</button></label>
       </div>
       <div id="kBox" class="qr hidden"></div>
       <div class="err" id="kErr"></div>
       <div class="scroll" style="margin-top:8px"><table id="kTable"></table></div>
+
+      <h3 style="margin-top:18px">Filialen</h3>
+      <p class="muted small" style="margin-top:0">Bei mehreren Standorten: Filiale anlegen, Mitarbeiter zuordnen und dem Tablet die
+        Filiale geben. Ein Tablet zeigt dann nur die Mitarbeiter seiner Filiale – und alle, die keiner Filiale zugeordnet sind.
+        Wer in beiden arbeitet, bekommt beide Häkchen.</p>
+      <div class="row">
+        <label>Neue Filiale <input id="brName" placeholder="z. B. Filiale Nord" style="width:180px"></label>
+        <label>&nbsp;<button id="brNew">Anlegen</button></label>
+      </div>
+      <div class="err" id="brErr"></div>
+      <div id="brList"></div>
     </section>
 
     <section class="card">

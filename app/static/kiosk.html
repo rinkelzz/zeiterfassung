@@ -50,6 +50,11 @@ main { padding: 0 28px 28px; }
 .big { font-size: 64px; line-height: 1; margin: 6px 0 10px; }
 .muted { color: var(--muted); }
 .hidden { display: none !important; }
+.acc { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 16px 0 4px; text-align: left; }
+.acc div { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+.acc small { display: block; color: var(--muted); font-size: 13px; }
+.acc b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.pos { color: var(--in); } .neg { color: var(--out); }
 </style>
 </head>
 <body>
@@ -87,6 +92,7 @@ main { padding: 0 28px 28px; }
   <section id="vAct" class="panel hidden">
     <h2 id="actName"></h2>
     <div class="muted" id="actInfo"></div>
+    <div class="acc" id="actAcc"></div>
     <button class="btn" id="actBtn"></button>
     <div class="err" id="actErr"></div>
     <button class="btn ghost" data-back>Abbrechen</button>
@@ -97,6 +103,7 @@ main { padding: 0 28px 28px; }
     <div class="big" id="doneIcon">✓</div>
     <h2 id="doneTitle"></h2>
     <div class="muted" id="doneMsg"></div>
+    <div class="acc" id="doneAcc"></div>
   </section>
 </main>
 
@@ -142,13 +149,27 @@ async function loadUsers() {
   try {
     const r = await api("kiosk/users");
     st.users = r.users;
-    $("kname").textContent = r.kiosk || "Zeiterfassung";
+    $("kname").textContent = (r.kiosk || "Zeiterfassung") + (r.branch && !(r.kiosk || "").includes(r.branch) ? " · " + r.branch : "");
     $("grid").innerHTML = r.users.map(u => `<button class="tile" data-u="${u.id}"><span class="dot ${u.present ? "in" : ""}"></span>${esc(u.name)}</button>`).join("");
     $("empty").textContent = r.users.length ? "" : "Noch niemand hat eine PIN gesetzt – das geht in der Zeiterfassung unter „Mein Zugang“.";
     if (!st.sel) show("vList");
   } catch (e) {
     if (e.status === 401) { show("vNoKey"); $("noKeyErr").textContent = e.message; }
   }
+}
+
+// Konten nach der PIN: heute, Gleitzeit, ggf. Überstunden, Resturlaub
+function signed(s, text) {
+  const cls = s >= 30 ? "pos" : s <= -30 ? "neg" : "";
+  return `<b class="${cls}">${s >= 30 ? "+" : ""}${esc(text)}</b>`;
+}
+function accounts(a) {
+  if (!a) return "";
+  const tiles = [`<div><small>Heute</small><b>${esc(a.today_worked)} h</b>${a.today_has_target ? `<small>Soll ${esc(a.today_target)} · ${a.today_diff_s >= 30 ? "+" : ""}${esc(a.today_diff)}</small>` : ""}</div>`,
+                 `<div><small>Gleitzeit</small>${signed(a.gleitzeit_s, a.gleitzeit)}</div>`];
+  if (a.ueberstunden != null) tiles.push(`<div><small>Überstunden</small>${signed(a.ueberstunden_s, a.ueberstunden)}</div>`);
+  if (a.vacation_remaining != null) tiles.push(`<div><small>Resturlaub ${a.vacation_year}</small><b>${String(a.vacation_remaining).replace(".", ",")} T.</b></div>`);
+  return tiles.join("");
 }
 
 function home() { st.sel = null; st.pin = ""; idle(0); show("vList"); loadUsers(); }
@@ -178,6 +199,7 @@ async function submitPin() {
     $("actBtn").textContent = r.status === "in" ? "Gehen" : "Kommen";
     $("actBtn").className = "btn " + (r.status === "in" ? "go-out" : "go-in");
     $("actErr").textContent = "";
+    $("actAcc").innerHTML = accounts(r.accounts);
     show("vAct"); idle(20000);
   } catch (e) { st.pin = ""; drawPin(); $("pinErr").textContent = e.message; }
 }
@@ -189,7 +211,8 @@ async function act() {
     $("doneIcon").textContent = inNow ? "👋" : "✓";
     $("doneTitle").textContent = inNow ? `Hallo ${r.name}!` : `Tschüss ${r.name}!`;
     $("doneMsg").textContent = r.message || "";
-    st.pin = ""; show("vDone"); idle(4000);
+    $("doneAcc").innerHTML = accounts(r.accounts);
+    st.pin = ""; show("vDone"); idle(7000);
   } catch (e) { $("actErr").textContent = e.message; }
   finally { $("actBtn").disabled = false; }
 }
