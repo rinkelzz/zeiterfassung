@@ -15,9 +15,13 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 |---|---|
 | ![Übersicht](docs/screenshots/uebersicht.png) | ![Monatsansicht](docs/screenshots/monat.png) |
 
-| Kiosk-Tablet an der Wache | Kommen/Gehen nach PIN |
+| Kiosk-Tablet einer Filiale | Nach der PIN: Kontostände und Gehen |
 |---|---|
 | ![Kiosk](docs/screenshots/kiosk.png) | ![Kiosk – Gehen](docs/screenshots/kiosk-gehen.png) |
+
+| Stunden und Pausen je Wochentag | Filialen und Tablets |
+|---|---|
+| ![Arbeitszeit je Wochentag](docs/screenshots/arbeitszeit-tage.png) | ![Filialen](docs/screenshots/filialen.png) |
 
 | Korrekturanträge | Monatsabschluss |
 |---|---|
@@ -27,7 +31,7 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 |---|---|
 | ![Jahr](docs/screenshots/jahr.png) | ![Änderungsprotokoll](docs/screenshots/protokoll.png) |
 
-| Arbeitszeitnachweis (PDF) | iPhone-Einrichtung |
+| Arbeitszeitnachweis (PDF, mit Stunden je Wochentag) | iPhone-Einrichtung |
 |---|---|
 | ![Arbeitszeitnachweis](docs/screenshots/bericht-pdf.png) | ![Einrichtungsseite](docs/screenshots/iphone-setup.png) |
 
@@ -40,7 +44,7 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
   [Datensicherung](#datensicherung) · [Von unterwegs (Reverse Proxy)](#von-unterwegs-erreichbar-machen-reverse-proxy) ·
   [iPhone & NFC](#iphone-und-nfc-einrichten) · [Kiosk-Tablet](#kiosk-tablet) · [Berichte per Mail](#berichte-per-mail) ·
   [Vergessenes Ausstempeln](#vergessenes-ausstempeln) · [Korrekturanträge](#korrekturanträge) ·
-  [Monatsabschluss](#monatsabschluss) · [Arbeitszeit & Pausen je Wochentag](#arbeitszeit-und-pausen-je-wochentag) ·
+  [Monatsabschluss](#monatsabschluss) · [Arbeitszeit & Pausen je Wochentag](#arbeitszeit-und-pausen-je-wochentag) · [Feiertage](#feiertage) ·
   [Mitarbeiter deaktivieren oder löschen](#mitarbeiter-deaktivieren-oder-löschen)
 - [Entwicklung](#entwicklung) · [Hinweise](#hinweise) · [Lizenz](#lizenz) · [English](#english)
 
@@ -251,6 +255,17 @@ Unter **Verwaltung → Mitarbeiter → Verlauf** gilt jede Änderung ab einem Da
 
 PDF und Excel zeigen die Tagesstunden und abweichende Pausen in der Kopfzeile.
 
+### Feiertage
+
+Unter **Verwaltung → Einstellungen** das Bundesland wählen – die gesetzlichen Feiertage rechnet die App selbst.
+Feiertage, die nur in einem Teil des Landes gelten, erscheinen darunter zum Ankreuzen:
+
+- **Sachsen:** Fronleichnam (nur einzelne Gemeinden im sorbischen Siedlungsgebiet, Landkreis Bautzen)
+- **Thüringen:** Fronleichnam (Eichsfeld und einzelne Gemeinden)
+- **Bayern:** Mariä Himmelfahrt (voreingestellt an, gilt in den meisten Gemeinden), Augsburger Friedensfest (nur Augsburg)
+
+Zusätzlich lassen sich **betriebsfreie Tage** eintragen, z. B. `12-24, 12-31`.
+
 ### Mitarbeiter deaktivieren oder löschen
 
 In der Mitarbeiterliste unter **Verwaltung**:
@@ -324,7 +339,7 @@ Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The 
   optional travel-time allowance
 - Forgotten clock-outs: email reminder after 12 hours, auto-close at midnight, flagged for review
 - Separate flextime and overtime accounts, weekly hours with effective dates (evenly spread or hours per
-  weekday, e.g. Tue–Fri 8.5 h, Sat 4 h), vacation tracking, public holidays for all 16 German states,
+  weekday, e.g. Tue–Fri 8.5 h, Sat 4 h), vacation tracking, public holidays for all 16 German states (regional ones such as Corpus Christi in parts of Saxony optional),
   break deduction per German working-time law (ArbZG), fixed or none – optionally different per weekday
 - Deactivate employees (data kept) or delete them permanently (name confirmation, automatic backup first)
 - Working-time-law hints: more than 10 hours a day, less than 11 hours rest between working days
