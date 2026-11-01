@@ -99,6 +99,7 @@ async function login() {
 async function start() {
   state.me = await api("me");
   state.settings = await api("settings");
+  if (window.zeTheme) zeTheme(state.me.theme_effective || "classic");
   $("loginView").classList.add("hidden"); $("appView").classList.remove("hidden");
   $("who").textContent = state.me.display_name + (isAdmin() ? " · Admin" : "") + (state.me.via_dsm ? " · über DSM" : "");
   $("logoutBtn").classList.toggle("hidden", !!state.me.via_dsm);
@@ -135,7 +136,7 @@ async function showTab(name) {
     if (name === "month") await loadMonth();
     if (name === "year") await loadYear();
     if (name === "admin") await loadAdmin();
-    if (name === "me") { loadMeMail(); showPinState(); loadMyRequests().catch(e => { $("myRqErr").textContent = e.message; }); await loadTokens(); }
+    if (name === "me") { loadMeMail(); showPinState(); showThemes(); loadMyRequests().catch(e => { $("myRqErr").textContent = e.message; }); await loadTokens(); }
   } catch (e) { if (e.message !== "Nicht angemeldet") console.error(e); }
 }
 
@@ -1153,6 +1154,8 @@ async function loadSettingsForm() {
   const s = state.settings = await api("settings");
   $("setBl").innerHTML = Object.entries(s.bundeslaender).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   $("setBl").value = s.bundesland; $("setFree").value = s.company_free_days;
+  $("setTheme").innerHTML = Object.entries(s.themes || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+  $("setTheme").value = s.theme_default || "classic";
   showRegional(s.bundesland, s.regional_holidays);
   $("setUrl").value = s.public_url || "";
   $("setTravIn").value = s.travel_in_minutes; $("setTravOut").value = s.travel_out_minutes;
@@ -1197,6 +1200,7 @@ async function saveSettings() {
   try {
     await api("settings", { method: "PATCH", body: { bundesland: $("setBl").value, company_free_days: $("setFree").value,
       regional_holidays: $$(".regHol").filter(c => c.checked).map(c => c.value),
+      theme_default: $("setTheme").value,
       break_mode: $("setBreak").value, break_minutes: Number($("setMin").value || 0), public_url: $("setUrl").value.trim(),
       dsm_login: $("setDsmLogin").checked, dsm_auto_create: $("setDsmCreate").checked, dsm_admins: $("setDsmAdmins").checked,
       dsm_url: $("setDsmUrl").value.trim() || null,
@@ -1205,6 +1209,7 @@ async function saveSettings() {
       open_limit_hours: Number($("setOpenLimit").value || 0), open_auto_close: $("setOpenAuto").checked,
       arbzg_warnings: $("setArbzg").checked } });
     await loadSettingsForm();
+    state.me = await api("me"); if (window.zeTheme) zeTheme(state.me.theme_effective);
     okMsg($("setErr"), "Gespeichert.");
   } catch (e) { $("setErr").textContent = e.message; }
 }
@@ -1285,6 +1290,32 @@ async function mailReport(btn) {
 }
 
 // Mein Zugang: eigene Mailadresse
+// ---------- Design ----------
+const THEME_SW = { classic: ["#f4f5f7", "#ffffff", "#0f766e"], dsm: ["#eef2f7", "#ffffff", "#057feb"],
+                   dark: ["#0b0d10", "#15181d", "#f5a524"], warm: ["#f6efe4", "#fffdf9", "#b5400b"] };
+const THEME_INFO = { classic: "Petrol, hell – bei dunklem Gerät automatisch dunkel", dsm: "Blau wie DSM 7, passt ins DSM-Fenster",
+                     dark: "Immer dunkel – angenehm im Nachtdienst", warm: "Sandtöne, größere Schrift und Knöpfe" };
+function showThemes() {
+  const themes = state.settings.themes || {};
+  const def = state.settings.theme_default || "classic";
+  const mine = state.me.theme || "";
+  const tile = (key, name, info, sw) => `<button class="theme-opt ${key === mine ? "on" : ""}" data-theme-key="${key}">
+      <span class="sw">${sw.map(c => `<i style="background:${c}"></i>`).join("")}</span>
+      <b>${esc(name)}</b><span class="muted small">${esc(info)}</span></button>`;
+  $("themeList").innerHTML = tile("", "Standard der Firma", `zurzeit: ${themes[def] || def}`, THEME_SW[def] || THEME_SW.classic) +
+    Object.entries(themes).map(([k, v]) => tile(k, v, THEME_INFO[k] || "", THEME_SW[k] || THEME_SW.classic)).join("");
+  $$("#themeList [data-theme-key]").forEach(b => b.onclick = async () => {
+    $("themeErr").textContent = "";
+    const key = b.dataset.themeKey || null;
+    if (window.zeTheme) zeTheme(key || def);            // sofort zeigen
+    try {
+      state.me = await api("me", { method: "PATCH", body: { theme: key } });
+      if (window.zeTheme) zeTheme(state.me.theme_effective);
+      showThemes();
+    } catch (e) { $("themeErr").textContent = e.message; }
+  });
+}
+
 function loadMeMail() {
   const s = state.settings || {};
   $("meEmail").value = state.me.email || "";

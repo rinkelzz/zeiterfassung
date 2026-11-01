@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.22.0] – 2026-11-01
+
+### Neu
+- **Vier Designs zur Auswahl:**
+  - *Klassisch* – wie bisher, folgt hell/dunkel des Geräts
+  - *Synology DSM* – blau und kantiger, passt ins DSM-Fenster
+  - *Nacht* – immer dunkel mit Bernstein-Akzent, angenehm im Nachtdienst
+  - *Warm & groß* – Sandtöne, kräftiger Kontrast, größere Schrift und Bedienelemente
+- Jeder wählt sein Design unter **Mein Zugang → Design** (gilt auf allen Geräten). Der Admin legt unter
+  Verwaltung → Einstellungen das **Standard-Design** fest – für alle ohne eigene Wahl und für die Kiosk-Tablets.
+
 ## [0.21.0] – 2026-11-01
 
 ### Neu
@@ -254,6 +265,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.22.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.22.0
 [0.21.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.21.0
 [0.20.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.20.0
 [0.19.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.19.0

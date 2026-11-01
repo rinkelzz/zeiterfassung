@@ -11,7 +11,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .. import csvsafe
-from ..config import settings as app_settings
+from ..config import THEMES, settings as app_settings
 from ..db import audit, get_db, get_setting
 from ..mailer import FORMATS, MailError, send_mail, send_report, smtp_config, valid_email
 from ..report_files import parse_period, render
@@ -271,6 +271,7 @@ def mail_test(data: MailTestIn, admin=Depends(admin_user), conn: sqlite3.Connect
 class SettingsIn(BaseModel):
     bundesland: Optional[str] = None
     company_free_days: Optional[str] = Field(None, max_length=300, description="z. B. 12-24, 12-31")
+    theme_default: Optional[str] = Field(None, description="Standard-Design für alle (classic, dsm, dark, warm)")
     regional_holidays: Optional[List[str]] = Field(
         None, description="eingeschaltete regionale Feiertage des Bundeslands (Schlüssel aus regional_options)")
     break_mode: Optional[str] = Field(None, description="none, arbzg oder fixed")
@@ -306,6 +307,8 @@ def _settings_out(conn) -> dict:
         "company_free_days": get_setting(conn, "company_free_days"),
         "regional_options": regional_options(get_setting(conn, "bundesland")),
         "regional_by_land": regional_all(),
+        "theme_default": get_setting(conn, "theme_default") or "classic",
+        "themes": THEMES,
         "regional_holidays": sorted(parse_regional(get_setting(conn, "regional_holidays") or "default",
                                                    get_setting(conn, "bundesland"))),
         "break_mode": rule["mode"],
@@ -368,6 +371,10 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         if bl != get_setting(conn, "bundesland") and "regional_holidays" not in changes:
             _set(conn, "regional_holidays", "default")  # neues Land → dessen Voreinstellung
         _set(conn, "bundesland", bl)
+    if "theme_default" in changes:
+        if data.theme_default not in THEMES:
+            raise HTTPException(400, "Unbekanntes Design")
+        _set(conn, "theme_default", data.theme_default)
     if "regional_holidays" in changes:
         bl_now = get_setting(conn, "bundesland")
         opts = regional_options(bl_now)

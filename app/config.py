@@ -41,3 +41,11 @@ class Settings:
 
 
 settings = Settings()
+
+# Designs der Oberfläche (Schlüssel → Name). „classic“ folgt hell/dunkel des Geräts.
+THEMES = {
+    "classic": "Klassisch",
+    "dsm": "Synology DSM",
+    "dark": "Nacht (dunkel)",
+    "warm": "Warm & groß",
+}

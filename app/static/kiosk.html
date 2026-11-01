@@ -9,12 +9,22 @@
 <title>Zeiterfassung – Kiosk</title>
 <link rel="icon" href="static/icon.png">
 <link rel="apple-touch-icon" href="static/icon.png">
+<script src="static/theme.js?v={{v}}"></script>
 <style>
 :root { --bg: #f2f4f7; --card: #fff; --text: #17202a; --muted: #667085; --accent: #0f6e64; --accent-ink: #fff;
         --in: #12a150; --out: #d4380d; --line: #e3e7ee; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #11161c; --card: #1b232c; --text: #e8edf2; --muted: #93a0ae; --line: #2a3542; --accent: #19a394; }
-}
+html.dark { --bg: #11161c; --card: #1b232c; --text: #e8edf2; --muted: #93a0ae; --line: #2a3542; --accent: #19a394; }
+/* Designs (Standard der Firma, aus der Verwaltung) */
+html[data-theme="dsm"] { --bg: #eef2f7; --card: #fff; --text: #1f2d3d; --muted: #66768a; --line: #d9e1ea; --accent: #057feb;
+  --in: #10893e; --out: #d1342c; }
+html[data-theme="dsm"] .tile, html[data-theme="dsm"] .panel { border-radius: 8px; }
+html[data-theme="dark"] { --bg: #0b0d10; --card: #15181d; --text: #f3f5f8; --muted: #a3acb9; --line: #2a3039; --accent: #f5a524;
+  --in: #22a06b; --out: #e5484d; }
+html[data-theme="warm"] { --bg: #f6efe4; --card: #fffdf9; --text: #22180f; --muted: #5f4d3a; --line: #e2d3bd; --accent: #b5400b;
+  --in: #13702f; --out: #b42318; }
+html[data-theme="warm"] body { font-size: 20px; }
+html[data-theme="warm"] .tile { font-size: 23px; min-height: 108px; border-width: 2px; }
+html[data-theme="warm"] .pad button { font-size: 32px; padding: 22px 0; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font: 18px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
@@ -149,6 +159,7 @@ async function loadUsers() {
   try {
     const r = await api("kiosk/users");
     st.users = r.users;
+    if (window.zeTheme && r.theme) zeTheme(r.theme);
     $("kname").textContent = (r.kiosk || "Zeiterfassung") + (r.branch && !(r.kiosk || "").includes(r.branch) ? " · " + r.branch : "");
     $("grid").innerHTML = r.users.map(u => `<button class="tile" data-u="${u.id}"><span class="dot ${u.present ? "in" : ""}"></span>${esc(u.name)}</button>`).join("");
     $("empty").textContent = r.users.length ? "" : "Noch niemand hat eine PIN gesetzt – das geht in der Zeiterfassung unter „Mein Zugang“.";

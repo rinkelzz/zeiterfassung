@@ -224,7 +224,8 @@ def kiosk_users(device=Depends(kiosk_device), conn: sqlite3.Connection = Depends
     rows = [r for r in rows if _on_tablet(conn, device, r["id"])]
     branch = conn.execute("SELECT name FROM branches WHERE id = ?", (device["branch_id"],)).fetchone() \
         if device["branch_id"] else None
-    return {"kiosk": device["name"], "branch": branch[0] if branch else None,
+    theme = conn.execute("SELECT value FROM app_settings WHERE key = 'theme_default'").fetchone()
+    return {"kiosk": device["name"], "branch": branch[0] if branch else None, "theme": theme[0] if theme else "classic",
             "users": [{"id": r["id"], "name": r["display_name"], "present": r["id"] in present} for r in rows]}
 
 

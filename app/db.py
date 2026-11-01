@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -119,6 +119,7 @@ DEFAULT_SETTINGS = {
     # Betriebsfreie Tage, jedes Jahr gleich: "12-24, 12-31"
     "company_free_days": "",
     "regional_holidays": "default",
+    "theme_default": "classic",
 }
 
 
@@ -295,6 +296,10 @@ def migrate(conn: sqlite3.Connection) -> None:
             " status TEXT NOT NULL DEFAULT 'offen',"     # offen | genehmigt | abgelehnt | zurueckgezogen
             " created_at TEXT NOT NULL, decided_at TEXT, decided_by INTEGER, decision_note TEXT)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_leave_status ON leave_requests(status, user_id)")
+    if version < 15:
+        # Design pro Mitarbeiter (leer = Standard der Firma)
+        if "theme" not in _columns(conn, "users"):
+            conn.execute("ALTER TABLE users ADD COLUMN theme TEXT")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

@@ -10,7 +10,7 @@ import qrcode.image.svg
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from ..config import settings
+from ..config import THEMES, settings
 from ..dsm_auth import (
     clear_failures,
     proxy_info,
@@ -74,6 +74,7 @@ def user_out(row: sqlite3.Row) -> dict:
         "report_mail": bool(row["report_mail"]) if "report_mail" in row.keys() else True,
         "has_pin": bool(row["pin_hash"]) if "pin_hash" in row.keys() else False,
         "manager_id": row["manager_id"] if "manager_id" in row.keys() else None,
+        "theme": row["theme"] if "theme" in row.keys() else None,
     }
 
 
@@ -143,7 +144,14 @@ def me(request: Request, user=Depends(current_user), conn: sqlite3.Connection = 
         if user["manager_id"] else None
     return {**user_out(user), "via_dsm": bool(getattr(request.state, "via_dsm", False)),
             "manager_name": mgr[0] if mgr else None,
+            "theme_effective": _theme(conn, user),
             "insecure_http": insecure_http(request)}
+
+
+def _theme(conn, user) -> str:
+    own = user["theme"] if "theme" in user.keys() else None
+    default = get_setting(conn, "theme_default") or "classic"
+    return own if own in THEMES else default if default in THEMES else "classic"
 
 
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
@@ -164,6 +172,7 @@ def insecure_http(request: Request) -> bool:
 class ProfileIn(BaseModel):
     email: Optional[str] = Field(None, max_length=200, description="für Berichte per Mail, leer = keine Mails")
     report_mail: Optional[bool] = Field(None, description="Monats-/Jahresberichte automatisch per Mail")
+    theme: Optional[str] = Field(None, description="Design: classic, dsm, dark, warm; null = Standard der Firma")
 
 
 @router.patch("/me")
@@ -178,10 +187,13 @@ def update_me(data: ProfileIn, request: Request, user=Depends(current_user), con
         conn.execute("UPDATE users SET email = ? WHERE id = ?", (addr or None, user["id"]))
     if data.report_mail is not None:
         conn.execute("UPDATE users SET report_mail = ? WHERE id = ?", (int(data.report_mail), user["id"]))
+    if "theme" in changes:
+        if data.theme is not None and data.theme not in THEMES:
+            raise HTTPException(400, "Unbekanntes Design")
+        conn.execute("UPDATE users SET theme = ? WHERE id = ?", (data.theme, user["id"]))
     if changes:
         audit(conn, user["id"], "profile_updated", f"user:{user['id']}", ",".join(sorted(changes)))
-    row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
-    return {**user_out(row), "via_dsm": bool(getattr(request.state, "via_dsm", False))}
+    return me(request, conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone(), conn)
 
 
 @router.post("/me/password")
