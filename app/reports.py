@@ -37,9 +37,12 @@ ABSENCE_KINDS = {
     "mehrarbeit": "Mehrarbeit-Entnahme",
     "feiertag": "Feiertag",
     "sonstiges": "Sonderurlaub / frei",
+    "berufsschule": "Berufsschule",
+    "elternzeit": "Elternzeit",
 }
 # Arten, bei denen das Soll entfällt (bezahlt frei)
-ZERO_TARGET_KINDS = {"urlaub", "krank", "bildungsurlaub", "feiertag", "sonstiges"}
+# Berufsschule: zählt als Arbeitszeit (Soll gilt als erfüllt); Elternzeit: kein Soll, kein Urlaubsverbrauch
+ZERO_TARGET_KINDS = {"urlaub", "krank", "bildungsurlaub", "feiertag", "sonstiges", "berufsschule", "elternzeit"}
 MIN_BREAK_S = 15 * 60  # nach ArbZG zählen nur Pausen ab 15 Minuten
 BREAK_MODES = {"none": "kein Abzug", "arbzg": "nach ArbZG (6 h → 30 min, 9 h → 45 min)", "fixed": "fester Abzug pro Arbeitstag"}
 

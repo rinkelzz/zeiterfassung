@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.21.0] – 2026-11-01
+
+### Neu
+- **Berufsschule** als Abwesenheit im Jahreskalender und in der Monatsansicht: Der Tag gilt als erfüllt
+  (kein Minus), es wird kein Urlaub verbraucht.
+- **Elternzeit** als Abwesenheit: kein Soll, kein Urlaubsverbrauch, wird in Berichten als eigene Zeile gezählt.
+  Danke an @ralfmehner-collab (#1).
+
 ## [0.20.0] – 2026-11-01
 
 ### Neu
@@ -246,6 +254,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.21.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.21.0
 [0.20.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.20.0
 [0.19.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.19.0
 [0.18.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.1

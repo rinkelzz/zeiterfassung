@@ -138,3 +138,27 @@ def test_closed_month_blocks(admin, team):
     admin.post("/api/v1/closings", json={"user_id": team["anton"], "month": "2026-01"})
     r = anton.post("/api/v1/leave", json={"from_day": "2026-01-14"})
     assert r.status_code in (409, 423), r.text
+
+
+def test_berufsschule_and_elternzeit(admin):
+    uid = admin.post("/api/v1/users", json={"username": "lv_azubi", "display_name": "Azubi", "password": PW,
+                                            "tracking_start": "2026-01-01"}).json()["id"]
+    assert admin.get("/api/v1/settings").json()["absence_kinds"]["berufsschule"] == "Berufsschule"
+    # Mo 02.03. Berufsschule, 09.–13.03. Elternzeit, Di 03.03. normal gearbeitet
+    assert admin.post("/api/v1/absences", json={"user_id": uid, "from_day": "2026-03-02", "kind": "berufsschule"}).status_code == 201
+    r = admin.post("/api/v1/absences", json={"user_id": uid, "from_day": "2026-03-09", "to_day": "2026-03-15", "kind": "elternzeit"})
+    assert r.json()["days"] == 5
+    admin.post("/api/v1/entries", json={"user_id": uid, "start": "2026-03-03T08:00", "end": "2026-03-03T16:30"})
+    rep = admin.get("/api/v1/reports/user", params={"user_id": uid, "from": "2026-03-02", "to": "2026-03-15"}).json()
+    days = {d["date"]: d for d in rep["days"]}
+    assert days["2026-03-02"]["absence_label"] == "Berufsschule" and days["2026-03-02"]["target"] == "0:00"
+    assert days["2026-03-02"]["diff"] == "0:00"
+    assert all(days[f"2026-03-{d:02d}"]["target"] == "0:00" for d in range(9, 14))
+    t = rep["totals"]
+    assert t["absence_days"]["berufsschule"] == 1 and t["absence_days"]["elternzeit"] == 5
+    assert t["vacation_days"] == 0
+    # Urlaub wird nicht verbraucht
+    with connect() as conn:
+        from app.reports import vacation_account
+        user = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+        assert vacation_account(conn, user, 2026)["taken"] == 0
