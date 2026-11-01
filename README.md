@@ -9,6 +9,10 @@ mit eigenem Fenster in DSM. Gestempelt wird im Browser, per iPhone-Kurzbefehl, a
 Ankommen (Standort) oder mit einem NFC-Aufkleber. Gleitzeit, Überstunden und Urlaub werden mitgeführt,
 Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Mail.
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/lapalutschi)
+
+Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bleibt natürlich kostenlos.
+
 *English summary: [below](#english).*
 
 | Übersicht mit Team | Monat mit Hinweisen und Ü-Tag |
@@ -392,5 +396,7 @@ then DSM → Package Center → Manual Install. Afterwards:
 - *Shortcut/NFC tokens* can only clock in/out; they cannot access reports or administration.
 
 **Develop:** `pip install -r requirements-dev.txt && python -m app.main` (API docs at `/docs`), `pytest` to run the tests.
+
+Like it? [Buy me a coffee ☕](https://buymeacoffee.com/lapalutschi) – the app stays free.
 
 Not affiliated with Synology Inc. Licensed under the [GPL-3.0](LICENSE).
