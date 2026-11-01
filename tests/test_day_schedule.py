@@ -105,7 +105,7 @@ def test_purge_user(admin):
                                              "is_admin": True}).json()["id"]
     with TestClient(app) as c:
         c.post("/api/v1/auth/login", json={"username": "chefin2", "password": "geheim123"})
-        eid = admin.get("/api/v1/entries", params={"user_id": uid}).json()[0]["id"]
+        eid = admin.get("/api/v1/entries", params={"user_id": uid, "from": "2026-10-01", "to": "2026-10-31"}).json()[0]["id"]
         assert c.patch(f"/api/v1/entries/{eid}", json={"note": "geprüft"}).status_code == 200
         # niemand löscht sich selbst
         assert c.post(f"/api/v1/users/{boss}/purge", json={"confirm": "chefin2"}).status_code == 400

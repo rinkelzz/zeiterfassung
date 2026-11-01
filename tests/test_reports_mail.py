@@ -179,6 +179,7 @@ def test_mail_test_and_report(admin, rita, smtp):
     assert names == ["Arbeitszeitnachweis_rita_2026-09.pdf", "Arbeitszeitnachweis_rita_2026-09.xlsx"]
     body = [p for p in msg.walk() if p.get_content_type() == "text/plain"][0].get_content()
     assert "Ist:        12:00 h" in body and "Rita Ränder" in body
+    assert "findest du deinen Arbeitszeitnachweis für September 2026" in body
 
     # Admin ohne Adresse → verständlicher Fehler
     r = admin.post("/api/v1/reports/mail", json={"period": "2026-09"})

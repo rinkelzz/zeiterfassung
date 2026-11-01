@@ -13,7 +13,7 @@ from .db import connect, init_db
 from .dsm import write_ui_config
 from .dsm_auth import proxy_info, publish_proxy_files
 from .mailer import start_scheduler, stop_scheduler
-from .routers import auth, backup, clock, closings, entries, importer, kiosk, reports, requests, updates, users
+from .routers import auth, backup, clock, closings, entries, importer, kiosk, leave, reports, requests, updates, users
 
 
 @asynccontextmanager
@@ -67,7 +67,7 @@ class _RememberPeer:
 
 app.add_middleware(_RememberPeer)  # zuletzt hinzugefügt = läuft zuerst
 
-for r in (auth.router, backup.router, clock.router, closings.router, entries.router, importer.router, kiosk.router, reports.router, requests.router, updates.router, users.router):
+for r in (auth.router, backup.router, clock.router, closings.router, entries.router, importer.router, kiosk.router, leave.router, reports.router, requests.router, updates.router, users.router):
     app.include_router(r)
 
 

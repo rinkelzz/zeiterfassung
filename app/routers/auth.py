@@ -73,6 +73,7 @@ def user_out(row: sqlite3.Row) -> dict:
         "email": row["email"] if "email" in row.keys() else None,
         "report_mail": bool(row["report_mail"]) if "report_mail" in row.keys() else True,
         "has_pin": bool(row["pin_hash"]) if "pin_hash" in row.keys() else False,
+        "manager_id": row["manager_id"] if "manager_id" in row.keys() else None,
     }
 
 
@@ -137,8 +138,11 @@ def logout(request: Request, response: Response, conn: sqlite3.Connection = Depe
 
 
 @router.get("/me")
-def me(request: Request, user=Depends(current_user)):
+def me(request: Request, user=Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+    mgr = conn.execute("SELECT display_name FROM users WHERE id = ? AND active = 1", (user["manager_id"],)).fetchone() \
+        if user["manager_id"] else None
     return {**user_out(user), "via_dsm": bool(getattr(request.state, "via_dsm", False)),
+            "manager_name": mgr[0] if mgr else None,
             "insecure_http": insecure_http(request)}
 
 

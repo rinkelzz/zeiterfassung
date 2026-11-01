@@ -44,7 +44,7 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
   [Datensicherung](#datensicherung) · [Von unterwegs (Reverse Proxy)](#von-unterwegs-erreichbar-machen-reverse-proxy) ·
   [iPhone & NFC](#iphone-und-nfc-einrichten) · [Kiosk-Tablet](#kiosk-tablet) · [Berichte per Mail](#berichte-per-mail) ·
   [Vergessenes Ausstempeln](#vergessenes-ausstempeln) · [Korrekturanträge](#korrekturanträge) ·
-  [Monatsabschluss](#monatsabschluss) · [Arbeitszeit & Pausen je Wochentag](#arbeitszeit-und-pausen-je-wochentag) · [Feiertage](#feiertage) ·
+  [Monatsabschluss](#monatsabschluss) · [Arbeitszeit & Pausen je Wochentag](#arbeitszeit-und-pausen-je-wochentag) · [Feiertage](#feiertage) · [Urlaubsanträge](#urlaubsanträge-und-vorgesetzte) ·
   [Mitarbeiter deaktivieren oder löschen](#mitarbeiter-deaktivieren-oder-löschen)
 - [Entwicklung](#entwicklung) · [Hinweise](#hinweise) · [Lizenz](#lizenz) · [English](#english)
 
@@ -77,6 +77,8 @@ Berichte gibt es als PDF und Excel – auf Wunsch jeden Monat automatisch per Ma
 - Monatsansicht zum Korrigieren, Jahreskalender zum Eintragen von Abwesenheiten per Ziehen
 - **Korrekturanträge:** Mitarbeiter beantragen Nachtrag, Änderung oder Löschung einer Buchung; der Admin
   genehmigt per Klick (wird übernommen) oder lehnt mit Begründung ab – mit Mail an beide Seiten
+- **Urlaubsanträge:** Mitarbeiter beantragen Urlaub, Gleittag, Überstunden-Abbau, Bildungs- oder Sonderurlaub
+  (auch halbe Tage); der **Vorgesetzte** (z. B. Filialleiter) oder ein Admin genehmigt – erst dann wird eingetragen
 - **Monatsabschluss** pro Mitarbeiter: Monat sperren und Kontostände festschreiben, Wiederöffnen nur mit Begründung
 
 **Berichte**
@@ -236,6 +238,23 @@ sehen offene Anträge unter **Verwaltung → Korrekturanträge** – die Zahl st
 **Genehmigen** übernimmt die Änderung, **Ablehnen** geht mit kurzer Begründung; der Mitarbeiter bekommt
 die Entscheidung per Mail und sieht seine Anträge unter **Mein Zugang**.
 
+### Urlaubsanträge und Vorgesetzte
+
+1. In der Mitarbeiterliste (**Verwaltung**) jedem Mitarbeiter in der Spalte **Vorgesetzter** z. B. seinen
+   Filialleiter zuordnen. Der Vorgesetzte braucht dafür keine Admin-Rechte – er sieht nur die Anträge seiner Leute.
+2. Mitarbeiter beantragen unter **Übersicht → Urlaub beantragen**: Art (Urlaub, Gleittag, Überstunden-Abbau,
+   Bildungs-/Sonderurlaub), Zeitraum oder halber Tag, optional eine Bemerkung. Die App zählt die Arbeitstage
+   (ohne freie Tage und Feiertage) und prüft Überschneidungen.
+3. Der Vorgesetzte bekommt eine Mail und sieht den Antrag unter **Übersicht → Anträge zur Freigabe** (mit
+   Resturlaub, Zahl am Reiter). **Genehmigen** trägt die Tage ein, **Ablehnen** geht mit kurzer Begründung –
+   der Mitarbeiter bekommt die Entscheidung per Mail.
+
+Ohne Vorgesetzten gehen Anträge an die Admins; Admins können jeden Antrag entscheiden. Offene Anträge lassen
+sich zurückziehen.
+
+**Admins anlegen:** Beim Anlegen „Admin“ ankreuzen oder in der Mitarbeiterliste die Spalte **Admin** setzen.
+Die eigenen Admin-Rechte kann man sich nicht selbst entziehen, und der letzte Admin bleibt immer Admin.
+
 ### Monatsabschluss
 
 Nach Prüfung (und ggf. Unterschrift unter dem PDF) schließt ein Admin den Monat ab – in der
@@ -345,6 +364,7 @@ Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The 
 - Working-time-law hints: more than 10 hours a day, less than 11 hours rest between working days
 - Correction requests: employees request adding, changing or deleting a punch; admins approve (applied
   automatically) or reject with a reason, with email notifications
+- Leave requests (vacation, flex days, half days …) approved by the employee's manager (e.g. branch manager) or an admin
 - Month closing per employee: locks the month and freezes the account balances (reopen with a reason)
 - Monthly and yearly reports as PDF and Excel, delivered automatically by email (own SMTP server)
 - Runs in its own DSM window with single sign-on for DSM users; login with DSM credentials incl. 2FA

@@ -2,6 +2,23 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.20.0] – 2026-11-01
+
+### Neu
+- **Urlaubsanträge mit Freigabe:** Unter Übersicht → „Urlaub beantragen“ stellen Mitarbeiter Anträge für Urlaub,
+  Gleittag, Überstunden-Abbau, Bildungs- oder Sonderurlaub – auch für einen halben Tag. Der Vorgesetzte bekommt
+  eine Mail und entscheidet unter „Anträge zur Freigabe“ (mit Resturlaub und Zähler am Reiter); erst nach dem
+  Genehmigen werden die Tage eingetragen. Ablehnen geht mit Begründung, offene Anträge lassen sich zurückziehen.
+- **Vorgesetzte:** In der Mitarbeiterliste lässt sich jedem ein Vorgesetzter zuordnen, z. B. der Filialleiter.
+  Vorgesetzte brauchen keine Admin-Rechte und sehen nur die Anträge ihrer Mitarbeiter. Ohne Vorgesetzten gehen
+  Anträge an die Admins.
+- **Admins in der Oberfläche anlegen:** „Admin“ beim Anlegen ankreuzen oder in der Mitarbeiterliste umschalten.
+
+### Behoben
+- Mail zum Monatsbericht: „im Anhang findest du **deinen** Arbeitszeitnachweis“ (statt „deine“).
+
+Danke an @ralfmehner-collab für alle drei Hinweise (#1).
+
 ## [0.19.0] – 2026-10-31
 
 ### Neu
@@ -229,6 +246,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.20.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.20.0
 [0.19.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.19.0
 [0.18.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.1
 [0.18.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.18.0

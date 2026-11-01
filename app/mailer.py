@@ -113,7 +113,7 @@ def _report_text(data: Dict) -> Tuple[str, str]:
     lines = [
         f"Hallo {u['display_name']},",
         "",
-        f"im Anhang findest du deine {what} für {label}.",
+        f"im Anhang findest du {'deinen' if data['kind'] == 'month' else 'deine'} {what} für {label}.",
         "",
         f"Ist:        {t['worked']} h",
         f"Soll:       {t['target']} h",

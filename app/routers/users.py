@@ -24,6 +24,13 @@ def _check_workdays(v):
     return sorted(set(v))
 
 
+def _check_manager(conn: sqlite3.Connection, user_id: int, manager_id: int) -> None:
+    if manager_id == user_id:
+        raise HTTPException(400, "Ein Mitarbeiter kann nicht sein eigener Vorgesetzter sein")
+    if not conn.execute("SELECT 1 FROM users WHERE id = ? AND active = 1", (manager_id,)).fetchone():
+        raise HTTPException(400, "Vorgesetzter nicht gefunden oder deaktiviert")
+
+
 def _check_email(v):
     from ..mailer import valid_email
     v = (v or "").strip()
@@ -46,6 +53,7 @@ class UserCreate(BaseModel):
     carryover_vacation: float = Field(0, ge=-60, le=200, description="Resturlaub aus dem Vorjahr (Tage, ½ möglich)")
     email: Optional[str] = Field(None, max_length=200, description="für Monats-/Jahresberichte per Mail")
     report_mail: bool = True
+    manager_id: Optional[int] = Field(None, description="Vorgesetzter (genehmigt Urlaubsanträge), z. B. Filialleiter")
 
     @field_validator("email")
     @classmethod
@@ -72,6 +80,7 @@ class UserUpdate(BaseModel):
     carryover_vacation: Optional[float] = Field(None, ge=-60, le=200)
     email: Optional[str] = Field(None, max_length=200)
     report_mail: Optional[bool] = None
+    manager_id: Optional[int] = Field(None, description="Vorgesetzter; null = keiner")
 
     @field_validator("email")
     @classmethod
@@ -137,6 +146,9 @@ def create_user(data: UserCreate, admin=Depends(admin_user), conn: sqlite3.Conne
         )
     except sqlite3.IntegrityError:
         raise HTTPException(409, "Benutzername ist schon vergeben")
+    if data.manager_id is not None:
+        _check_manager(conn, cur.lastrowid, data.manager_id)
+        conn.execute("UPDATE users SET manager_id = ? WHERE id = ?", (data.manager_id, cur.lastrowid))
     conn.execute(
         "INSERT INTO work_schedules(user_id, valid_from, weekly_hours, workdays, created_at) VALUES (?, ?, ?, ?, ?)",
         (cur.lastrowid, FOREVER, data.weekly_hours, ",".join(str(d) for d in data.workdays), now_utc_str()),
@@ -192,6 +204,8 @@ def update_user(user_id: int, data: UserUpdate, admin=Depends(admin_user), conn:
                          "VALUES (?, ?, ?, ?, ?)", (user_id, FOREVER, hours, days, now_utc_str()))
 
     fields, values = [], []
+    if "manager_id" in changes and changes["manager_id"] is not None:
+        _check_manager(conn, user_id, changes["manager_id"])
     for key, value in changes.items():
         if key == "password":
             fields.append("password_hash = ?")

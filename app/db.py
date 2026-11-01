@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -282,6 +282,19 @@ def migrate(conn: sqlite3.Connection) -> None:
                      " PRIMARY KEY (user_id, branch_id))")
         if "branch_id" not in _columns(conn, "kiosk_devices"):
             conn.execute("ALTER TABLE kiosk_devices ADD COLUMN branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL")
+    if version < 14:
+        # Vorgesetzter (z. B. Filialleiter) und Urlaubsanträge
+        if "manager_id" not in _columns(conn, "users"):
+            conn.execute("ALTER TABLE users ADD COLUMN manager_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS leave_requests ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            " user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+            " kind TEXT NOT NULL, from_day TEXT NOT NULL, to_day TEXT NOT NULL,"
+            " half_day INTEGER NOT NULL DEFAULT 0, days REAL NOT NULL DEFAULT 0, note TEXT,"
+            " status TEXT NOT NULL DEFAULT 'offen',"     # offen | genehmigt | abgelehnt | zurueckgezogen
+            " created_at TEXT NOT NULL, decided_at TEXT, decided_by INTEGER, decision_note TEXT)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_leave_status ON leave_requests(status, user_id)")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

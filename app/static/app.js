@@ -131,7 +131,7 @@ async function showTab(name) {
   store.set("tab", name);
   history.replaceState(null, "", "#" + name);
   try {
-    if (name === "home") await refreshHome();
+    if (name === "home") { await refreshHome(); loadLeave().catch(e => { $("lvErr").textContent = e.message; }); }
     if (name === "month") await loadMonth();
     if (name === "year") await loadYear();
     if (name === "admin") await loadAdmin();
@@ -613,11 +613,69 @@ async function savePin(remove) {
 
 async function refreshRequestCount() {
   try {
-    const c = await api("requests/count");
+    const [c, l] = await Promise.all([api("requests/count"), api("leave/count")]);
     const set = (el, n) => { el.textContent = n || ""; el.classList.toggle("hidden", !n); };
     set($("badgeAdmin"), c.all || 0);
     set($("badgeMe"), c.mine || 0);
+    set($("badgeHome"), l.decide || 0);
+    state.canDecide = l.can_decide;
   } catch (e) { /* egal */ }
+}
+
+// ---------- Urlaubsanträge ----------
+const LV_STATUS = { offen: '<span class="tag">offen</span>', genehmigt: '<span class="pos">genehmigt</span>',
+                    abgelehnt: '<span class="neg">abgelehnt</span>', zurueckgezogen: '<span class="muted">zurückgezogen</span>' };
+async function loadLeave() {
+  const [mine, cnt] = await Promise.all([api("leave"), api("leave/count")]);
+  state.canDecide = cnt.can_decide;
+  $("lvWho").textContent = state.me.manager_name ? `Der Antrag geht an ${state.me.manager_name} (Vorgesetzte/r).`
+                                                 : "Der Antrag geht an die Administratoren.";
+  $("lvMine").innerHTML = mine.length ? "<thead><tr><th>Art</th><th>Zeitraum</th><th class=\"num\">Tage</th><th>Status</th><th>Bemerkung</th><th></th></tr></thead><tbody>" +
+    mine.map(r => `<tr><td>${esc(r.kind_label)}</td><td>${esc(r.span)}</td><td class="num">${fmtDays(r.days)}</td>
+      <td>${LV_STATUS[r.status] || esc(r.status)}${r.decided_by_name ? ` <span class="muted small">(${esc(r.decided_by_name)})</span>` : ""}</td>
+      <td class="small">${esc(r.decision_note || r.note || "")}</td>
+      <td>${r.status === "offen" ? `<button class="mini" data-lvw="${r.id}">Zurückziehen</button>` : ""}</td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted">Noch keine Anträge.</td></tr></tbody>';
+  $$("#lvMine [data-lvw]").forEach(b => b.onclick = async () => {
+    if (!confirm("Antrag zurückziehen?")) return;
+    try { await api(`leave/${b.dataset.lvw}/withdraw`, { method: "POST" }); await loadLeave(); } catch (e) { $("lvErr").textContent = e.message; }
+  });
+  $("lvDecideCard").classList.toggle("hidden", !cnt.can_decide);
+  if (cnt.can_decide) await loadLeaveDecide();
+  refreshRequestCount();
+}
+async function loadLeaveDecide() {
+  const list = await api("leave?scope=decide" + ($("lvDecideAll").checked ? "" : "&status=offen"));
+  $("lvDecide").innerHTML = list.length ? "<thead><tr><th>Mitarbeiter</th><th>Art</th><th>Zeitraum</th><th class=\"num\">Tage</th><th class=\"num\">Resturlaub</th><th>Bemerkung</th><th>Status</th><th></th></tr></thead><tbody>" +
+    list.map(r => `<tr><td>${esc(r.display_name)}</td><td>${esc(r.kind_label)}</td><td>${esc(r.span)}</td><td class="num">${fmtDays(r.days)}</td>
+      <td class="num">${r.vacation_remaining != null ? fmtDays(r.vacation_remaining) : ""}</td>
+      <td class="small">${esc(r.decision_note || r.note || "")}</td><td>${LV_STATUS[r.status] || esc(r.status)}</td>
+      <td class="nowrap">${r.can_decide ? `<button class="mini primary" data-lva="${r.id}">Genehmigen</button>
+        <button class="mini danger" data-lvr="${r.id}">Ablehnen</button>` : ""}</td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted">Keine offenen Anträge.</td></tr></tbody>';
+  $$("#lvDecide [data-lva]").forEach(b => b.onclick = () => decideLeave(b.dataset.lva, true));
+  $$("#lvDecide [data-lvr]").forEach(b => b.onclick = () => decideLeave(b.dataset.lvr, false));
+}
+async function decideLeave(id, ok) {
+  $("lvDecideErr").textContent = "";
+  const note = ok ? (prompt("Anmerkung für den Mitarbeiter (optional):", "") ?? null) : prompt("Warum wird der Antrag abgelehnt?", "");
+  if (note === null) return;
+  try {
+    await api(`leave/${id}/${ok ? "approve" : "reject"}`, { method: "POST", body: { note } });
+    okMsg($("lvDecideErr"), ok ? "Genehmigt – die Tage sind eingetragen." : "Abgelehnt.");
+    await loadLeave();
+  } catch (e) { $("lvDecideErr").textContent = e.message; }
+}
+async function sendLeave() {
+  $("lvErr").textContent = "";
+  try {
+    if (!$("lvFrom").value) throw new Error("Bitte ein Datum wählen");
+    const r = await api("leave", { method: "POST", body: { kind: $("lvKind").value, from_day: $("lvFrom").value,
+      to_day: $("lvTo").value || $("lvFrom").value, half_day: $("lvHalf").checked, note: $("lvNote").value.trim() || null } });
+    ["lvFrom", "lvTo", "lvNote"].forEach(id => $(id).value = ""); $("lvHalf").checked = false;
+    okMsg($("lvErr"), `Beantragt: ${r.span} (${fmtDays(r.days)} ${r.days === 1 ? "Tag" : "Tage"}).`);
+    await loadLeave();
+  } catch (e) { $("lvErr").textContent = e.message; }
 }
 
 async function detailAction(btn) {
@@ -781,7 +839,7 @@ async function loadAdmin() {
   const bal = Object.fromEntries(ov.users.map(u => [u.id, u]));
   $("usersTable").innerHTML = `<thead><tr><th>Name</th><th>Wochenarbeitszeit</th><th>Erfassungsbeginn</th>
       <th>Übertrag GZ</th><th>Übertrag Ü</th><th class="num">Urlaub/Jahr</th><th class="num">Resturlaub-Übertrag</th>
-      <th>E-Mail (Berichte)</th><th>PIN</th><th>Neues Passwort</th><th class="num">Gleitzeit</th><th class="num">Überst.</th><th class="num">Urlaub Rest</th><th></th></tr></thead><tbody>` +
+      <th>E-Mail (Berichte)</th><th title="Genehmigt Urlaubsanträge">Vorgesetzter</th><th>Admin</th><th>PIN</th><th>Neues Passwort</th><th class="num">Gleitzeit</th><th class="num">Überst.</th><th class="num">Urlaub Rest</th><th></th></tr></thead><tbody>` +
     state.allUsers.map(u => {
       const b = bal[u.id] || {};
       return `<tr data-id="${u.id}" data-username="${esc(u.username)}" class="${u.active ? "" : "inactive"}">
@@ -794,6 +852,9 @@ async function loadAdmin() {
         <td class="num"><input class="ur w64" type="number" step="0.5" value="${u.carryover_vacation}"></td>
         <td><input class="umail" type="email" value="${esc(u.email || "")}" placeholder="keine" style="width:170px">
           <label class="inline small" style="margin-top:3px" title="Monats-/Jahresberichte automatisch per Mail"><input type="checkbox" class="urm"${u.report_mail ? " checked" : ""}> auto</label></td>
+        <td><select class="umgr"><option value="">–</option>${state.allUsers.filter(m => m.active && m.id !== u.id)
+          .map(m => `<option value="${m.id}" ${m.id === u.manager_id ? "selected" : ""}>${esc(m.display_name)}</option>`).join("")}</select></td>
+        <td><input type="checkbox" class="uadm" ${u.is_admin ? "checked" : ""} ${u.id === state.me.id ? 'disabled title="Eigene Admin-Rechte kann man sich nicht selbst entziehen"' : ""}></td>
         <td class="nowrap">${u.has_pin ? '✓ <button class="mini" data-pinreset title="PIN löschen – Mitarbeiter setzt unter „Mein Zugang“ eine neue">löschen</button>' : '<span class="muted">–</span>'}</td>
         <td><input class="up" type="password" placeholder="unverändert" style="width:120px" autocomplete="new-password"></td>
         <td class="num">${b.account_gleitzeit != null ? signed(b.account_gleitzeit_s, b.account_gleitzeit) : ""}</td>
@@ -805,6 +866,8 @@ async function loadAdmin() {
             : `<button class="mini" data-uact="on">Aktivieren</button>`}
           ${u.id === state.me.id ? "" : `<button class="mini danger" data-uact="purge" title="Mit allen Buchungen endgültig löschen">Löschen</button>`}</td></tr>`;
     }).join("") + "</tbody>";
+  $("nm").innerHTML = '<option value="">–</option>' + state.allUsers.filter(m => m.active)
+    .map(m => `<option value="${m.id}">${esc(m.display_name)}</option>`).join("");
   await loadSettingsForm();
   loadUpdates().catch(() => {});
   loadBackups().catch(e => { $("bkErr").textContent = e.message; });
@@ -1036,7 +1099,9 @@ async function saveUserRow(btn) {
       carryover_vacation: Number(tr.querySelector(".ur").value),
       email: tr.querySelector(".umail").value.trim() || null,
       report_mail: tr.querySelector(".urm").checked,
+      manager_id: tr.querySelector(".umgr").value ? Number(tr.querySelector(".umgr").value) : null,
     };
+    if (!tr.querySelector(".uadm").disabled) body.is_admin = tr.querySelector(".uadm").checked;
     const pw = tr.querySelector(".up").value;
     if (pw) body.password = pw;
     await api("users/" + tr.dataset.id, { method: "PATCH", body });
@@ -1076,8 +1141,9 @@ async function newUser() {
     await api("users", { method: "POST", body: {
       username: $("nu").value.trim(), display_name: $("nd").value.trim(), password: $("np").value,
       weekly_hours: Number($("nh").value), vacation_days_per_year: Number($("nv").value),
-      tracking_start: $("ns").value || null, email: $("ne").value.trim() || null } });
-    ["nu", "nd", "np", "ns", "ne"].forEach(id => $(id).value = "");
+      tracking_start: $("ns").value || null, email: $("ne").value.trim() || null,
+      is_admin: $("na").checked, manager_id: $("nm").value ? Number($("nm").value) : null } });
+    ["nu", "nd", "np", "ns", "ne"].forEach(id => $(id).value = ""); $("na").checked = false; $("nm").value = "";
     await loadAdmin();
     okMsg($("newUserErr"), "Angelegt.");
   } catch (e) { $("newUserErr").textContent = e.message; }
@@ -1335,6 +1401,9 @@ $("updCheck").onclick = checkUpdates;
 $("bkSave").onclick = saveBackups;
 $("clAll").onclick = closeAll;
 $("kNew").onclick = newKiosk;
+$("lvSend").onclick = sendLeave;
+$("lvDecideAll").onchange = () => loadLeaveDecide().catch(e => { $("lvDecideErr").textContent = e.message; });
+$("lvFrom").onchange = () => { if (!$("lvTo").value || $("lvTo").value < $("lvFrom").value) $("lvTo").value = $("lvFrom").value; };
 $("brNew").onclick = newBranch;
 $("brList").addEventListener("click", e => { const b = e.target.closest("[data-bract]"); if (b) branchAction(b); });
 $("pinSave").onclick = () => savePin(false);

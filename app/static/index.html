@@ -24,7 +24,7 @@
 <header>
   <h1><img src="static/icon.png" alt="">Zeiterfassung</h1>
   <nav id="tabs">
-    <button data-tab="home" class="active">Übersicht</button>
+    <button data-tab="home" class="active">Übersicht <span class="badge hidden" id="badgeHome"></span></button>
     <button data-tab="month">Monat</button>
     <button data-tab="year">Jahr</button>
     <button data-tab="admin" class="admin hidden">Verwaltung <span class="badge hidden" id="badgeAdmin"></span></button>
@@ -52,6 +52,32 @@
         <div class="stat"><span class="muted" id="sVacLabel">Resturlaub</span><b id="sVac">–</b></div>
       </div>
       <div class="muted small" id="sSince"></div>
+    </section>
+    <section class="card hidden" id="lvDecideCard">
+      <h2>Anträge zur Freigabe</h2>
+      <div class="scroll"><table id="lvDecide"></table></div>
+      <label class="inline small" style="margin-top:6px"><input type="checkbox" id="lvDecideAll"> auch entschiedene anzeigen</label>
+      <div class="err" id="lvDecideErr"></div>
+    </section>
+    <section class="card">
+      <h2>Urlaub beantragen</h2>
+      <div class="row">
+        <label>Art <select id="lvKind">
+          <option value="urlaub">Urlaub</option>
+          <option value="gleittag">Gleittag</option>
+          <option value="mehrarbeit">Überstunden-Abbau</option>
+          <option value="bildungsurlaub">Bildungsurlaub</option>
+          <option value="sonstiges">Sonderurlaub / frei</option>
+        </select></label>
+        <label>von <input type="date" id="lvFrom"></label>
+        <label>bis <input type="date" id="lvTo"></label>
+        <label class="inline"><input type="checkbox" id="lvHalf"> halber Tag</label>
+        <label style="flex:1;min-width:180px">Bemerkung <input id="lvNote" placeholder="optional" maxlength="300"></label>
+        <label>&nbsp;<button class="primary" id="lvSend">Beantragen</button></label>
+      </div>
+      <div class="muted small" id="lvWho"></div>
+      <div class="err" id="lvErr"></div>
+      <div class="scroll" style="margin-top:8px"><table id="lvMine"></table></div>
     </section>
     <section class="card admin hidden">
       <h2>Team</h2>
@@ -143,6 +169,8 @@
         <label>Urlaub/Jahr <input id="nv" type="number" value="30" step="0.5" class="w80"></label>
         <label>Erfassungsbeginn <input id="ns" type="date"></label>
         <label>E-Mail (Berichte) <input id="ne" type="email" placeholder="optional" style="width:180px"></label>
+        <label>Vorgesetzter <select id="nm"></select></label>
+        <label class="inline" title="Darf alles verwalten"><input type="checkbox" id="na"> Admin</label>
         <label>&nbsp;<button class="primary" id="newUserBtn">Anlegen</button></label>
       </div>
       <div class="err" id="newUserErr"></div>
