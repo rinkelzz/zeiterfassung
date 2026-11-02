@@ -118,7 +118,7 @@ def create_request(data: RequestIn, user=Depends(current_user), conn: sqlite3.Co
         lines.append(f"Bisher:     {out['old_text']}")
     if out["new_text"]:
         lines.append(f"Beantragt:  {out['new_text']}")
-    lines += [f"Begründung: {out['reason']}", "", "Genehmigen oder ablehnen unter Verwaltung → Korrekturanträge."]
+    lines += [f"Begründung: {out['reason']}", "", "Genehmigen oder ablehnen unter Verwaltung → Anträge."]
     _mail(conn, admins, f"Zeiterfassung: Korrekturantrag von {user['display_name']}", "\n".join(lines))
     return out
 

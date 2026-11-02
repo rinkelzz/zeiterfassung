@@ -2,6 +2,18 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.23.0] – 2026-11-02
+
+### Geändert
+- **Verwaltung übersichtlicher:** Statt einer langen Seite gibt es oben Unterbereiche – Mitarbeiter, Anträge
+  (mit Zähler), Abschluss, Kiosk & Filialen, Einstellungen, Mail, Sicherung & Updates, Protokoll. Der zuletzt
+  geöffnete Bereich bleibt gemerkt; auf dem Handy lässt sich die Leiste wischen.
+- **Mitarbeiterliste kompakt:** Name, Arbeitszeit, Vorgesetzter und Kontostände auf einen Blick. „Bearbeiten“ klappt
+  ein Formular in den Gruppen Zugang, Rolle und Konten auf (dort auch Deaktivieren und Löschen), „Arbeitszeit“ öffnet
+  Stunden und Pausen je Wochentag. „Neuen Mitarbeiter anlegen“ ist eingeklappt.
+- **Einstellungen in Gruppen** (Allgemein, Pausen & Arbeitszeitgesetz, Wegezeit, Vergessenes Ausstempeln,
+  Anmeldung mit DSM) mit einem Speichern-Knopf unten; die Feiertagsliste ist zum Aufklappen.
+
 ## [0.22.0] – 2026-11-01
 
 ### Neu
@@ -265,6 +277,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.23.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.0
 [0.22.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.22.0
 [0.21.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.21.0
 [0.20.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.20.0

@@ -23,6 +23,10 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
 |---|---|
 | ![Kiosk](docs/screenshots/kiosk.png) | ![Kiosk – Gehen](docs/screenshots/kiosk-gehen.png) |
 
+| Verwaltung: Mitarbeiter bearbeiten | Verwaltung: Einstellungen |
+|---|---|
+| ![Verwaltung](docs/screenshots/verwaltung.png) | ![Einstellungen](docs/screenshots/einstellungen.png) |
+
 | Stunden und Pausen je Wochentag | Filialen und Tablets |
 |---|---|
 | ![Arbeitszeit je Wochentag](docs/screenshots/arbeitszeit-tage.png) | ![Filialen](docs/screenshots/filialen.png) |
@@ -90,6 +94,8 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
   genehmigt per Klick (wird übernommen) oder lehnt mit Begründung ab – mit Mail an beide Seiten
 - **Urlaubsanträge:** Mitarbeiter beantragen Urlaub, Gleittag, Überstunden-Abbau, Bildungs- oder Sonderurlaub
   (auch halbe Tage); der **Vorgesetzte** (z. B. Filialleiter) oder ein Admin genehmigt – erst dann wird eingetragen
+- **Übersichtliche Verwaltung** mit Unterbereichen (Mitarbeiter, Anträge, Abschluss, Kiosk & Filialen,
+  Einstellungen, Mail, Sicherung & Updates, Protokoll)
 - **Monatsabschluss** pro Mitarbeiter: Monat sperren und Kontostände festschreiben, Wiederöffnen nur mit Begründung
 
 **Berichte**
@@ -140,7 +146,7 @@ Paket-Zentrum zum Aktualisieren. Einmalig einrichten:
 2. **Paket-Zentrum → Einstellungen → Paketquellen → Hinzufügen:** Name `Zeiterfassung`,
    Ort `http://127.0.0.1:8765/spk`.
 
-Die App prüft etwa alle 30 Minuten (oder per „Jetzt prüfen“ unter Verwaltung → Updates), lädt eine
+Die App prüft etwa alle 30 Minuten (oder per „Jetzt prüfen“ unter Verwaltung → Sicherung & Updates), lädt eine
 neue SPK auf die NAS und bietet sie dort an. Die Paketquelle antwortet nur im lokalen Netz.
 
 ### Datensicherung
@@ -151,7 +157,7 @@ gehört zusätzlich ein **freigegebener Ordner** dazu:
 
 1. **Systemsteuerung → Freigegebener Ordner** → z. B. `backup` → **Bearbeiten → Berechtigungen** →
    oben **System-interner Benutzer** wählen → `zeiterfassung` **Lesen/Schreiben** geben.
-2. In der App unter **Verwaltung → Datensicherung** den Ordner eintragen, z. B. `/volume1/backup/zeiterfassung`
+2. In der App unter **Verwaltung → Sicherung & Updates** den Ordner eintragen, z. B. `/volume1/backup/zeiterfassung`
    (die App prüft die Schreibrechte), und die Aufbewahrung in Tagen festlegen (Standard 30).
 3. Den freigegebenen Ordner in Hyper Backup aufnehmen.
 
@@ -210,7 +216,7 @@ getrennt. Für Metallflächen werden **On-Metal-NFC-Aufkleber** (mit Ferrit-Schi
 
 Für ein Tablet an der Wache (oder für Kollegen ohne iPhone):
 
-1. **Verwaltung → Kiosk-Tablets → Tablet freischalten** und den QR-Code mit dem Tablet scannen
+1. **Verwaltung → Kiosk & Filialen → Tablet freischalten** und den QR-Code mit dem Tablet scannen
    (oder den Link dort öffnen). Die Seite am besten „Zum Home-Bildschirm“ hinzufügen.
 2. Jeder Mitarbeiter setzt unter **Mein Zugang → PIN fürs Kiosk-Tablet** eine 4–6-stellige PIN.
    Nur wer eine PIN hat, erscheint am Tablet.
@@ -218,18 +224,18 @@ Für ein Tablet an der Wache (oder für Kollegen ohne iPhone):
    Nach der PIN sieht jeder seine Konten: heute gearbeitet, Gleitzeit (Plus/Minus), Überstunden (wenn genutzt)
    und Resturlaub.
 
-**Mehrere Filialen:** Unter **Verwaltung → Kiosk-Tablets → Filialen** Filialen anlegen und Mitarbeiter per Häkchen
+**Mehrere Filialen:** Unter **Verwaltung → Kiosk & Filialen** Filialen anlegen und Mitarbeiter per Häkchen
 zuordnen (wer an beiden Standorten arbeitet, bekommt beide). Jedem Tablet die passende Filiale geben – es zeigt dann
 nur deren Mitarbeiter und alle, die keiner Filiale zugeordnet sind.
 
 Nach 5 falschen PINs ist der Name 15 Minuten gesperrt. Ein verlorenes Tablet lässt sich in der Verwaltung
-sperren, eine vergessene PIN in der Mitarbeitertabelle löschen.
+sperren, eine vergessene PIN unter Verwaltung → Mitarbeiter → Bearbeiten löschen.
 
 ### Berichte per Mail
 
-**Verwaltung → Berichte per Mail**: SMTP-Server eintragen (z. B. Port 587 mit STARTTLS oder 465 mit SSL),
+**Verwaltung → Mail**: SMTP-Server eintragen (z. B. Port 587 mit STARTTLS oder 465 mit SSL),
 Testmail senden, dann „Monatsbericht automatisch“ bzw. „Jahresbericht automatisch“ einschalten.
-Jeder Mitarbeiter braucht eine Mailadresse (Spalte „E-Mail“ in der Verwaltung oder selbst unter „Mein Zugang“).
+Jeder Mitarbeiter braucht eine Mailadresse (Verwaltung → Mitarbeiter → Bearbeiten oder selbst unter „Mein Zugang“).
 Bei GMX, Web.de oder Gmail meist ein **App-Passwort** verwenden.
 
 ### Vergessenes Ausstempeln
@@ -245,13 +251,13 @@ Beenden lassen sich unter **Verwaltung → Einstellungen** ändern oder abschalt
 Mitarbeiter können ihre Buchungen nicht selbst ändern. Stattdessen tippen sie in der **Monatsansicht**
 auf den Tag und beantragen mit Begründung einen Nachtrag, eine andere Kommen-/Gehen-Zeit oder das
 Löschen einer Buchung. Admins bekommen eine Mail (wenn Mailversand und Adresse eingerichtet sind) und
-sehen offene Anträge unter **Verwaltung → Korrekturanträge** – die Zahl steht auch am Reiter.
+sehen offene Anträge unter **Verwaltung → Anträge** – die Zahl steht auch am Reiter.
 **Genehmigen** übernimmt die Änderung, **Ablehnen** geht mit kurzer Begründung; der Mitarbeiter bekommt
 die Entscheidung per Mail und sieht seine Anträge unter **Mein Zugang**.
 
 ### Urlaubsanträge und Vorgesetzte
 
-1. In der Mitarbeiterliste (**Verwaltung**) jedem Mitarbeiter in der Spalte **Vorgesetzter** z. B. seinen
+1. Unter **Verwaltung → Mitarbeiter → Bearbeiten** jedem Mitarbeiter im Feld **Vorgesetzter** z. B. seinen
    Filialleiter zuordnen. Der Vorgesetzte braucht dafür keine Admin-Rechte – er sieht nur die Anträge seiner Leute.
 2. Mitarbeiter beantragen unter **Übersicht → Urlaub beantragen**: Art (Urlaub, Gleittag, Überstunden-Abbau,
    Bildungs-/Sonderurlaub), Zeitraum oder halber Tag, optional eine Bemerkung. Die App zählt die Arbeitstage
@@ -263,20 +269,20 @@ die Entscheidung per Mail und sieht seine Anträge unter **Mein Zugang**.
 Ohne Vorgesetzten gehen Anträge an die Admins; Admins können jeden Antrag entscheiden. Offene Anträge lassen
 sich zurückziehen.
 
-**Admins anlegen:** Beim Anlegen „Admin“ ankreuzen oder in der Mitarbeiterliste die Spalte **Admin** setzen.
+**Admins anlegen:** Beim Anlegen „Admin“ ankreuzen oder unter Mitarbeiter → Bearbeiten das Häkchen **Admin** setzen.
 Die eigenen Admin-Rechte kann man sich nicht selbst entziehen, und der letzte Admin bleibt immer Admin.
 
 ### Monatsabschluss
 
 Nach Prüfung (und ggf. Unterschrift unter dem PDF) schließt ein Admin den Monat ab – in der
-Monatsansicht mit **🔒 Monat abschließen** oder unter **Verwaltung → Monatsabschluss** für alle
+Monatsansicht mit **🔒 Monat abschließen** oder unter **Verwaltung → Abschluss** für alle
 Mitarbeiter bis zu einem Monat. Danach sind Buchungen, Abwesenheiten, Ü-Tage und der Arbeitszeit-Verlauf
 in diesem Monat gesperrt, und die Kontostände am Monatsende sind festgeschrieben. Abgeschlossen wird der
 Reihe nach; **Wieder öffnen** geht beim zuletzt abgeschlossenen Monat mit Begründung (Änderungsprotokoll).
 
 ### Arbeitszeit und Pausen je Wochentag
 
-Unter **Verwaltung → Mitarbeiter → Verlauf** gilt jede Änderung ab einem Datum (ältere Monate bleiben unverändert):
+Unter **Verwaltung → Mitarbeiter → Arbeitszeit** gilt jede Änderung ab einem Datum (ältere Monate bleiben unverändert):
 
 - **Gleichmäßig verteilen:** Wochenstunden und Arbeitstage, z. B. 40 h an Mo–Fr = 8 h pro Tag.
 - **Stunden je Tag:** für jeden Wochentag eine eigene Sollzeit, z. B. Mo 0 · Di–Fr 8,5 · Sa 4 · So 0 = 38 h/Woche.
@@ -298,7 +304,7 @@ Zusätzlich lassen sich **betriebsfreie Tage** eintragen, z. B. `12-24, 12-31`.
 
 ### Mitarbeiter deaktivieren oder löschen
 
-In der Mitarbeiterliste unter **Verwaltung**:
+Unter **Verwaltung → Mitarbeiter → Bearbeiten**:
 
 - **Deaktivieren** sperrt den Zugang, alle Arbeitszeiten bleiben erhalten – das Richtige für ausgeschiedene
   Mitarbeiter, denn Arbeitszeitnachweise müssen meist eine Zeit lang aufbewahrt werden. **Aktivieren** macht es rückgängig.
@@ -389,7 +395,7 @@ then DSM → Package Center → Manual Install. Afterwards:
 - *Updates:* Package Center → Settings → General → trust level "Any publisher"; Settings → Package Sources →
   add `http://127.0.0.1:8765/spk`.
 - *Backup:* give the system user `zeiterfassung` read/write access to a shared folder and enter it under
-  *Verwaltung → Datensicherung* (the package folder is deleted on uninstall). Backups contain password hashes
+  *Verwaltung → Sicherung & Updates* (the package folder is deleted on uninstall). Backups contain password hashes
   (the SMTP password is left out) – keep the folder private and enable client-side encryption in Hyper Backup.
 - *Remote access:* DSM reverse proxy (`https://time.example.com` → `http://localhost:8765`), then enter that
   address under *Verwaltung → Einstellungen → Öffentliche Adresse*. Never forward port 8765 directly.
