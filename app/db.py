@@ -120,6 +120,7 @@ DEFAULT_SETTINGS = {
     "company_free_days": "",
     "regional_holidays": "default",
     "theme_default": "classic",
+    "company_name": "",
 }
 
 

@@ -31,6 +31,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 header { display: flex; align-items: center; justify-content: space-between; padding: 18px 28px; }
 header .title { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 22px; }
 header img { width: 36px; height: 36px; border-radius: 8px; }
+header img.logo { width: auto; max-width: 220px; height: 44px; border-radius: 0; object-fit: contain; }
+#kcompany:not(:empty) + #kname { color: var(--muted); font-weight: 600; }
+#kcompany:not(:empty)::after { content: " ·"; color: var(--muted); }
 #clock { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
 #date { color: var(--muted); font-size: 16px; text-align: right; }
 main { padding: 0 28px 28px; }
@@ -69,7 +72,7 @@ main { padding: 0 28px 28px; }
 </head>
 <body>
 <header>
-  <div class="title"><img src="static/icon.png" alt=""><span id="kname">Zeiterfassung</span></div>
+  <div class="title"><img id="klogo" src="static/icon.png" alt=""><span id="kcompany"></span><span id="kname">Zeiterfassung</span></div>
   <div><div id="clock">--:--</div><div id="date"></div></div>
 </header>
 <main>
@@ -167,6 +170,9 @@ async function loadUsers() {
     const r = await api("kiosk/users");
     st.users = r.users;
     if (window.zeTheme && r.theme) zeTheme(r.theme);
+    if (r.logo) { $("klogo").src = "api/v1/branding/logo?v=" + r.logo.version; $("klogo").className = "logo"; }
+    else { $("klogo").src = "static/icon.png"; $("klogo").className = ""; }
+    $("kcompany").textContent = r.company_name || "";
     $("kname").textContent = (r.kiosk || "Zeiterfassung") + (r.branch && !(r.kiosk || "").includes(r.branch) ? " · " + r.branch : "");
     $("grid").innerHTML = r.users.map(u => `<button class="tile" data-u="${u.id}"><span class="dot ${u.present ? "in" : ""}"></span>${esc(u.name)}</button>`).join("");
     $("empty").textContent = r.users.length ? "" : "Noch niemand hat eine PIN gesetzt – das geht in der Zeiterfassung unter „Mein Zugang“.";

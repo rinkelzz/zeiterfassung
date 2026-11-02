@@ -1208,6 +1208,7 @@ async function loadSettingsForm() {
   $("setBl").value = s.bundesland; $("setFree").value = s.company_free_days;
   $("setTheme").innerHTML = Object.entries(s.themes || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   $("setTheme").value = s.theme_default || "classic";
+  applyBranding(state.branding || { company_name: "", logo: null });
   showRegional(s.bundesland, s.regional_holidays);
   $("setUrl").value = s.public_url || "";
   $("setTravIn").value = s.travel_in_minutes; $("setTravOut").value = s.travel_out_minutes;
@@ -1260,6 +1261,7 @@ async function saveSettings() {
       travel_sources: $$(".travSrc").filter(c => c.checked).map(c => c.value),
       open_limit_hours: Number($("setOpenLimit").value || 0), open_auto_close: $("setOpenAuto").checked,
       arbzg_warnings: $("setArbzg").checked } });
+    applyBranding(await api("branding", { method: "PATCH", body: { company_name: $("setCompany").value.trim() } }));
     await loadSettingsForm();
     state.me = await api("me"); if (window.zeTheme) zeTheme(state.me.theme_effective);
     okMsg($("setErr"), "Gespeichert.");
@@ -1544,4 +1546,43 @@ $("qrUser").addEventListener("change", () => { $("qrBox").classList.add("hidden"
 $("pwBtn").onclick = changePw;
 setupYearSelection();
 
+// Firmenname und -logo (öffentlich, auch vor der Anmeldung)
+async function loadBranding() {
+  try {
+    const res = await fetch(url("api/v1/branding"), { cache: "no-store" });
+    if (res.ok) applyBranding(await res.json());
+  } catch (e) { /* egal */ }
+}
+function applyBranding(b) {
+  state.branding = b;
+  const name = (b && b.company_name) || "Zeiterfassung";
+  $$(".brandName").forEach(el => { el.textContent = name; });
+  document.title = b && b.company_name ? `Zeiterfassung – ${b.company_name}` : "Zeiterfassung";
+  const src = b && b.logo ? url(`api/v1/branding/logo?v=${b.logo.version}`) : "";
+  $$(".brandLogo").forEach(img => { img.classList.toggle("hidden", !src); if (src) img.src = src; });
+  $$(".brand").forEach(h => h.classList.toggle("has-logo", !!src));
+  if ($("logoPrev")) {
+    $("logoPrev").classList.toggle("hidden", !src); if (src) $("logoPrev").src = src;
+    $("logoDel").classList.toggle("hidden", !src);
+    if (document.activeElement !== $("setCompany")) $("setCompany").value = (b && b.company_name) || "";
+  }
+}
+$("logoFile").onchange = () => {
+  const f = $("logoFile").files[0]; $("logoErr").textContent = "";
+  if (!f) return;
+  if (f.size > 1024 * 1024) { $("logoErr").textContent = "Das Logo ist zu groß (höchstens 1 MB)"; return; }
+  const rd = new FileReader();
+  rd.onload = async () => {
+    try { applyBranding(await api("branding/logo", { method: "PUT", body: { data_url: rd.result } })); okMsg($("logoErr"), "Logo gespeichert."); }
+    catch (e) { $("logoErr").textContent = e.message; }
+    $("logoFile").value = "";
+  };
+  rd.readAsDataURL(f);
+};
+$("logoDel").onclick = async () => {
+  if (!confirm("Firmenlogo entfernen?")) return;
+  try { applyBranding(await api("branding/logo", { method: "DELETE" })); } catch (e) { $("logoErr").textContent = e.message; }
+};
+
+loadBranding();
 start().catch(showLogin);

@@ -228,3 +228,11 @@ details.newuser[open] summary { margin-bottom: 8px; }
 label.inline input[type=checkbox] { flex: none; }
 .subnav { gap: 2px; }
 .subnav button { font-size: 14px; padding: 6px 9px; }
+
+/* Firmenlogo */
+.brand .brandLogo { height: 30px; width: auto; max-width: 180px; object-fit: contain; }
+.brand.has-logo .brandIcon { display: none; }
+#loginView .brand { display: flex; align-items: center; gap: 10px; }
+#loginView .brandLogo { height: 44px; max-width: 220px; }
+.logoPrev { height: 40px; max-width: 200px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 3px; }
+.logoRow { display: grid; gap: 6px; }

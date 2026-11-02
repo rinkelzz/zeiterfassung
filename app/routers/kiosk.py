@@ -225,7 +225,10 @@ def kiosk_users(device=Depends(kiosk_device), conn: sqlite3.Connection = Depends
     branch = conn.execute("SELECT name FROM branches WHERE id = ?", (device["branch_id"],)).fetchone() \
         if device["branch_id"] else None
     theme = conn.execute("SELECT value FROM app_settings WHERE key = 'theme_default'").fetchone()
+    from .. import logo
+    company = conn.execute("SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
     return {"kiosk": device["name"], "branch": branch[0] if branch else None, "theme": theme[0] if theme else "classic",
+            "company_name": company[0] if company else "", "logo": logo.info(conn),
             "users": [{"id": r["id"], "name": r["display_name"], "present": r["id"] in present} for r in rows]}
 
 

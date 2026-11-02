@@ -12,7 +12,7 @@
 <body>
 
 <section id="loginView" class="card login hidden">
-  <h1 style="margin:0;font-size:20px">Zeiterfassung</h1>
+  <h1 class="brand" style="margin:0;font-size:20px"><img class="brandLogo hidden" alt=""><span class="brandName">Zeiterfassung</span></h1>
   <label>Benutzername <input id="lu" autocomplete="username"></label>
   <label>Passwort <input id="lp" type="password" autocomplete="current-password"></label>
   <label id="otpWrap" class="hidden">Zwei-Faktor-Code (DSM) <input id="lo" inputmode="numeric" autocomplete="one-time-code" maxlength="12"></label>
@@ -23,7 +23,7 @@
 
 <div id="appView" class="hidden">
 <header>
-  <h1><img src="static/icon.png" alt="">Zeiterfassung</h1>
+  <h1 class="brand"><img class="brandIcon" src="static/icon.png" alt=""><img class="brandLogo hidden" alt=""><span class="brandName">Zeiterfassung</span></h1>
   <nav id="tabs">
     <button data-tab="home" class="active">Übersicht <span class="badge hidden" id="badgeHome"></span></button>
     <button data-tab="month">Monat</button>
@@ -234,6 +234,14 @@
             <label>Betriebsfreie Tage (MM-TT) <input id="setFree" placeholder="12-24, 12-31" style="width:160px"></label>
           </div>
           <div id="setRegional" class="row small hidden"></div>
+          <label>Firmenname (Kopfzeile, Kiosk, Berichte) <input id="setCompany" maxlength="80" placeholder="z. B. Muster GmbH"></label>
+          <div class="logoRow">
+            <span class="muted small">Firmenlogo (PNG oder JPEG, max. 1 MB)</span>
+            <div class="row"><img id="logoPrev" class="logoPrev hidden" alt="Logo">
+              <label class="btn small" style="display:inline-block">Logo hochladen <input type="file" id="logoFile" accept="image/png,image/jpeg" hidden></label>
+              <button class="mini danger hidden" id="logoDel">entfernen</button></div>
+            <div class="err" id="logoErr"></div>
+          </div>
           <label title="Gilt für alle, die kein eigenes Design gewählt haben, und für die Kiosk-Tablets">Standard-Design
             <select id="setTheme"></select></label>
           <label>Öffentliche Adresse (QR-Code, iPhone-Kurzbefehle, DSM-Fenster)

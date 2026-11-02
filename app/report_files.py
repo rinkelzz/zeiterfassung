@@ -4,7 +4,8 @@ import sqlite3
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 
-from . import csvsafe
+from . import csvsafe, logo
+from .db import get_setting
 from .pdf import PDF, fit
 from .reports import (
     ABSENCE_KINDS,
@@ -127,6 +128,19 @@ def _break_text(conn, user, d: date) -> str:
     return f"{base}; abweichend: {extra}" if any(t is None for t in texts) else extra
 
 
+def _logo_for(conn) -> Optional[Dict]:
+    """Logo fürs PDF und die Rohdaten für Excel – Fehler im Bild dürfen keinen Bericht verhindern."""
+    try:
+        img = logo.pdf_image(conn)
+        got = logo.load(conn)
+    except (logo.LogoError, ValueError):
+        return None
+    if not img or not got:
+        return None
+    img["raw"], img["format"] = got[0], got[1].get("format", "png")
+    return img
+
+
 def build_data(conn: sqlite3.Connection, user: sqlite3.Row, period: str) -> Dict:
     kind, d_from, d_to = parse_period(period)
     rep = compute_report(conn, user, d_from, d_to)
@@ -150,6 +164,8 @@ def build_data(conn: sqlite3.Connection, user: sqlite3.Row, period: str) -> Dict
         "break_rule": break_rule(conn),
         "created": to_local(now_utc()),
         "closed_at": None,
+        "company": get_setting(conn, "company_name") or "",
+        "logo": _logo_for(conn),
     }
     if kind == "month":
         row = conn.execute("SELECT closed_at FROM month_closings WHERE user_id = ? AND month = ?",
@@ -227,6 +243,15 @@ L, R = 40, 555  # linker/rechter Rand (A4 = 595 pt breit)
 
 def _pdf_header(pdf: PDF, data: Dict, heading: str) -> float:
     u = data["user"]
+    # Firmenlogo und -name oben links (über der Überschrift)
+    img, company = data.get("logo"), data.get("company")
+    x = L
+    if img:
+        w, h = logo.fit_box(img["width"], img["height"], 150, 30)
+        pdf.image(L, 40 - h, w, h, img)
+        x = L + w + 10
+    if company:
+        pdf.text(x, 36, fit(company, R - x - 10, 11, True), 11, True, color=(0.25, 0.25, 0.25))
     pdf.text(L, 58, heading, 17, True)
     pdf.text(R, 58, data["title"], 13, True, align="right")
     pdf.text(L, 78, f"{u['display_name']}  ({u['username']})", 10)
@@ -428,6 +453,32 @@ def _hours(s: float) -> float:
     return round((s or 0) / 3600, 6)  # exakt speichern, angezeigt wird mit 2 Nachkommastellen
 
 
+def _xlsx_brand(ws, data: Dict, col: str) -> None:
+    """Firmenname in Zeile 1 (ab Spalte F) und Logo oben rechts."""
+    from openpyxl.styles import Font
+    if data.get("company"):
+        c = ws.cell(1, 6, csvsafe.cell(data["company"]))
+        c.font = Font(bold=True, size=12, color="404040")
+    img = data.get("logo")
+    if img:
+        w, h = logo.fit_box(img["width"], img["height"], 180, 40)
+        from openpyxl.drawing.image import Image as XlImage
+
+        class _Pic(XlImage):
+            """openpyxl-Bild ohne Pillow – Größe und Format kennen wir schon."""
+            def __init__(self, raw: bytes, fmt: str, width: int, height: int):
+                self.ref, self._raw = None, raw
+                self.format = "jpeg" if fmt == "jpeg" else "png"
+                self.width, self.height = width, height
+
+            def _data(self) -> bytes:
+                return self._raw
+
+        pic = _Pic(img["raw"], img["format"], round(w), round(h))
+        ws.add_image(pic, f"{col}1")
+        ws.row_dimensions[1].height = max(ws.row_dimensions[1].height or 0, h * 0.75 + 4)
+
+
 def _xlsx_month_sheet(ws, data: Dict, days: List[Dict], title_line: str) -> None:
     from openpyxl.styles import Alignment, Font, PatternFill
 
@@ -440,6 +491,7 @@ def _xlsx_month_sheet(ws, data: Dict, days: List[Dict], title_line: str) -> None
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([f"{u['display_name']} ({u['username']})", "", "", "", "", "Sollarbeitszeit:", data["schedule"]])
     csvsafe.no_formulas(ws)
+    _xlsx_brand(ws, data, "I")
     ws.append([])
     header = ["Datum", "Tag", "Kommen", "Gehen", "Pause (min)", "Ist (h)", "Soll (h)", "Differenz (h)",
               "davon Gleitzeit (h)", "davon Überstunden (h)", "Wegezeit (min)", "Abwesenheit / Feiertag", "Bemerkung"]
@@ -561,6 +613,7 @@ def year_xlsx(data: Dict) -> bytes:
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([f"{u['display_name']} ({u['username']})", "", "", "", "", "Sollarbeitszeit:", data["schedule"]])
     csvsafe.no_formulas(ws)
+    _xlsx_brand(ws, data, "I")
     ws.append([])
     kinds = list(ABSENCE_KINDS)
     ws.append(["Monat", "Soll (h)", "Ist (h)", "Differenz (h)", "Gleitzeit (h)", "Überstunden (h)", "Wegezeit (min)"]

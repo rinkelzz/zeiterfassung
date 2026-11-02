@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.24.0] – 2026-11-02
+
+### Neu
+- **Firmenname und -logo:** unter Verwaltung → Einstellungen → Allgemein einen Firmennamen eintragen und ein Logo
+  hochladen (PNG oder JPEG, bis 1 MB). Beides erscheint in der Kopfzeile, auf der Anmeldeseite, auf dem
+  Kiosk-Tablet und oben in den Monats- und Jahresberichten (PDF und Excel). Transparente PNGs bleiben transparent.
+  Das Logo liegt in der Datenbank und ist damit in jeder Sicherung enthalten. Wunsch von @ralfmehner-collab (#2).
+
 ## [0.23.1] – 2026-11-02
 
 ### Behoben
@@ -286,6 +294,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.24.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.0
 [0.23.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.1
 [0.23.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.0
 [0.22.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.22.0

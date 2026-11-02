@@ -86,6 +86,8 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
   pro Mitarbeiter auch **je Wochentag** abweichend (z. B. samstags kein Abzug)
 - **Vier Designs:** Klassisch (folgt hell/dunkel des Geräts), Synology DSM, Nacht (immer dunkel) und Warm & groß
   (größere Schrift und Knöpfe) – jeder wählt selbst unter „Mein Zugang“, der Admin legt den Standard fest
+- **Firmenname und -logo** in Kopfzeile, Anmeldung, Kiosk-Tablet sowie in PDF- und Excel-Berichten
+  (Verwaltung → Einstellungen → Allgemein; PNG oder JPEG bis 1 MB, steckt in jeder Sicherung)
 - Mitarbeiter **deaktivieren** (Daten bleiben) oder **endgültig löschen** (mit Namensbestätigung und automatischer Sicherung vorher)
 - **Hinweise nach Arbeitszeitgesetz:** über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5) –
   in Monatsansicht und Berichten markiert, abschaltbar
@@ -380,6 +382,7 @@ Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The 
   weekday, e.g. Tue–Fri 8.5 h, Sat 4 h), vacation tracking, public holidays for all 16 German states (regional ones such as Corpus Christi in parts of Saxony optional),
   break deduction per German working-time law (ArbZG), fixed or none – optionally different per weekday
 - Four designs (classic, Synology DSM, night, warm & large) – chosen per user, admin sets the default
+- Company name and logo in the header, login page, kiosk tablet and PDF/Excel reports (PNG or JPEG up to 1 MB)
 - Deactivate employees (data kept) or delete them permanently (name confirmation, automatic backup first)
 - Working-time-law hints: more than 10 hours a day, less than 11 hours rest between working days
 - Correction requests: employees request adding, changing or deleting a punch; admins approve (applied

@@ -49,6 +49,7 @@ class PDF:
         self.title, self.author = title, author
         self.pages: List[List[str]] = []
         self.ops: List[str] = []
+        self.images: List[dict] = []
         self.new_page()
 
     def new_page(self) -> None:
@@ -72,6 +73,15 @@ class PDF:
     def rect(self, x: float, y: float, w: float, h: float, fill=(0.95, 0.95, 0.95)) -> None:
         self.ops.append(f"{_rgb(fill)} rg {x:.2f} {A4_H - y - h:.2f} {w:.2f} {h:.2f} re f")
 
+    def image(self, x: float, y: float, w: float, h: float, img: dict) -> None:
+        """Bild (siehe logo.pdf_image) an x/y (oben links) in w × h Punkt zeichnen."""
+        if not img:
+            return
+        if img not in self.images:
+            self.images.append(img)
+        n = self.images.index(img) + 1
+        self.ops.append(f"q {w:.2f} 0 0 {h:.2f} {x:.2f} {A4_H - y - h:.2f} cm /Im{n} Do Q")
+
     def line(self, x1: float, y1: float, x2: float, y2: float, width: float = 0.5, color=(0.6, 0.6, 0.6)) -> None:
         self.ops.append(f"{width:g} w {_rgb(color)} RG {x1:.2f} {A4_H - y1:.2f} m {x2:.2f} {A4_H - y2:.2f} l S")
 
@@ -91,6 +101,19 @@ class PDF:
         pages_id = add(b"")
         f1 = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
         f2 = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
+        xobjs = []
+        for img in self.images:
+            smask = b""
+            if img.get("alpha"):
+                sm = add(b"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceGray "
+                         b"/BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n" % (
+                             img["width"], img["height"], len(img["alpha"])) + img["alpha"] + b"\nendstream")
+                smask = b" /SMask %d 0 R" % sm
+            xobjs.append(add(b"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /%s "
+                             b"/BitsPerComponent 8 /Filter /%s%s /Length %d >>\nstream\n" % (
+                                 img["width"], img["height"], img["colorspace"].encode(), img["filter"].encode(), smask,
+                                 len(img["data"])) + img["data"] + b"\nendstream"))
+        xres = (b" /XObject << " + b" ".join(b"/Im%d %d 0 R" % (i + 1, o) for i, o in enumerate(xobjs)) + b" >>") if xobjs else b""
         kids = []
         for ops in self.pages:
             raw = "\n".join(ops).encode("latin-1")
@@ -98,7 +121,7 @@ class PDF:
             content = add(b"<< /Length %d /Filter /FlateDecode >>\nstream\n" % len(comp) + comp + b"\nendstream")
             kids.append(add(
                 b"<< /Type /Page /Parent %d 0 R /MediaBox [0 0 %.2f %.2f] /Contents %d 0 R "
-                b"/Resources << /Font << /F1 %d 0 R /F2 %d 0 R >> >> >>" % (pages_id, A4_W, A4_H, content, f1, f2)))
+                b"/Resources << /Font << /F1 %d 0 R /F2 %d 0 R >>%s >> >>" % (pages_id, A4_W, A4_H, content, f1, f2, xres)))
         objs[pages_id - 1] = b"<< /Type /Pages /Count %d /Kids [%s] >>" % (
             len(kids), b" ".join(b"%d 0 R" % k for k in kids))
         objs[catalog - 1] = b"<< /Type /Catalog /Pages %d 0 R >>" % pages_id
