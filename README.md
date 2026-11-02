@@ -217,7 +217,9 @@ getrennt. Für Metallflächen werden **On-Metal-NFC-Aufkleber** (mit Ferrit-Schi
 Für ein Tablet an der Wache (oder für Kollegen ohne iPhone):
 
 1. **Verwaltung → Kiosk & Filialen → Tablet freischalten** und den QR-Code mit dem Tablet scannen
-   (oder den Link dort öffnen). Die Seite am besten „Zum Home-Bildschirm“ hinzufügen.
+   (oder den Link dort öffnen). Die Seite **von dort aus** „Zum Home-Bildschirm“ hinzufügen – der Schlüssel steckt
+   im Link (`#k=…`) und wird so ins Symbol übernommen. Ein Home-Bildschirm-Symbol hat auf dem iPad einen eigenen
+   Speicher; ohne Schlüssel im Link meldet es sonst „nicht freigeschaltet“.
 2. Jeder Mitarbeiter setzt unter **Mein Zugang → PIN fürs Kiosk-Tablet** eine 4–6-stellige PIN.
    Nur wer eine PIN hat, erscheint am Tablet.
 3. Am Tablet: Namen antippen, PIN eingeben, **Kommen** bzw. **Gehen**. Ein grüner Punkt zeigt, wer gerade da ist.

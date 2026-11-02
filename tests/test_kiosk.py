@@ -41,6 +41,8 @@ def test_page_served():
     with TestClient(app) as c:
         r = c.get("/kiosk")
         assert r.status_code == 200 and "Kiosk" in r.text and r.headers["referrer-policy"] == "no-referrer"
+        # Schlüssel bleibt im Link (#k=…), damit ein Home-Bildschirm-Symbol auf dem iPad ihn mitnimmt
+        assert '"#k=" + key' in r.text and 'replaceState(null, "", location.pathname)' not in r.text
 
 
 def test_pin_rules(emp):

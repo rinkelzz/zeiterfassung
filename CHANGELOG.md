@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.23.1] – 2026-11-02
+
+### Behoben
+- **Kiosk auf dem iPad:** Nach „Zum Home-Bildschirm“ (oder wenn Safari Website-Daten gelöscht hatte) meldete das
+  Tablet „nicht freigeschaltet“. Ursache: Ein Home-Bildschirm-Symbol hat auf iOS einen eigenen, leeren Speicher, und
+  der Schlüssel wurde aus dem Link entfernt. Jetzt bleibt der Schlüssel im Link (`#k=…`, wird nie an den Server
+  geschickt) und das Symbol nimmt ihn mit. Danke an @ralfmehner-collab (#2).
+  **Bitte das alte Home-Bildschirm-Symbol löschen** und den Link aus der Verwaltung neu öffnen und speichern.
+
 ## [0.23.0] – 2026-11-02
 
 ### Geändert
@@ -277,6 +286,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.23.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.1
 [0.23.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.0
 [0.22.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.22.0
 [0.21.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.21.0

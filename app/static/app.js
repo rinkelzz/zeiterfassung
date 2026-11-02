@@ -584,7 +584,8 @@ async function newKiosk() {
       branch_id: $("kBranch").value ? Number($("kBranch").value) : null } });
     $("kBox").innerHTML = `<div>${r.qr_svg.replace(/<\?xml[^>]*>/, "")}</div>
       <div><b>Mit dem Tablet scannen</b> oder den Link dort öffnen. Danach ist das Tablet dauerhaft freigeschaltet –
-        den Link nicht weitergeben.<br><br><code>${esc(r.url)}</code><br><br>
+        den Link nicht weitergeben.<br><span class="small muted">iPad: den Link in Safari öffnen und <b>von dort</b> über
+        Teilen → „Zum Home-Bildschirm“ speichern – dann steckt der Schlüssel im Symbol.</span><br><br><code>${esc(r.url)}</code><br><br>
         <button class="mini" id="kCopy">Link kopieren</button></div>`;
     $("kBox").classList.remove("hidden");
     $("kCopy").onclick = async () => { try { await navigator.clipboard.writeText(r.url); $("kCopy").textContent = "Kopiert ✓"; } catch (e) { prompt("Link:", r.url); } };

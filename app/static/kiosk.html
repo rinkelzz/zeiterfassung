@@ -78,6 +78,8 @@ main { padding: 0 28px 28px; }
     <h2>Tablet nicht freigeschaltet</h2>
     <p class="muted">In der Zeiterfassung unter <b>Verwaltung → Kiosk &amp; Filialen</b> einen Zugang erzeugen und
       den QR-Code mit diesem Tablet scannen (oder den Link hier öffnen).</p>
+    <p class="muted small" style="font-size:15px">iPad/iPhone: Den Link in Safari öffnen und <b>erst dann</b> über
+      Teilen → „Zum Home-Bildschirm“ speichern – so steckt der Schlüssel im Symbol. Ein älteres Symbol ohne Schlüssel bitte löschen und neu anlegen.</p>
     <div class="err" id="noKeyErr"></div>
   </section>
 
@@ -125,10 +127,15 @@ const store = {
   get() { try { return localStorage.getItem(KEY) || ""; } catch (e) { return store.mem || ""; } },
   set(v) { store.mem = v; try { localStorage.setItem(KEY, v); } catch (e) { /* privat */ } },
 };
-// Schlüssel aus dem Link übernehmen und aus der Adresszeile entfernen
+// Schlüssel aus dem Link übernehmen – und im Link behalten.
+// Wichtig fürs iPad: Ein Lesezeichen auf dem Home-Bildschirm hat einen eigenen, leeren Speicher (und Safari
+// löscht Website-Daten nach einiger Zeit ohne Besuch). Steht der Schlüssel im Link (#k=…), nimmt ihn das
+// Lesezeichen mit und das Tablet bleibt freigeschaltet. Der Teil hinter # wird nie an den Server geschickt.
 (function () {
   const m = (location.hash || "").match(/[#&]k=(zk_[A-Za-z0-9_\-]+)/);
-  if (m) { store.set(m[1]); history.replaceState(null, "", location.pathname); }
+  if (m) store.set(m[1]);
+  const key = m ? m[1] : store.get();
+  if (key && !m) history.replaceState(null, "", location.pathname + "#k=" + key);
 })();
 
 const st = { users: [], sel: null, pin: "", status: null, idle: null };
