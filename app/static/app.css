@@ -193,3 +193,38 @@ html[data-theme="warm"] .big { font-size: 22px; padding: 20px 34px; }
 .theme-opt .sw i { display: block; }
 html.dark { color-scheme: dark; }
 html:not(.dark) { color-scheme: light; }
+
+/* ---------- Verwaltung: Unternavigation ---------- */
+.subnav { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--card); border: 1px solid var(--line);
+          border-radius: 12px; position: sticky; top: 60px; z-index: 4; }
+.subnav button { border: 1px solid transparent; background: none; color: var(--muted); font-weight: 600; padding: 7px 12px;
+                 border-radius: 8px; white-space: nowrap; }
+.subnav button:hover { background: var(--bg); color: var(--text); }
+.subnav button.active { background: var(--accent); color: var(--accent-ink); }
+.subnav button.active .badge { background: var(--accent-ink); color: var(--accent); }
+@media (max-width: 700px) { .subnav { flex-wrap: nowrap; overflow-x: auto; position: static; } }
+
+/* Mitarbeiter bearbeiten */
+#usersTable tr.urow td { vertical-align: middle; }
+.uform .ugrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.uform fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; margin: 0; display: grid; gap: 10px;
+                  background: var(--card); white-space: normal; }
+.uform legend { font-weight: 700; font-size: 13px; padding: 0 4px; color: var(--text); }
+.uform input:not([type=checkbox]), .uform select { width: 100%; }
+.uform .row label { flex: 1; }
+tr.uedit > td { background: var(--bg); }
+/* Einstellungen in Gruppen */
+.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.setgrid fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px 14px; margin: 0; display: grid; gap: 10px; align-content: start; }
+.setgrid legend { font-weight: 700; font-size: 13px; padding: 0 4px; }
+.setgrid p { margin: 0; }
+.setgrid input:not([type=checkbox]):not(.w80), .setgrid select { width: 100%; }
+.savebar { position: sticky; bottom: 0; display: flex; gap: 12px; align-items: center; padding: 12px 0 4px; margin-top: 4px;
+           background: linear-gradient(transparent, var(--card) 30%); }
+details.holidays, details.newuser { margin-top: 14px; }
+details.holidays summary, details.newuser summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 6px 0; }
+details.newuser[open] summary { margin-bottom: 8px; }
+.subnav button { padding: 7px 10px; }
+label.inline input[type=checkbox] { flex: none; }
+.subnav { gap: 2px; }
+.subnav button { font-size: 14px; padding: 6px 9px; }

@@ -150,18 +150,23 @@
 
   <!-- VERWALTUNG -->
   <div data-page="admin" class="page hidden">
-    <section class="card">
-      <h2>Korrekturanträge</h2>
-      <div class="scroll"><table id="rqTable"></table></div>
-      <div class="err" id="rqErr"></div>
-      <label class="inline small" style="margin-top:8px"><input type="checkbox" id="rqDone"> zuletzt entschiedene anzeigen</label>
-    </section>
+    <nav class="subnav" id="adminNav" aria-label="Verwaltung">
+      <button data-asec="mitarbeiter">👥 Mitarbeiter</button>
+      <button data-asec="antraege">📝 Anträge <span class="badge hidden" id="badgeAntraege"></span></button>
+      <button data-asec="abschluss" title="Monatsabschluss">🔒 Abschluss</button>
+      <button data-asec="kiosk">📟 Kiosk &amp; Filialen</button>
+      <button data-asec="einstellungen">⚙️ Einstellungen</button>
+      <button data-asec="mail" title="Berichte per Mail, Mailserver">✉️ Mail</button>
+      <button data-asec="system" title="Datensicherung, Updates, CSV-Import">💾 Sicherung &amp; Updates</button>
+      <button data-asec="protokoll">📜 Protokoll</button>
+    </nav>
 
-    <section class="card">
+    <section class="card asec" data-asec="mitarbeiter">
       <h2>Mitarbeiter</h2>
       <div class="scroll"><table id="usersTable" class="users"></table></div>
       <div class="err" id="usersErr"></div>
-      <h3>Neu anlegen</h3>
+      <details class="newuser">
+      <summary>＋ Neuen Mitarbeiter anlegen</summary>
       <div class="row">
         <label>Benutzername <input id="nu" placeholder="max"></label>
         <label>Anzeigename <input id="nd" placeholder="Max Muster"></label>
@@ -174,32 +179,112 @@
         <label class="inline" title="Darf alles verwalten"><input type="checkbox" id="na"> Admin</label>
         <label>&nbsp;<button class="primary" id="newUserBtn">Anlegen</button></label>
       </div>
+      </details>
       <div class="err" id="newUserErr"></div>
     </section>
-
-    <section class="card">
-      <h2>Daten übernehmen (CSV-Import)</h2>
-      <p class="muted small" style="margin-top:0">Buchungen: CSV-Export der Gleitzeit-App (<code>datum;checkin;checkout;dauer_h;notiz</code>) oder eigene Tabelle mit Datum/Kommen/Gehen.
-        Abwesenheiten und Ü-Tage: Tabellenexport von <code>absences</code> bzw. <code>day_flags</code> (z. B. aus phpMyAdmin, CSV mit Semikolon).</p>
-      <div class="row">
-        <label>Für <select id="impUser" class="userSel2"></select></label>
-        <label>Art <select id="impKind">
-          <option value="entries">Buchungen</option>
-          <option value="absences">Abwesenheiten</option>
-          <option value="dayflags">Überstunden-Tage</option>
-        </select></label>
-        <label>Datei <input type="file" id="impFile" accept=".csv,.txt,text/csv"></label>
-        <label>&nbsp;<button id="impPreview">Vorschau</button></label>
-      </div>
-      <div class="err" id="impErr"></div>
-      <div id="impResult" class="hidden">
-        <div class="row" style="margin:10px 0"><span id="impSummary"></span>
-          <button class="primary" id="impCommit">Übernehmen</button></div>
-        <div class="scroll" style="max-height:360px"><table id="impTable"></table></div>
-      </div>
+    <section class="card asec" data-asec="antraege">
+      <h2>Korrekturanträge</h2>
+      <div class="scroll"><table id="rqTable"></table></div>
+      <div class="err" id="rqErr"></div>
+      <label class="inline small" style="margin-top:8px"><input type="checkbox" id="rqDone"> zuletzt entschiedene anzeigen</label>
     </section>
+    <section class="card asec" data-asec="abschluss">
+      <h2>Monatsabschluss</h2>
+      <p class="muted small" style="margin-top:0">Ein abgeschlossener Monat ist gesperrt (Buchungen, Abwesenheiten, Ü-Tage) und seine
+        Kontostände sind festgeschrieben – spätere Änderungen an Übertrag oder Wochenarbeitszeit wirken nur noch auf offene Monate.
+        Abgeschlossen wird der Reihe nach; einzelne Monate lassen sich in der Monatsansicht abschließen oder mit Begründung wieder öffnen.</p>
+      <div class="row">
+        <label>alle offenen Monate bis einschließlich <input type="month" id="clUntil"></label>
+        <label>&nbsp;<button class="primary" id="clAll">Für alle abschließen</button></label>
+      </div>
+      <div class="err" id="clErr"></div>
+      <div class="scroll" style="max-height:260px;margin-top:8px"><table id="clTable"></table></div>
+    </section>
+    <section class="card asec" data-asec="kiosk">
+      <h2>Kiosk-Tablets</h2>
+      <p class="muted small" style="margin-top:0">Ein Tablet an der Wache, an dem jeder per Namen und PIN kommt und geht.
+        Hier freischalten, den QR-Code mit dem Tablet scannen und die Seite als Lesezeichen bzw. „Zum Home-Bildschirm“ speichern.
+        Am Tablet erscheint, wer unter „Mein Zugang“ eine PIN gesetzt hat.</p>
+      <div class="row">
+        <label>Name <input id="kName" value="Tablet Wache" style="width:180px"></label>
+        <label id="kBranchWrap" class="hidden">Filiale <select id="kBranch"></select></label>
+        <label>&nbsp;<button class="primary" id="kNew">Tablet freischalten</button></label>
+      </div>
+      <div id="kBox" class="qr hidden"></div>
+      <div class="err" id="kErr"></div>
+      <div class="scroll" style="margin-top:8px"><table id="kTable"></table></div>
 
-    <section class="card">
+      <h3 style="margin-top:18px">Filialen</h3>
+      <p class="muted small" style="margin-top:0">Bei mehreren Standorten: Filiale anlegen, Mitarbeiter zuordnen und dem Tablet die
+        Filiale geben. Ein Tablet zeigt dann nur die Mitarbeiter seiner Filiale – und alle, die keiner Filiale zugeordnet sind.
+        Wer in beiden arbeitet, bekommt beide Häkchen.</p>
+      <div class="row">
+        <label>Neue Filiale <input id="brName" placeholder="z. B. Filiale Nord" style="width:180px"></label>
+        <label>&nbsp;<button id="brNew">Anlegen</button></label>
+      </div>
+      <div class="err" id="brErr"></div>
+      <div id="brList"></div>
+    </section>
+    <section class="card asec" data-asec="einstellungen">
+      <h2>Einstellungen</h2>
+      <div class="setgrid">
+        <fieldset><legend>Allgemein</legend>
+          <div class="row">
+            <label>Bundesland (Feiertage) <select id="setBl"></select></label>
+            <label>Betriebsfreie Tage (MM-TT) <input id="setFree" placeholder="12-24, 12-31" style="width:160px"></label>
+          </div>
+          <div id="setRegional" class="row small hidden"></div>
+          <label title="Gilt für alle, die kein eigenes Design gewählt haben, und für die Kiosk-Tablets">Standard-Design
+            <select id="setTheme"></select></label>
+          <label>Öffentliche Adresse (QR-Code, iPhone-Kurzbefehle, DSM-Fenster)
+            <input id="setUrl" placeholder="https://zeit.meinedomain.de"></label>
+        </fieldset>
+        <fieldset><legend>Pausen &amp; Arbeitszeitgesetz</legend>
+          <div class="row">
+            <label>Pausenabzug (Standard) <select id="setBreak"></select></label>
+            <label id="setMinWrap">Minuten <input id="setMin" type="number" min="0" max="120" class="w80"></label>
+          </div>
+          <p class="muted small">Pro Mitarbeiter und Wochentag abweichend unter Mitarbeiter → Arbeitszeit.</p>
+          <label class="inline"><input type="checkbox" id="setArbzg"> Hinweise: über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5)</label>
+          <p class="muted small">Nur Hinweise in Monatsansicht und Berichten – an den Konten ändert sich nichts.</p>
+        </fieldset>
+        <fieldset><legend>Wegezeit</legend>
+          <div class="row">
+            <label>beim Kommen früher (Min.) <input id="setTravIn" type="number" min="0" max="120" class="w80"></label>
+            <label>beim Gehen später (Min.) <input id="setTravOut" type="number" min="0" max="120" class="w80"></label>
+          </div>
+          <div class="row small"><span class="muted">gilt beim Stempeln über:</span>
+            <label class="inline"><input type="checkbox" class="travSrc" value="nfc"> NFC</label>
+            <label class="inline"><input type="checkbox" class="travSrc" value="shortcut"> Kurzbefehl/Standort</label>
+            <label class="inline"><input type="checkbox" class="travSrc" value="web"> Web</label>
+            <label class="inline"><input type="checkbox" class="travSrc" value="kiosk"> Kiosk</label>
+          </div>
+          <p class="muted small">Beispiel 10 Minuten: wer per NFC um 07:00 kommt, wird ab 06:50 erfasst; wer um 16:00 geht, bis 16:10.</p>
+        </fieldset>
+        <fieldset><legend>Vergessenes Ausstempeln</legend>
+          <div class="row">
+            <label>erinnern nach (Stunden, 0 = aus) <input id="setOpenLimit" type="number" min="0" max="48" step="0.5" class="w80"></label>
+            <label class="inline"><input type="checkbox" id="setOpenAuto"> danach um Mitternacht automatisch beenden</label>
+          </div>
+          <p class="muted small">Erinnerung per Mail an Mitarbeiter und Admins. Automatisch beendete Tage sind mit „⚠ bitte prüfen“ markiert.</p>
+        </fieldset>
+        <fieldset><legend>Anmeldung mit DSM-Konten</legend>
+          <label class="inline"><input type="checkbox" id="setDsmLogin"> Login mit DSM-Benutzer und -Passwort erlauben</label>
+          <label class="inline"><input type="checkbox" id="setDsmCreate"> unbekannte DSM-Benutzer automatisch anlegen</label>
+          <label class="inline"><input type="checkbox" id="setDsmAdmins"> DSM-Administratoren sind Admins</label>
+          <label>DSM-Adresse für die Passwortprüfung <input id="setDsmUrl" placeholder="http://127.0.0.1:5000"></label>
+        </fieldset>
+      </div>
+      <div class="savebar">
+        <button class="primary" id="setBtn">Einstellungen speichern</button>
+        <div class="err" id="setErr"></div>
+      </div>
+      <details class="holidays">
+        <summary>Feiertage <span id="holYear"></span> anzeigen</summary>
+        <div class="scroll"><table id="holTable"></table></div>
+      </details>
+    </section>
+    <section class="card asec" data-asec="mail">
       <h2>Berichte per Mail</h2>
       <p class="muted small" style="margin-top:0">Monatsbericht am 1. des Monats ab 6 Uhr für den Vormonat, Jahresbericht am 1. Januar fürs Vorjahr –
         an alle Mitarbeiter mit E-Mail-Adresse (Spalte „E-Mail“ oben oder selbst unter „Mein Zugang“). War die NAS aus, wird bis zum 7. nachgeholt.</p>
@@ -235,47 +320,7 @@
       <h3>Versandprotokoll</h3>
       <div class="scroll" style="max-height:240px"><table id="mailLog"></table></div>
     </section>
-
-    <section class="card">
-      <h2>Kiosk-Tablets</h2>
-      <p class="muted small" style="margin-top:0">Ein Tablet an der Wache, an dem jeder per Namen und PIN kommt und geht.
-        Hier freischalten, den QR-Code mit dem Tablet scannen und die Seite als Lesezeichen bzw. „Zum Home-Bildschirm“ speichern.
-        Am Tablet erscheint, wer unter „Mein Zugang“ eine PIN gesetzt hat.</p>
-      <div class="row">
-        <label>Name <input id="kName" value="Tablet Wache" style="width:180px"></label>
-        <label id="kBranchWrap" class="hidden">Filiale <select id="kBranch"></select></label>
-        <label>&nbsp;<button class="primary" id="kNew">Tablet freischalten</button></label>
-      </div>
-      <div id="kBox" class="qr hidden"></div>
-      <div class="err" id="kErr"></div>
-      <div class="scroll" style="margin-top:8px"><table id="kTable"></table></div>
-
-      <h3 style="margin-top:18px">Filialen</h3>
-      <p class="muted small" style="margin-top:0">Bei mehreren Standorten: Filiale anlegen, Mitarbeiter zuordnen und dem Tablet die
-        Filiale geben. Ein Tablet zeigt dann nur die Mitarbeiter seiner Filiale – und alle, die keiner Filiale zugeordnet sind.
-        Wer in beiden arbeitet, bekommt beide Häkchen.</p>
-      <div class="row">
-        <label>Neue Filiale <input id="brName" placeholder="z. B. Filiale Nord" style="width:180px"></label>
-        <label>&nbsp;<button id="brNew">Anlegen</button></label>
-      </div>
-      <div class="err" id="brErr"></div>
-      <div id="brList"></div>
-    </section>
-
-    <section class="card">
-      <h2>Monatsabschluss</h2>
-      <p class="muted small" style="margin-top:0">Ein abgeschlossener Monat ist gesperrt (Buchungen, Abwesenheiten, Ü-Tage) und seine
-        Kontostände sind festgeschrieben – spätere Änderungen an Übertrag oder Wochenarbeitszeit wirken nur noch auf offene Monate.
-        Abgeschlossen wird der Reihe nach; einzelne Monate lassen sich in der Monatsansicht abschließen oder mit Begründung wieder öffnen.</p>
-      <div class="row">
-        <label>alle offenen Monate bis einschließlich <input type="month" id="clUntil"></label>
-        <label>&nbsp;<button class="primary" id="clAll">Für alle abschließen</button></label>
-      </div>
-      <div class="err" id="clErr"></div>
-      <div class="scroll" style="max-height:260px;margin-top:8px"><table id="clTable"></table></div>
-    </section>
-
-    <section class="card">
+    <section class="card asec" data-asec="system">
       <h2>Datensicherung</h2>
       <p class="muted small" style="margin-top:0">Jede Nacht eine geprüfte Sicherung der Datenbank: immer im Paketordner (die letzten 7)
         und zusätzlich in einem freigegebenen Ordner, den Hyper Backup mitsichern kann. Achtung: Beim Deinstallieren des Pakets
@@ -306,8 +351,7 @@
       <div class="err" id="bkErr"></div>
       <div class="scroll" style="max-height:260px;margin-top:8px"><table id="bkTable"></table></div>
     </section>
-
-    <section class="card">
+    <section class="card asec" data-asec="system">
       <h2>Updates</h2>
       <div class="row">
         <span id="updInfo" class="muted">…</span>
@@ -324,62 +368,28 @@
       </ol>
       <div class="err" id="updErr"></div>
     </section>
-
-    <section class="card">
-      <h2>Einstellungen</h2>
+    <section class="card asec" data-asec="system">
+      <h2>Daten übernehmen (CSV-Import)</h2>
+      <p class="muted small" style="margin-top:0">Buchungen: CSV-Export der Gleitzeit-App (<code>datum;checkin;checkout;dauer_h;notiz</code>) oder eigene Tabelle mit Datum/Kommen/Gehen.
+        Abwesenheiten und Ü-Tage: Tabellenexport von <code>absences</code> bzw. <code>day_flags</code> (z. B. aus phpMyAdmin, CSV mit Semikolon).</p>
       <div class="row">
-        <label>Bundesland (Feiertage) <select id="setBl"></select></label>
-        <label title="Gilt für alle, die kein eigenes Design gewählt haben, und für die Kiosk-Tablets">Standard-Design <select id="setTheme"></select></label>
-        <label>Betriebsfreie Tage (MM-TT) <input id="setFree" placeholder="12-24, 12-31" style="width:180px"></label>
-        <label>Pausenabzug <select id="setBreak"></select></label>
-        <label id="setMinWrap">Minuten <input id="setMin" type="number" min="0" max="120" class="w80"></label>
+        <label>Für <select id="impUser" class="userSel2"></select></label>
+        <label>Art <select id="impKind">
+          <option value="entries">Buchungen</option>
+          <option value="absences">Abwesenheiten</option>
+          <option value="dayflags">Überstunden-Tage</option>
+        </select></label>
+        <label>Datei <input type="file" id="impFile" accept=".csv,.txt,text/csv"></label>
+        <label>&nbsp;<button id="impPreview">Vorschau</button></label>
       </div>
-      <div id="setRegional" class="row small hidden" style="margin-top:6px"></div>
-      <div class="row" style="margin-top:10px">
-        <label style="flex:1;min-width:260px">Öffentliche Adresse (QR-Code, iPhone-Kurzbefehle, DSM-Fenster)
-          <input id="setUrl" placeholder="https://zeit.meinedomain.de"></label>
-        <label>&nbsp;<button class="primary" id="setBtn">Speichern</button></label>
+      <div class="err" id="impErr"></div>
+      <div id="impResult" class="hidden">
+        <div class="row" style="margin:10px 0"><span id="impSummary"></span>
+          <button class="primary" id="impCommit">Übernehmen</button></div>
+        <div class="scroll" style="max-height:360px"><table id="impTable"></table></div>
       </div>
-      <h3>Wegezeit</h3>
-      <div class="row">
-        <label>beim Kommen früher (Min.) <input id="setTravIn" type="number" min="0" max="120" class="w80"></label>
-        <label>beim Gehen später (Min.) <input id="setTravOut" type="number" min="0" max="120" class="w80"></label>
-        <span class="muted small">gilt beim Stempeln über:</span>
-        <label class="inline"><input type="checkbox" class="travSrc" value="nfc"> NFC-Aufkleber</label>
-        <label class="inline"><input type="checkbox" class="travSrc" value="shortcut"> Kurzbefehl / Standort</label>
-        <label class="inline"><input type="checkbox" class="travSrc" value="web"> Weboberfläche</label>
-        <label class="inline"><input type="checkbox" class="travSrc" value="kiosk"> Kiosk-Tablet</label>
-      </div>
-      <p class="muted small">Beispiel: 10 Minuten – wer per NFC um 07:00 kommt, wird ab 06:50 erfasst; wer um 16:00 geht, bis 16:10. Die Wegezeit wird bei jeder Buchung vermerkt und im CSV ausgewiesen.</p>
-      <h3>Arbeitszeitgesetz</h3>
-      <div class="row">
-        <label class="inline"><input type="checkbox" id="setArbzg"> Hinweise anzeigen: über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5)</label>
-      </div>
-      <p class="muted small">Nur Hinweise in Monatsansicht und Berichten – an den Konten ändert sich nichts. Abschalten, wenn für euch
-        abweichende Regeln gelten (z. B. Tarifvertrag mit längeren Diensten).</p>
-      <h3>Vergessenes Ausstempeln</h3>
-      <div class="row">
-        <label>erinnern nach (Stunden, 0 = aus) <input id="setOpenLimit" type="number" min="0" max="48" step="0.5" class="w80"></label>
-        <label class="inline"><input type="checkbox" id="setOpenAuto"> danach um Mitternacht automatisch beenden</label>
-      </div>
-      <p class="muted small">Läuft eine Buchung länger, bekommen der Mitarbeiter und alle Admins mit Mailadresse eine Erinnerung.
-        Ist sie um Mitternacht noch offen, endet sie zur Grenze (z. B. Kommen 06:50 + 12 h → 18:50) und der Tag ist mit
-        „⚠ bitte prüfen“ markiert, bis ein Admin die Buchung korrigiert.</p>
-      <h3>Anmeldung mit DSM-Konten</h3>
-      <div class="row">
-        <label class="inline"><input type="checkbox" id="setDsmLogin"> Login mit DSM-Benutzer und -Passwort erlauben</label>
-        <label class="inline"><input type="checkbox" id="setDsmCreate"> unbekannte DSM-Benutzer automatisch anlegen</label>
-        <label class="inline"><input type="checkbox" id="setDsmAdmins"> DSM-Administratoren sind Admins</label>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <label>DSM-Adresse für die Passwortprüfung <input id="setDsmUrl" placeholder="http://127.0.0.1:5000" style="width:220px"></label>
-      </div>
-      <p class="muted small">Im DSM-Fenster bist du automatisch mit deinem DSM-Benutzer angemeldet. Automatisch angelegte Mitarbeiter starten mit 40 Std./Woche und heutigem Erfassungsbeginn – bitte in der Mitarbeitertabelle anpassen.</p>
-      <div class="err" id="setErr"></div>
-      <h3>Feiertage <span id="holYear"></span></h3>
-      <div class="scroll"><table id="holTable"></table></div>
     </section>
-    <section class="card">
+    <section class="card asec" data-asec="protokoll">
       <h2>Änderungsprotokoll</h2>
       <p class="muted small" style="margin-top:0">Jede Änderung an Buchungen, Abwesenheiten, Mitarbeitern und Einstellungen – wer, wann, was.
         Einträge lassen sich nicht ändern oder löschen.</p>

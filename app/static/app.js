@@ -115,7 +115,8 @@ async function start() {
   state.year = state.year || now.getFullYear();
   if (isAdmin()) await loadUsers();
   $("ySelKind").innerHTML = Object.entries(state.settings.absence_kinds).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
-  const wanted = (location.hash || "").slice(1) || store.get("tab") || "home";
+  const [wanted, wantedSec] = ((location.hash || "").slice(1) || store.get("tab") || "home").split("/");
+  if (wantedSec) store.set("asec", wantedSec);
   await showTab(["home", "month", "year", "admin", "me"].includes(wanted) && (wanted !== "admin" || isAdmin()) ? wanted : "home");
   clearInterval(state.timer);
   refreshRequestCount();
@@ -135,7 +136,7 @@ async function showTab(name) {
     if (name === "home") { await refreshHome(); loadLeave().catch(e => { $("lvErr").textContent = e.message; }); }
     if (name === "month") await loadMonth();
     if (name === "year") await loadYear();
-    if (name === "admin") await loadAdmin();
+    if (name === "admin") { showAdminSec(store.get("asec") || "mitarbeiter"); await loadAdmin(); }
     if (name === "me") { loadMeMail(); showPinState(); showThemes(); loadMyRequests().catch(e => { $("myRqErr").textContent = e.message; }); await loadTokens(); }
   } catch (e) { if (e.message !== "Nicht angemeldet") console.error(e); }
 }
@@ -617,6 +618,7 @@ async function refreshRequestCount() {
     const [c, l] = await Promise.all([api("requests/count"), api("leave/count")]);
     const set = (el, n) => { el.textContent = n || ""; el.classList.toggle("hidden", !n); };
     set($("badgeAdmin"), c.all || 0);
+    set($("badgeAntraege"), c.all || 0);
     set($("badgeMe"), c.mine || 0);
     set($("badgeHome"), l.decide || 0);
     state.canDecide = l.can_decide;
@@ -833,40 +835,40 @@ function setupYearSelection() {
 }
 
 // ---------- Verwaltung ----------
+// Verwaltung: Unterbereiche (nur einer sichtbar), gemerkt pro Browser
+const ADMIN_SECS = ["mitarbeiter", "antraege", "abschluss", "kiosk", "einstellungen", "mail", "system", "protokoll"];
+function showAdminSec(key) {
+  if (!ADMIN_SECS.includes(key)) key = "mitarbeiter";
+  $$("#adminNav [data-asec]").forEach(b => b.classList.toggle("active", b.dataset.asec === key));
+  $$('[data-page="admin"] section.asec').forEach(sec => sec.classList.toggle("hidden", sec.dataset.asec !== key));
+  store.set("asec", key);
+  if (state.tab === "admin") history.replaceState(null, "", "#admin/" + key);
+}
+
 async function loadAdmin() {
   await loadUsers();
   state.allUsers = await api("users?include_inactive=true");
   const ov = await api("reports/overview?from=" + todayIso() + "&to=" + todayIso());
   const bal = Object.fromEntries(ov.users.map(u => [u.id, u]));
-  $("usersTable").innerHTML = `<thead><tr><th>Name</th><th>Wochenarbeitszeit</th><th>Erfassungsbeginn</th>
-      <th>Übertrag GZ</th><th>Übertrag Ü</th><th class="num">Urlaub/Jahr</th><th class="num">Resturlaub-Übertrag</th>
-      <th>E-Mail (Berichte)</th><th title="Genehmigt Urlaubsanträge">Vorgesetzter</th><th>Admin</th><th>PIN</th><th>Neues Passwort</th><th class="num">Gleitzeit</th><th class="num">Überst.</th><th class="num">Urlaub Rest</th><th></th></tr></thead><tbody>` +
+  // Kompakte Liste – Details klappen per „Bearbeiten“ unter der Zeile auf
+  $("usersTable").innerHTML = `<thead><tr><th>Name</th><th>Arbeitszeit</th><th>Vorgesetzter</th><th class="num">Gleitzeit</th>
+      <th class="num">Überstunden</th><th class="num">Resturlaub</th><th></th></tr></thead><tbody>` +
     state.allUsers.map(u => {
       const b = bal[u.id] || {};
-      return `<tr data-id="${u.id}" data-username="${esc(u.username)}" class="${u.active ? "" : "inactive"}">
-        <td>${esc(u.display_name)} <span class="muted small">${esc(u.username)}</span>${u.active ? "" : ' <span class="tag off">deaktiviert</span>'}${u.is_admin ? ' <span class="tag">Admin</span>' : ""}${u.has_password ? "" : ' <span class="tag" title="meldet sich mit dem DSM-Konto an">DSM</span>'}</td>
-        <td>${fmtNum(u.weekly_hours)} h · ${daysLabel(u.workdays)}${u.day_hours ? " <span class=\"muted small\">(je Tag)</span>" : ""} <button class="mini usched" title="Wochenarbeitszeit mit gilt-ab-Datum ändern">Verlauf</button></td>
-        <td><input class="us" type="date" value="${u.tracking_start || ""}"></td>
-        <td><input class="uc w80" value="${minToHm(u.carryover_minutes)}"></td>
-        <td><input class="uo w80" value="${minToHm(u.carryover_overtime_minutes)}"></td>
-        <td class="num"><input class="uv w64" type="number" step="0.5" min="0" max="60" value="${u.vacation_days_per_year}"></td>
-        <td class="num"><input class="ur w64" type="number" step="0.5" value="${u.carryover_vacation}"></td>
-        <td><input class="umail" type="email" value="${esc(u.email || "")}" placeholder="keine" style="width:170px">
-          <label class="inline small" style="margin-top:3px" title="Monats-/Jahresberichte automatisch per Mail"><input type="checkbox" class="urm"${u.report_mail ? " checked" : ""}> auto</label></td>
-        <td><select class="umgr"><option value="">–</option>${state.allUsers.filter(m => m.active && m.id !== u.id)
-          .map(m => `<option value="${m.id}" ${m.id === u.manager_id ? "selected" : ""}>${esc(m.display_name)}</option>`).join("")}</select></td>
-        <td><input type="checkbox" class="uadm" ${u.is_admin ? "checked" : ""} ${u.id === state.me.id ? 'disabled title="Eigene Admin-Rechte kann man sich nicht selbst entziehen"' : ""}></td>
-        <td class="nowrap">${u.has_pin ? '✓ <button class="mini" data-pinreset title="PIN löschen – Mitarbeiter setzt unter „Mein Zugang“ eine neue">löschen</button>' : '<span class="muted">–</span>'}</td>
-        <td><input class="up" type="password" placeholder="unverändert" style="width:120px" autocomplete="new-password"></td>
+      const mgr = state.allUsers.find(m => m.id === u.manager_id);
+      return `<tr class="urow ${u.active ? "" : "inactive"}" data-id="${u.id}" data-username="${esc(u.username)}">
+        <td><b>${esc(u.display_name)}</b> <span class="muted small">${esc(u.username)}</span>${u.active ? "" : ' <span class="tag off">deaktiviert</span>'}${u.is_admin ? ' <span class="tag">Admin</span>' : ""}${u.has_password ? "" : ' <span class="tag" title="meldet sich mit dem DSM-Konto an">DSM</span>'}</td>
+        <td>${fmtNum(u.weekly_hours)} h · ${daysLabel(u.workdays)}${u.day_hours ? ' <span class="muted small">(je Tag)</span>' : ""}</td>
+        <td>${mgr ? esc(mgr.display_name) : '<span class="muted">–</span>'}</td>
         <td class="num">${b.account_gleitzeit != null ? signed(b.account_gleitzeit_s, b.account_gleitzeit) : ""}</td>
         <td class="num">${b.account_ueberstunden != null ? signed(b.account_ueberstunden_s, b.account_ueberstunden) : ""}</td>
         <td class="num">${b.vacation_remaining != null ? fmtDays(b.vacation_remaining) : ""}</td>
-        <td class="nowrap"><button class="mini usave">Speichern</button>
-          ${u.id === state.me.id ? "" : u.active
-            ? `<button class="mini" data-uact="off" title="Kann sich nicht mehr anmelden, Daten bleiben erhalten">Deaktivieren</button>`
-            : `<button class="mini" data-uact="on">Aktivieren</button>`}
-          ${u.id === state.me.id ? "" : `<button class="mini danger" data-uact="purge" title="Mit allen Buchungen endgültig löschen">Löschen</button>`}</td></tr>`;
+        <td class="nowrap num"><button class="mini uedit-btn">Bearbeiten</button> <button class="mini usched" title="Wochenarbeitszeit, Stunden und Pausen je Tag – mit gilt-ab-Datum">Arbeitszeit</button></td></tr>`;
     }).join("") + "</tbody>";
+  if (state.editUid) {
+    const tr = $("usersTable").querySelector(`tr.urow[data-id="${state.editUid}"]`);
+    if (tr) openUserEdit(tr); else state.editUid = null;
+  }
   $("nm").innerHTML = '<option value="">–</option>' + state.allUsers.filter(m => m.active)
     .map(m => `<option value="${m.id}">${esc(m.display_name)}</option>`).join("");
   await loadSettingsForm();
@@ -1024,7 +1026,7 @@ async function toggleSchedules(tr) {
     return `<select class="sbm">${BREAK_OPTS.map(([v, l]) => `<option value="${v}" ${v === mode ? "selected" : ""}>${l}</option>`).join("")}</select>
       <input class="sbmin w48 ${mode === "fixed" ? "" : "hidden"}" type="number" min="0" max="120" step="5" value="${mode === "fixed" ? b : 30}" title="Minuten">`;
   };
-  row.innerHTML = `<td colspan="14"><div class="detailbox">
+  row.innerHTML = `<td colspan="7"><div class="detailbox">
     <b>Wochenarbeitszeit – Verlauf</b>
     <table style="width:auto"><tbody>${list.map(x => `<tr><td>${x.valid_from ? "ab " + deDate(x.valid_from) : "von Anfang an"}</td>
       <td>${scheduleText(x)}</td>
@@ -1084,9 +1086,58 @@ async function scheduleAction(btn) {
       await api(`users/${uid}/schedules`, { method: "POST", body });
     }
     await loadAdmin();
-    const tr = $("usersTable").querySelector(`tr[data-id="${uid}"]`);
+    const tr = $("usersTable").querySelector(`tr.urow[data-id="${uid}"]`);
     if (tr) await toggleSchedules(tr);
   } catch (e) { err.textContent = e.message; }
+}
+
+// Bearbeiten-Bereich eines Mitarbeiters (unter seiner Zeile)
+function openUserEdit(tr) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("uedit")) { next.remove(); state.editUid = null; return; }
+  $$("#usersTable tr.uedit").forEach(r => r.remove());
+  const u = state.allUsers.find(x => String(x.id) === tr.dataset.id);
+  state.editUid = u.id;
+  const self = u.id === state.me.id;
+  const row = document.createElement("tr");
+  row.className = "detail uedit"; row.dataset.id = u.id; row.dataset.username = u.username;
+  row.innerHTML = `<td colspan="7"><div class="detailbox uform">
+    <div class="ugrid">
+      <fieldset><legend>Zugang</legend>
+        <label>E-Mail (Berichte) <input class="umail" type="email" value="${esc(u.email || "")}" placeholder="keine"></label>
+        <label class="inline" title="Monats-/Jahresberichte automatisch per Mail"><input type="checkbox" class="urm"${u.report_mail ? " checked" : ""}> Berichte automatisch per Mail</label>
+        <label>Neues Passwort <input class="up" type="password" placeholder="unverändert" autocomplete="new-password"></label>
+        <div class="small">PIN fürs Kiosk-Tablet: ${u.has_pin ? '✓ gesetzt <button class="mini" data-pinreset title="Mitarbeiter setzt unter „Mein Zugang“ eine neue">löschen</button>' : '<span class="muted">keine</span>'}</div>
+      </fieldset>
+      <fieldset><legend>Rolle</legend>
+        <label title="Bekommt die Urlaubsanträge zur Freigabe">Vorgesetzter (genehmigt Urlaub)
+          <select class="umgr"><option value="">– keiner (Admins) –</option>${state.allUsers.filter(m => m.active && m.id !== u.id)
+            .map(m => `<option value="${m.id}" ${m.id === u.manager_id ? "selected" : ""}>${esc(m.display_name)}</option>`).join("")}</select></label>
+        <label class="inline"><input type="checkbox" class="uadm" ${u.is_admin ? "checked" : ""} ${self ? 'disabled title="Eigene Admin-Rechte kann man sich nicht selbst entziehen"' : ""}> Admin (darf alles verwalten)</label>
+      </fieldset>
+      <fieldset><legend>Konten</legend>
+        <label>Erfassungsbeginn <input class="us" type="date" value="${u.tracking_start || ""}"></label>
+        <div class="row">
+          <label>Übertrag Gleitzeit <input class="uc w80" value="${minToHm(u.carryover_minutes)}"></label>
+          <label>Übertrag Überstunden <input class="uo w80" value="${minToHm(u.carryover_overtime_minutes)}"></label>
+        </div>
+        <div class="row">
+          <label>Urlaub/Jahr <input class="uv w64" type="number" step="0.5" min="0" max="60" value="${u.vacation_days_per_year}"></label>
+          <label>Resturlaub-Übertrag <input class="ur w64" type="number" step="0.5" value="${u.carryover_vacation}"></label>
+        </div>
+      </fieldset>
+    </div>
+    <div class="row">
+      <button class="primary usave">Speichern</button>
+      <button class="ucancel">Schließen</button>
+      <span style="flex:1"></span>
+      ${self ? "" : u.active
+        ? `<button data-uact="off" title="Kann sich nicht mehr anmelden, Daten bleiben erhalten">Deaktivieren</button>`
+        : `<button data-uact="on">Aktivieren</button>`}
+      ${self ? "" : `<button class="danger" data-uact="purge" title="Mit allen Buchungen endgültig löschen">Endgültig löschen</button>`}
+    </div>
+  </div></td>`;
+  tr.after(row);
 }
 
 async function saveUserRow(btn) {
@@ -1465,6 +1516,8 @@ $$(".userSel").forEach(s => s.addEventListener("change", () => {
 }));
 $("usersTable").addEventListener("click", e => {
   const b = e.target.closest(".usave"); if (b) return saveUserRow(b);
+  const ed = e.target.closest(".uedit-btn"); if (ed) return openUserEdit(ed.closest("tr"));
+  const cl = e.target.closest(".ucancel"); if (cl) { cl.closest("tr").remove(); state.editUid = null; return; }
   const pr = e.target.closest("[data-pinreset]");
   if (pr) {
     const tr = pr.closest("tr");
@@ -1477,6 +1530,7 @@ $("usersTable").addEventListener("click", e => {
   const a = e.target.closest("[data-sact]"); if (a) return scheduleAction(a);
 });
 $("newUserBtn").onclick = newUser;
+$("adminNav").addEventListener("click", e => { const b = e.target.closest("[data-asec]"); if (b) { showAdminSec(b.dataset.asec); window.scrollTo(0, 0); } });
 $("setBreak").onchange = () => $("setMinWrap").classList.toggle("hidden", $("setBreak").value !== "fixed");
 $("setBtn").onclick = saveSettings;
 $("setBl").onchange = () => showRegional($("setBl").value, $("setBl").value === state.settings.bundesland ? state.settings.regional_holidays : null);
