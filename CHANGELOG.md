@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.24.1] – 2026-11-02
+
+### Geändert
+- **Kiosk schöner und mittig:** Logo, Firmenname, Tablet-Name und eine große Uhr stehen jetzt zentriert oben,
+  die Namen darunter als größere Kacheln mit Initialen (grüner Punkt = gerade da) – auch auf breiten Bildschirmen
+  mittig statt links oben. Bei PIN-Eingabe und Kommen/Gehen wird der Kopf automatisch kompakt.
+
 ## [0.24.0] – 2026-11-02
 
 ### Neu
@@ -294,6 +301,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.24.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.1
 [0.24.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.0
 [0.23.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.1
 [0.23.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.0
