@@ -135,10 +135,40 @@ def is_dsm_admin(username: str) -> bool:
 
 # --- Passwortprüfung bei DSM -------------------------------------------------
 
+DEFAULT_DSM_URL = "http://127.0.0.1:5000"
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def local_dsm_url(url: str) -> Optional[str]:
+    """Bereinigte DSM-Adresse, wenn sie auf die NAS selbst zeigt (127.0.0.1, localhost, ::1) – sonst None.
+
+    Die Passwörter der Mitarbeiter gehen an diese Adresse. Ein anderer Rechner ist deshalb nie erlaubt:
+    sonst könnte ein Admin der Zeiterfassung DSM-Passwörter auf einen eigenen Server umleiten, oder sie
+    gingen unverschlüsselt durchs Netz. Verglichen wird der echte Hostname, nicht der Anfang der Adresse
+    (https://localhost.example.org ist kein localhost)."""
+    url = (url or "").strip().rstrip("/")
+    if any(ord(c) <= 32 or c in "\\" for c in url):
+        return None
+    try:
+        parts = urllib.parse.urlsplit(url)
+        port = parts.port  # wirft ValueError bei Unsinn
+    except ValueError:
+        return None
+    if parts.scheme not in ("http", "https") or parts.username or parts.password:
+        return None
+    if parts.path or parts.query or parts.fragment:
+        return None
+    if (parts.hostname or "").lower() not in LOOPBACK_HOSTS:
+        return None
+    if port is not None and not 1 <= port <= 65535:
+        return None
+    return url
+
 def dsm_password_check(conn: sqlite3.Connection, username: str, password: str, otp: str = "") -> str:
     """Fragt DSM, ob die Zugangsdaten stimmen.
     Ergebnis: ok | wrong | otp | blocked | unreachable"""
-    base = (get_setting(conn, "dsm_url") or "http://127.0.0.1:5000").rstrip("/")
+    # Nur Adressen auf der NAS selbst – auch ein alter oder von Hand eingetragener Wert wird hier nochmals geprüft.
+    base = local_dsm_url(get_setting(conn, "dsm_url") or DEFAULT_DSM_URL) or DEFAULT_DSM_URL
     form = {
         "api": "SYNO.API.Auth", "version": "6", "method": "login",
         "account": username, "passwd": password, "session": "Zeiterfassung", "format": "sid",
@@ -147,8 +177,10 @@ def dsm_password_check(conn: sqlite3.Connection, username: str, password: str, o
         form["otp_code"] = otp
     data = urllib.parse.urlencode(form).encode()
     ctx = ssl.create_default_context()
-    if base.startswith("https://127.0.0.1") or base.startswith("https://localhost"):
-        ctx.check_hostname = False  # eigenes Zertifikat auf der NAS selbst
+    if base.startswith("https://"):
+        # Die Verbindung bleibt auf der NAS (Loopback, siehe local_dsm_url) und geht nie übers Netz.
+        # DSM nutzt dort meist ein selbst signiertes Zertifikat, das nicht auf 127.0.0.1 ausgestellt ist.
+        ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
     try:
         req = urllib.request.Request(base + "/webapi/entry.cgi", data=data, method="POST")

@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.24.2] – 2026-11-03
+
+### Sicherheit
+- **DSM-Passwortprüfung nur noch auf der NAS selbst:** Die „DSM-Adresse für die Passwortprüfung“ darf nur noch auf
+  die NAS zeigen (`127.0.0.1`, `localhost` oder `::1`, Port frei wählbar). Bisher ließ sich dort ein beliebiger Server
+  eintragen – ein Admin der Zeiterfassung hätte so die DSM-Passwörter der Kollegen umleiten können, und bei einer
+  `http://`-Adresse zu einem anderen Gerät wären sie unverschlüsselt durchs Netz gegangen. Geprüft wird beim
+  Speichern und vor jeder Anmeldung; ein abweichender alter Wert wird durch `http://127.0.0.1:5000` ersetzt.
+- Die Ausnahme von der Zertifikatsprüfung (selbst signiertes DSM-Zertifikat) prüfte nur den Anfang der Adresse,
+  sodass z. B. `https://localhost.example.org` mitgemeint war. Jetzt wird der echte Hostname verglichen.
+
 ## [0.24.1] – 2026-11-02
 
 ### Geändert
@@ -301,6 +312,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.24.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.2
 [0.24.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.1
 [0.24.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.0
 [0.23.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.23.1

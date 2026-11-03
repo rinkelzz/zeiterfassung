@@ -175,3 +175,45 @@ def test_dsm_password_check_against_fake_dsm(admin):
     finally:
         srv.shutdown()
         admin.patch("/api/v1/settings", json={"dsm_url": "http://127.0.0.1:5000"})
+
+
+def test_dsm_url_only_loopback():
+    from app.dsm_auth import local_dsm_url
+    ok = {"http://127.0.0.1:5000": "http://127.0.0.1:5000", "https://localhost:5001/": "https://localhost:5001",
+          "http://[::1]:5000": "http://[::1]:5000", " HTTP://LOCALHOST:5000 ": "HTTP://LOCALHOST:5000"}
+    for raw, want in ok.items():
+        assert local_dsm_url(raw) == want, raw
+    for bad in ("https://localhost.example.org", "https://127.0.0.1.nip.io:5001", "http://192.168.1.10:5000",
+                "http://127.0.0.1:5000@evil.example", "http://user:pw@127.0.0.1:5000", "http://127.0.0.1:5000/webapi",
+                "ftp://127.0.0.1", "http://127.0.0.1:99999", "http://127.0.0.1#@evil.example", "http://localhost\\@evil",
+                "http://127.0.0.1 :5000", "", "127.0.0.1:5000", "http://evil.example/?127.0.0.1"):
+        assert local_dsm_url(bad) is None, bad
+
+
+def test_dsm_url_setting_rejects_remote(admin):
+    for bad in ("http://192.168.1.10:5000", "https://localhost.example.org"):
+        r = admin.patch("/api/v1/settings", json={"dsm_url": bad})
+        assert r.status_code == 400 and "NAS selbst" in r.json()["detail"]
+    assert admin.patch("/api/v1/settings", json={"dsm_url": "https://localhost:5001"}).status_code == 200
+    assert admin.get("/api/v1/settings").json()["dsm_url"] == "https://localhost:5001"
+    admin.patch("/api/v1/settings", json={"dsm_url": "http://127.0.0.1:5000"})
+
+
+def test_dsm_check_ignores_remote_value_in_db(monkeypatch):
+    """Ein alter Wert in der Datenbank, der nach außen zeigt, wird nie benutzt."""
+    import app.dsm_auth as da
+    from app.db import connect
+    seen = []
+
+    def fake_urlopen(req, *a, **kw):
+        seen.append(req.full_url if hasattr(req, "full_url") else req)
+        raise OSError("aus")
+    monkeypatch.setattr(da.urllib.request, "urlopen", fake_urlopen)
+    with connect() as conn:
+        old = da.get_setting(conn, "dsm_url")
+        conn.execute("UPDATE app_settings SET value = 'http://evil.example:5000' WHERE key = 'dsm_url'")
+        try:
+            assert da.dsm_password_check(conn, "x", "y") == "unreachable"
+        finally:
+            conn.execute("UPDATE app_settings SET value = ? WHERE key = 'dsm_url'", (old,))
+    assert seen and all(u.startswith("http://127.0.0.1:5000/") for u in seen)

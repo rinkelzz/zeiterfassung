@@ -411,9 +411,11 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         if changes.get(key) is not None:
             _set(conn, key, "1" if changes[key] else "0")
     if changes.get("dsm_url"):
-        url = data.dsm_url.strip().rstrip("/")
-        if not re.match(r"^https?://[^\s/]+$", url):
-            raise HTTPException(400, "DSM-Adresse z. B. http://127.0.0.1:5000")
+        from ..dsm_auth import local_dsm_url
+        url = local_dsm_url(data.dsm_url)
+        if not url:
+            raise HTTPException(400, "Die DSM-Adresse muss auf die NAS selbst zeigen, z. B. http://127.0.0.1:5000 "
+                                     "oder https://localhost:5001 – andere Rechner sind aus Sicherheitsgründen nicht erlaubt.")
         _set(conn, "dsm_url", url)
     for key in ("smtp_host", "smtp_user", "smtp_from_name"):
         if key in changes:
