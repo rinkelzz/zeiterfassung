@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.24.3] – 2026-11-03
+
+### Sicherheit
+- **DSM-Passwortprüfung ohne Proxy und ohne Weiterleitungen:** Die Anfrage an DSM nutzt jetzt einen eigenen
+  HTTP-Client. Er ignoriert `http_proxy`/`https_proxy` aus der Umgebung – bisher wäre die Anmeldung samt Passwort
+  über einen so eingetragenen Proxy gelaufen, auch für 127.0.0.1. Weiterleitungen (3xx) werden nicht mehr befolgt,
+  sondern als „DSM nicht erreichbar“ gewertet. Update-Prüfung und Mailversand sind nicht betroffen.
+
 ## [0.24.2] – 2026-11-03
 
 ### Sicherheit
@@ -312,6 +320,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.24.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.3
 [0.24.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.2
 [0.24.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.1
 [0.24.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.0

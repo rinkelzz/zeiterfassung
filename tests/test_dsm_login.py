@@ -205,10 +205,11 @@ def test_dsm_check_ignores_remote_value_in_db(monkeypatch):
     from app.db import connect
     seen = []
 
-    def fake_urlopen(req, *a, **kw):
-        seen.append(req.full_url if hasattr(req, "full_url") else req)
-        raise OSError("aus")
-    monkeypatch.setattr(da.urllib.request, "urlopen", fake_urlopen)
+    class FakeOpener:
+        def open(self, req, *a, **kw):
+            seen.append(req.full_url if hasattr(req, "full_url") else req)
+            raise OSError("aus")
+    monkeypatch.setattr(da, "_dsm_opener", lambda ctx: FakeOpener())
     with connect() as conn:
         old = da.get_setting(conn, "dsm_url")
         conn.execute("UPDATE app_settings SET value = 'http://evil.example:5000' WHERE key = 'dsm_url'")
@@ -217,3 +218,60 @@ def test_dsm_check_ignores_remote_value_in_db(monkeypatch):
         finally:
             conn.execute("UPDATE app_settings SET value = ? WHERE key = 'dsm_url'", (old,))
     assert seen and all(u.startswith("http://127.0.0.1:5000/") for u in seen)
+
+
+class _Redirector(BaseHTTPRequestHandler):
+    """Lokaler „DSM“, der umleitet – das Ziel darf nie aufgerufen werden."""
+    hits = []
+
+    def log_message(self, *a):
+        pass
+
+    def _go(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        _Redirector.hits.append((self.command, self.path, self.rfile.read(n) if n else b""))
+        if self.path.startswith("/ziel"):
+            self.send_response(200); self.end_headers(); self.wfile.write(b'{"success": true, "data": {"sid": "x"}}')
+            return
+        self.send_response(int(self.server.code))
+        self.send_header("Location", f"http://127.0.0.1:{self.server.server_port}/ziel")
+        self.end_headers()
+
+    do_GET = do_POST = _go
+
+
+def test_dsm_check_refuses_redirects(admin):
+    from app.db import connect
+    srv = HTTPServer(("127.0.0.1", 0), _Redirector)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        admin.patch("/api/v1/settings", json={"dsm_url": f"http://127.0.0.1:{srv.server_port}"})
+        for code in (301, 302, 303, 307, 308):
+            srv.code = code
+            _Redirector.hits.clear()
+            with connect() as conn:
+                assert dsm_auth.dsm_password_check(conn, "tim", "geheim") == "unreachable", code
+            assert [h[1] for h in _Redirector.hits] == ["/webapi/entry.cgi"], code
+    finally:
+        srv.shutdown()
+        admin.patch("/api/v1/settings", json={"dsm_url": "http://127.0.0.1:5000"})
+
+
+def test_dsm_check_ignores_proxy_env(admin, monkeypatch):
+    """Auch mit gesetztem http_proxy geht die Anmeldung direkt an die NAS, nie an einen Proxy."""
+    from app.db import connect
+    FakeDSM.seen.clear()
+    srv = HTTPServer(("127.0.0.1", 0), FakeDSM)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    for k in ("http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY"):
+        monkeypatch.setenv(k, "http://proxy.invalid:3128")
+    for k in ("no_proxy", "NO_PROXY"):
+        monkeypatch.delenv(k, raising=False)
+    try:
+        admin.patch("/api/v1/settings", json={"dsm_url": f"http://127.0.0.1:{srv.server_port}"})
+        with connect() as conn:
+            assert dsm_auth.dsm_password_check(conn, "tim", "richtig") == "ok"
+        assert FakeDSM.seen and FakeDSM.seen[0]["passwd"] == "richtig"
+    finally:
+        srv.shutdown()
+        admin.patch("/api/v1/settings", json={"dsm_url": "http://127.0.0.1:5000"})

@@ -139,6 +139,22 @@ DEFAULT_DSM_URL = "http://127.0.0.1:5000"
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Keine Weiterleitungen: DSM antwortet auf entry.cgi nie mit 3xx – alles andere gilt als „nicht erreichbar“."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "Weiterleitung abgelehnt", headers, fp)
+
+
+def _dsm_opener(ctx: Optional[ssl.SSLContext]) -> urllib.request.OpenerDirector:
+    """HTTP-Client nur für die DSM-Passwortprüfung: ohne Proxy (http_proxy/https_proxy werden ignoriert,
+    die Anfrage geht immer direkt an die NAS) und ohne Weiterleitungen."""
+    handlers = [urllib.request.ProxyHandler({}), _NoRedirect()]
+    if ctx is not None:
+        handlers.append(urllib.request.HTTPSHandler(context=ctx))
+    return urllib.request.build_opener(*handlers)
+
+
 def local_dsm_url(url: str) -> Optional[str]:
     """Bereinigte DSM-Adresse, wenn sie auf die NAS selbst zeigt (127.0.0.1, localhost, ::1) – sonst None.
 
@@ -182,9 +198,10 @@ def dsm_password_check(conn: sqlite3.Connection, username: str, password: str, o
         # DSM nutzt dort meist ein selbst signiertes Zertifikat, das nicht auf 127.0.0.1 ausgestellt ist.
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
+    opener = _dsm_opener(ctx if base.startswith("https") else None)
     try:
         req = urllib.request.Request(base + "/webapi/entry.cgi", data=data, method="POST")
-        with urllib.request.urlopen(req, timeout=10, context=ctx if base.startswith("https") else None) as r:
+        with opener.open(req, timeout=10) as r:
             body = json.loads(r.read().decode("utf-8", "replace"))
     except (OSError, ValueError, urllib.error.URLError):
         return "unreachable"
@@ -194,8 +211,8 @@ def dsm_password_check(conn: sqlite3.Connection, username: str, password: str, o
             try:
                 q = urllib.parse.urlencode({"api": "SYNO.API.Auth", "version": "6", "method": "logout",
                                             "session": "Zeiterfassung", "_sid": sid})
-                urllib.request.urlopen(base + "/webapi/entry.cgi?" + q, timeout=5,
-                                       context=ctx if base.startswith("https") else None).read()
+                with opener.open(base + "/webapi/entry.cgi?" + q, timeout=5) as r:
+                    r.read()
             except (OSError, urllib.error.URLError):
                 pass
         return "ok"
