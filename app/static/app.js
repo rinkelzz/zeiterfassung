@@ -527,8 +527,13 @@ async function loadKiosks() {
     branches.map(b => `<option value="${b.id}" ${b.id === sel ? "selected" : ""}>${esc(b.name)}</option>`).join("");
   $("kBranchWrap").classList.toggle("hidden", !branches.length);
   $("kBranch").innerHTML = brOpts(null);
-  $("kTable").innerHTML = list.length ? `<thead><tr><th>Tablet</th>${branches.length ? "<th>Filiale</th>" : ""}<th>freigeschaltet</th><th>zuletzt benutzt</th><th></th></tr></thead><tbody>` +
-    list.map(k => `<tr><td>${esc(k.name)}</td>${branches.length ? `<td><select data-kbr="${k.id}">${brOpts(k.branch_id)}</select></td>` : ""}
+  const lay = { tiles: "große Kacheln", small: "kleine Kacheln", list: "Liste" };
+  const secs = [2, 3, 4, 5, 7, 10, 15];
+  $("kTable").innerHTML = list.length ? `<thead><tr><th>Tablet</th>${branches.length ? "<th>Filiale</th>" : ""}<th>Darstellung</th><th>Bestätigung</th><th>freigeschaltet</th><th>zuletzt benutzt</th><th></th></tr></thead><tbody>` +
+    list.map(k => `<tr data-kid="${k.id}"><td>${esc(k.name)}</td>${branches.length ? `<td><select data-kset="branch_id">${brOpts(k.branch_id)}</select></td>` : ""}
+      <td class="nowrap"><select data-kset="layout">${Object.entries(lay).map(([v, t]) => `<option value="${v}" ${k.layout === v ? "selected" : ""}>${t}</option>`).join("")}</select>
+        <label class="inline small"><input type="checkbox" data-kset="present_first" ${k.present_first ? "checked" : ""}> Anwesende zuerst</label></td>
+      <td><select data-kset="done_seconds" title="So lange bleibt „Hallo …“ / „Tschüss …“ stehen. Antippen schließt sofort.">${secs.map(n => `<option value="${n}" ${k.done_seconds === n ? "selected" : ""}>${n} Sek.</option>`).join("")}</select></td>
       <td>${fmt(k.created_at)}</td><td>${fmt(k.last_used_at)}</td>
       <td><button class="mini danger" data-kdel="${k.id}">Sperren</button></td></tr>`).join("") + "</tbody>"
     : '<tbody><tr><td class="muted">Noch kein Tablet freigeschaltet.</td></tr></tbody>';
@@ -536,9 +541,11 @@ async function loadKiosks() {
     if (!confirm("Dieses Tablet sperren? Es zeigt danach „nicht freigeschaltet“.")) return;
     try { await api("kiosks/" + b.dataset.kdel, { method: "DELETE" }); await loadKiosks(); } catch (e) { $("kErr").textContent = e.message; }
   });
-  $$("#kTable [data-kbr]").forEach(sel => sel.onchange = async () => {
-    try { await api("kiosks/" + sel.dataset.kbr, { method: "PATCH", body: { branch_id: sel.value ? Number(sel.value) : null } });
-          okMsg($("kErr"), "Filiale gespeichert."); }
+  $$("#kTable [data-kset]").forEach(el => el.onchange = async () => {
+    const f = el.dataset.kset;
+    const v = f === "present_first" ? el.checked : f === "layout" ? el.value : f === "branch_id" ? (el.value ? Number(el.value) : null) : Number(el.value);
+    try { await api("kiosks/" + el.closest("tr").dataset.kid, { method: "PATCH", body: { [f]: v } });
+          okMsg($("kErr"), "Gespeichert – das Tablet übernimmt es innerhalb von 30 Sekunden."); }
     catch (e) { $("kErr").textContent = e.message; }
   });
   showBranches();

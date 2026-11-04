@@ -63,6 +63,29 @@ main { width: 100%; max-width: 1080px; margin: 0 auto; padding: 26px 28px 48px; 
   header { padding-top: 28px; gap: 14px; } #clock { font-size: 56px; } #kcompany { font-size: 24px; }
   .tile { width: calc(50% - 8px); min-height: 130px; }
 }
+/* Darstellung pro Tablet (Verwaltung → Kiosk & Filialen) */
+.tile .st { display: none; }
+body[data-layout="small"] .tile { width: 158px; min-height: 112px; padding: 14px 10px; gap: 8px; font-size: 17px; border-radius: 14px; }
+body[data-layout="small"] .av { width: 44px; height: 44px; font-size: 16px; }
+body[data-layout="small"] .grid { gap: 12px; }
+body[data-layout="list"] .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+body[data-layout="list"] .tile { width: auto; min-height: 72px; flex-direction: row; justify-content: flex-start; text-align: left;
+  padding: 12px 18px; gap: 14px; border-radius: 14px; }
+body[data-layout="list"] .av { width: 46px; height: 46px; font-size: 17px; }
+body[data-layout="list"] .tile .st { display: inline-block; margin-left: auto; font-size: 14px; font-weight: 700; padding: 3px 10px;
+  border-radius: 999px; color: var(--in); background: color-mix(in srgb, var(--in) 14%, var(--card)); }
+body[data-layout="list"] .tile .st:empty { display: none; }
+@media (max-width: 560px) {
+  body[data-layout="small"] .tile { width: calc(33.33% - 8px); min-height: 100px; font-size: 15px; }
+  body[data-layout="list"] .grid { grid-template-columns: 1fr; }
+}
+/* Bestätigung: antippen schließt, Balken zeigt die Restzeit */
+#vDone { cursor: pointer; }
+.bar { height: 5px; border-radius: 3px; background: var(--line); margin-top: 18px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; }
+.bar i.run { animation: shrink var(--dur, 4s) linear forwards; }
+@keyframes shrink { to { transform: scaleX(0); } }
+.tap { font-size: 14px; margin-top: 8px; }
 .panel { max-width: 440px; margin: 10px auto 0; background: var(--card); border: 1px solid var(--line); border-radius: 20px;
   padding: 26px; text-align: center; }
 .panel h2 { margin: 0 0 6px; font-size: 26px; }
@@ -137,6 +160,8 @@ main { width: 100%; max-width: 1080px; margin: 0 auto; padding: 26px 28px 48px; 
     <h2 id="doneTitle"></h2>
     <div class="muted" id="doneMsg"></div>
     <div class="acc" id="doneAcc"></div>
+    <div class="bar"><i id="doneBar"></i></div>
+    <div class="muted tap">Antippen zum Schließen</div>
   </section>
 </main>
 
@@ -159,7 +184,7 @@ const store = {
   if (key && !m) history.replaceState(null, "", location.pathname + "#k=" + key);
 })();
 
-const st = { users: [], sel: null, pin: "", status: null, idle: null };
+const st = { users: [], sel: null, pin: "", status: null, idle: null, done: 4 };
 const views = ["vNoKey", "vList", "vPin", "vAct", "vDone"];
 function show(v) { views.forEach(x => $(x).classList.toggle("hidden", x !== v)); document.body.classList.toggle("on-list", v === "vList"); }
 function idle(ms) { clearTimeout(st.idle); if (ms) st.idle = setTimeout(home, ms); }
@@ -191,13 +216,15 @@ async function loadUsers() {
   if (!store.get()) { show("vNoKey"); return; }
   try {
     const r = await api("kiosk/users");
-    st.users = r.users;
+    st.done = Math.min(15, Math.max(2, Number(r.done_seconds) || 4));
+    document.body.dataset.layout = r.layout || "tiles";
+    st.users = r.present_first ? [...r.users].sort((a, b) => (b.present ? 1 : 0) - (a.present ? 1 : 0)) : r.users;
     if (window.zeTheme && r.theme) zeTheme(r.theme);
     if (r.logo) { $("klogo").src = "api/v1/branding/logo?v=" + r.logo.version; $("klogo").className = "logo"; }
     else { $("klogo").src = "static/icon.png"; $("klogo").className = ""; }
     $("kcompany").textContent = r.company_name || "";
     $("kname").textContent = (r.kiosk || "Zeiterfassung") + (r.branch && !(r.kiosk || "").includes(r.branch) ? " · " + r.branch : "");
-    $("grid").innerHTML = r.users.map(u => `<button class="tile" data-u="${u.id}"><span class="av">${esc(initials(u.name))}<span class="dot ${u.present ? "in" : ""}"></span></span>${esc(u.name)}</button>`).join("");
+    $("grid").innerHTML = st.users.map(u => `<button class="tile" data-u="${u.id}"><span class="av">${esc(initials(u.name))}<span class="dot ${u.present ? "in" : ""}"></span></span><span>${esc(u.name)}</span><span class="st">${u.present ? "da" : ""}</span></button>`).join("");
     $("empty").textContent = r.users.length ? "" : "Noch niemand hat eine PIN gesetzt – das geht in der Zeiterfassung unter „Mein Zugang“.";
     if (!st.sel) show("vList");
   } catch (e) {
@@ -259,7 +286,9 @@ async function act() {
     $("doneTitle").textContent = inNow ? `Hallo ${r.name}!` : `Tschüss ${r.name}!`;
     $("doneMsg").textContent = r.message || "";
     $("doneAcc").innerHTML = accounts(r.accounts);
-    st.pin = ""; show("vDone"); idle(7000);
+    st.pin = ""; show("vDone"); idle(st.done * 1000);
+    const bar = $("doneBar"); bar.classList.remove("run"); void bar.offsetWidth;
+    bar.style.setProperty("--dur", st.done + "s"); bar.classList.add("run");
   } catch (e) { $("actErr").textContent = e.message; }
   finally { $("actBtn").disabled = false; }
 }
@@ -268,6 +297,7 @@ $("pad").innerHTML = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "
 $("pad").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) key(b.dataset.k); });
 $("grid").addEventListener("click", e => { const b = e.target.closest("[data-u]"); if (b) pick(Number(b.dataset.u)); });
 $("actBtn").onclick = act;
+$("vDone").onclick = home;   // Bestätigung antippen = sofort zurück zur Namensliste
 document.querySelectorAll("[data-back]").forEach(b => b.onclick = home);
 document.addEventListener("keydown", e => {   // Tastatur am Tablet/PC
   if ($("vPin").classList.contains("hidden")) return;

@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -301,6 +301,15 @@ def migrate(conn: sqlite3.Connection) -> None:
         # Design pro Mitarbeiter (leer = Standard der Firma)
         if "theme" not in _columns(conn, "users"):
             conn.execute("ALTER TABLE users ADD COLUMN theme TEXT")
+    if version < 16:
+        # Kiosk pro Tablet anpassbar: Darstellung der Namen, Anwesende zuerst, Anzeigedauer der Bestätigung
+        cols = _columns(conn, "kiosk_devices")
+        if "layout" not in cols:
+            conn.execute("ALTER TABLE kiosk_devices ADD COLUMN layout TEXT NOT NULL DEFAULT 'tiles'")  # tiles | small | list
+        if "present_first" not in cols:
+            conn.execute("ALTER TABLE kiosk_devices ADD COLUMN present_first INTEGER NOT NULL DEFAULT 0")
+        if "done_seconds" not in cols:
+            conn.execute("ALTER TABLE kiosk_devices ADD COLUMN done_seconds INTEGER NOT NULL DEFAULT 4")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

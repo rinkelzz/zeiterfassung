@@ -149,8 +149,15 @@ class KioskIn(BaseModel):
     branch_id: Optional[int] = Field(None, description="Filiale des Tablets; leer = alle Mitarbeiter")
 
 
+KIOSK_LAYOUTS = {"tiles": "große Kacheln", "small": "kleine Kacheln", "list": "Liste"}
+
+
 class KioskUpdate(BaseModel):
+    """Nur mitgeschickte Felder werden geändert."""
     branch_id: Optional[int] = Field(None, description="Filiale; null = alle Mitarbeiter")
+    layout: Optional[str] = Field(None, pattern=r"^(tiles|small|list)$", description="tiles | small | list")
+    present_first: Optional[bool] = Field(None, description="Wer gerade da ist, steht oben")
+    done_seconds: Optional[int] = Field(None, ge=2, le=15, description="Sekunden, die die Bestätigung stehen bleibt")
 
 
 def _check_branch(conn, branch_id: Optional[int]) -> None:
@@ -161,7 +168,8 @@ def _check_branch(conn, branch_id: Optional[int]) -> None:
 def _kiosk_out(r: sqlite3.Row) -> dict:
     from ..timeutil import local_iso
     return {"id": r["id"], "name": r["name"], "created_at": local_iso(r["created_at"]),
-            "last_used_at": local_iso(r["last_used_at"]), "branch_id": r["branch_id"], "branch": r["branch"]}
+            "last_used_at": local_iso(r["last_used_at"]), "branch_id": r["branch_id"], "branch": r["branch"],
+            "layout": r["layout"], "present_first": bool(r["present_first"]), "done_seconds": r["done_seconds"]}
 
 
 @router.get("/kiosks")
@@ -175,10 +183,24 @@ def update_kiosk(kiosk_id: int, data: KioskUpdate, admin=Depends(admin_user), co
     row = conn.execute("SELECT * FROM kiosk_devices WHERE id = ?", (kiosk_id,)).fetchone()
     if not row:
         raise HTTPException(404, "Kiosk nicht gefunden")
-    _check_branch(conn, data.branch_id)
-    conn.execute("UPDATE kiosk_devices SET branch_id = ? WHERE id = ?", (data.branch_id, kiosk_id))
-    bname = conn.execute("SELECT name FROM branches WHERE id = ?", (data.branch_id,)).fetchone() if data.branch_id else None
-    audit(conn, admin["id"], "kiosk_branch", f"kiosk:{kiosk_id}", f"{row['name']}: {bname[0] if bname else 'alle Mitarbeiter'}")
+    changes = data.model_dump(exclude_unset=True)
+    if "branch_id" in changes:
+        _check_branch(conn, data.branch_id)
+        conn.execute("UPDATE kiosk_devices SET branch_id = ? WHERE id = ?", (data.branch_id, kiosk_id))
+        bname = conn.execute("SELECT name FROM branches WHERE id = ?", (data.branch_id,)).fetchone() if data.branch_id else None
+        audit(conn, admin["id"], "kiosk_branch", f"kiosk:{kiosk_id}", f"{row['name']}: {bname[0] if bname else 'alle Mitarbeiter'}")
+    shown = []
+    if changes.get("layout"):
+        conn.execute("UPDATE kiosk_devices SET layout = ? WHERE id = ?", (data.layout, kiosk_id))
+        shown.append("Darstellung: " + KIOSK_LAYOUTS[data.layout])
+    if changes.get("present_first") is not None:
+        conn.execute("UPDATE kiosk_devices SET present_first = ? WHERE id = ?", (int(data.present_first), kiosk_id))
+        shown.append("Anwesende zuerst: " + ("ja" if data.present_first else "nein"))
+    if changes.get("done_seconds") is not None:
+        conn.execute("UPDATE kiosk_devices SET done_seconds = ? WHERE id = ?", (data.done_seconds, kiosk_id))
+        shown.append(f"Bestätigung {data.done_seconds} s")
+    if shown:
+        audit(conn, admin["id"], "kiosk_updated", f"kiosk:{kiosk_id}", f"{row['name']}: " + ", ".join(shown))
     return list_kiosks(admin, conn)
 
 
@@ -229,6 +251,7 @@ def kiosk_users(device=Depends(kiosk_device), conn: sqlite3.Connection = Depends
     company = conn.execute("SELECT value FROM app_settings WHERE key = 'company_name'").fetchone()
     return {"kiosk": device["name"], "branch": branch[0] if branch else None, "theme": theme[0] if theme else "classic",
             "company_name": company[0] if company else "", "logo": logo.info(conn),
+            "layout": device["layout"], "present_first": bool(device["present_first"]), "done_seconds": device["done_seconds"],
             "users": [{"id": r["id"], "name": r["display_name"], "present": r["id"] in present} for r in rows]}
 
 

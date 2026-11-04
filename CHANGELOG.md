@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.25.0] – 2026-11-04
+
+### Neu
+- **Kiosk pro Tablet anpassbar** (Verwaltung → Kiosk & Filialen, direkt in der Tabelle):
+  - **Darstellung:** große Kacheln (wie bisher), kleine Kacheln für größere Teams oder eine Liste mit „da“-Kennzeichen.
+  - **Anwesende zuerst:** wer gerade eingestempelt ist, steht oben.
+  - **Anzeigedauer der Bestätigung** („Hallo …“ / „Tschüss …“): 2 bis 15 Sekunden, Standard jetzt 4 statt 7 Sekunden.
+    Ein Balken zeigt die Restzeit, Antippen schließt sofort – der Nächste kann direkt stempeln.
+  Änderungen übernimmt das Tablet innerhalb von 30 Sekunden. Wunsch von @ralfmehner-collab (#3).
+
 ## [0.24.3] – 2026-11-03
 
 ### Sicherheit
@@ -320,6 +330,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.25.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.25.0
 [0.24.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.3
 [0.24.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.2
 [0.24.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.1

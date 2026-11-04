@@ -100,3 +100,36 @@ def test_no_token_and_revoke(admin, emp, tablet):
     assert all(u["id"] != emp["uid"] for u in tablet["c"].get("/api/v1/kiosk/users").json()["users"])
     assert admin.delete(f"/api/v1/kiosks/{tablet['id']}").status_code == 200
     assert tablet["c"].get("/api/v1/kiosk/users").status_code == 401
+
+
+def test_tablet_display_settings(admin):
+    t = admin.post("/api/v1/kiosks", json={"name": "Tablet Anzeige"}).json()
+    kid, k = t["id"], TestClient(app)
+    k.headers["X-Kiosk-Token"] = t["url"].split("#k=")[1]
+    r = k.get("/api/v1/kiosk/users").json()
+    assert (r["layout"], r["present_first"], r["done_seconds"]) == ("tiles", False, 4)
+    br = admin.post("/api/v1/branches", json={"name": "Anzeige-Filiale", "user_ids": []}).json()
+    bid = next(b["id"] for b in br if b["name"] == "Anzeige-Filiale") if isinstance(br, list) else br["id"]
+    try:
+        admin.patch(f"/api/v1/kiosks/{kid}", json={"branch_id": bid})
+        # nur mitgeschickte Felder ändern sich – die Filiale bleibt
+        ks = admin.patch(f"/api/v1/kiosks/{kid}", json={"layout": "list", "present_first": True, "done_seconds": 2}).json()
+        me = next(x for x in ks if x["id"] == kid)
+        assert (me["layout"], me["present_first"], me["done_seconds"], me["branch_id"]) == ("list", True, 2, bid)
+        r = k.get("/api/v1/kiosk/users").json()
+        assert (r["layout"], r["present_first"], r["done_seconds"]) == ("list", True, 2)
+        for bad in ({"layout": "gross"}, {"done_seconds": 1}, {"done_seconds": 60}):
+            assert admin.patch(f"/api/v1/kiosks/{kid}", json=bad).status_code == 422, bad
+        log = admin.get("/api/v1/audit").json()
+        rows = log["rows"] if isinstance(log, dict) else log
+        assert any("Darstellung: Liste" in (x.get("text") or x.get("detail") or "") for x in rows)
+    finally:
+        admin.delete(f"/api/v1/kiosks/{kid}")
+        admin.delete(f"/api/v1/branches/{bid}")
+
+
+def test_page_has_layouts_and_tap_to_close():
+    with TestClient(app) as c:
+        html = c.get("/kiosk").text
+    assert 'body[data-layout="list"]' in html and 'body[data-layout="small"]' in html
+    assert '$("vDone").onclick = home' in html and "st.done * 1000" in html

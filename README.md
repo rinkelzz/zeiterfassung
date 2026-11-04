@@ -65,7 +65,8 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
 **Stempeln**
 - Weboberfläche (auch am Handy), iPhone-Kurzbefehle, Standort-Automation, NFC-Aufkleber
 - **Kiosk-Tablet** an der Wache: Name antippen, PIN eingeben, Kommen/Gehen – mit Anzeige, wer gerade da ist,
-  den eigenen Kontoständen nach der PIN und Filialen für mehrere Standorte
+  den eigenen Kontoständen nach der PIN und Filialen für mehrere Standorte; pro Tablet einstellbar: große oder kleine
+  Kacheln oder Liste, Anwesende zuerst, Anzeigedauer der Bestätigung (2–15 Sekunden, Antippen schließt sofort)
 - Einrichtung fürs iPhone per **QR-Code**: persönliche Seite mit Test-Knöpfen und Kopier-Feldern
 - **Umschalten** mit einem einzigen NFC-Aufkleber (kommt, wenn draußen – geht, wenn drin)
 - **Wegezeit**: für gewählte Stempelwege (z. B. NFC) beim Kommen früher und beim Gehen später, z. B. je 10 Minuten
@@ -375,7 +376,8 @@ Quellcode unter derselben Lizenz offenlegen.
 Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The user interface is German.
 
 - Clock in via web UI, iPhone Shortcuts (setup via QR code), geofence automation, NFC tags or a
-  kiosk tablet (name + PIN, shows who is present and the employee's balances; branches for several locations);
+  kiosk tablet (name + PIN, shows who is present and the employee's balances; branches for several locations;
+  per tablet: large/small tiles or list, present first, confirmation time);
   optional travel-time allowance
 - Forgotten clock-outs: email reminder after 12 hours, auto-close at midnight, flagged for review
 - Separate flextime and overtime accounts, weekly hours with effective dates (evenly spread or hours per
