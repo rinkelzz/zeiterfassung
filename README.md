@@ -214,7 +214,7 @@ auf einen Aufkleber schreiben: `<server>/stempeln?a=in&src=nfc`, `…?a=out&src=
 er funktioniert für jedes eingerichtete Handy, fremde Handys sehen nur „nicht eingerichtet“. Beim Scannen erscheint
 oben eine Mitteilung, ein Tipp darauf stempelt.
 
-**Kurzbefehle (vollautomatisch per Standort):**
+**Kurzbefehle (vollautomatisch per Standort oder NFC):** Die Einrichtungsseite führt durch iOS 27 (Auslöser „Ort“ bzw. „NFC“ direkt im Kurzbefehl über den Knopf *Automation*, Header über *neue Überschrift hinzufügen*) und aufklappbar durch ältere iOS-Versionen.
 Technisch ist es jeweils ein `POST` mit `Authorization: Bearer <token>`. Diese Schlüssel gelten **nur zum
 Stempeln** – geht ein Handy oder NFC-Aufkleber verloren, kommt damit niemand an Konten, Berichte oder die
 Verwaltung. Trotzdem das verlorene Gerät unter „Mein Zugang“ bzw. in der Verwaltung sperren.

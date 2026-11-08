@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.26.1] – 2026-11-08
+
+### Geändert
+- **Kurzbefehl-Anleitung für iOS 27** anhand echter Screenshots (iOS 27.2) neu geschrieben: „Bearbeiten“ statt
+  KI-Beschreibung, „Inhalte von URL abrufen“, Methode POST, Header über „neue Überschrift hinzufügen“ (Schlüssel/Text),
+  Auslöser Ort/NFC direkt im Kurzbefehl über den Knopf „Automation“. Die bisherigen Schritte stehen aufklappbar
+  unter „iOS 26 und älter“. Danke an @ralfmehner-collab (#4).
+
 ## [0.26.0] – 2026-11-08
 
 ### Neu
@@ -352,6 +360,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.26.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.1
 [0.26.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.0
 [0.25.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.25.0
 [0.24.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.3

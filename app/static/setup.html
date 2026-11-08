@@ -98,38 +98,50 @@ b.ui { background: var(--code); padding: 1px 6px; border-radius: 6px; font-weigh
     </section>
 
     <section class="card">
-      <h2>4. Vollautomatisch beim Ankommen (Kurzbefehle, iPhone)</h2>
-      <p class="muted small" style="margin-top:0">Für Fortgeschrittene. Apple benennt Menüs je nach iOS-Version etwas anders –
-        die Begriffe in Klammern sind die Varianten. Lege zuerst zwei Kurzbefehle an:</p>
+      <h2>4. Vollautomatisch mit Kurzbefehlen (iPhone)</h2>
+      <p class="muted small" style="margin-top:0">Stempelt ohne Antippen – beim Ankommen/Verlassen oder beim Scannen eines NFC-Aufklebers.
+        Du brauchst zwei Kurzbefehle; oben umschalten, die Felder passen sich an:</p>
       <div class="tabs"><button class="on" data-k="in">„Kommen“</button><button data-k="out">„Gehen“</button></div>
+      <p class="small" style="margin:10px 0 4px"><b>iOS 27</b></p>
       <ol>
-        <li>App <b class="ui">Kurzbefehle</b> → <b class="ui">+</b> (neuer Kurzbefehl). Bietet iOS an, den Kurzbefehl in eigenen Worten zu
-          <b>beschreiben</b>, nimm stattdessen die manuelle Bearbeitung – so ist sicher, dass der Schlüssel nur im Kurzbefehl steht.</li>
-        <li>Aktion suchen: <b class="ui">URL</b> eingeben und <b class="ui">Inhalte von URL abrufen</b> (Globus-Symbol) wählen.</li>
-        <li>Als Adresse eintragen:
+        <li>App <b class="ui">Kurzbefehle</b> → <b class="ui">Alle Kurzbefehle</b> → unten <b class="ui">+</b>.</li>
+        <li>Bei „Was soll dein Kurzbefehl tun?“ <b>nichts eintippen</b>, sondern oben rechts <b class="ui">Bearbeiten</b>
+          (bzw. das <b class="ui">✕</b> neben „Kurzbefehl beschreiben“) – so steht dein Schlüssel nur im Kurzbefehl.</li>
+        <li>Unten in <b class="ui">Suchen</b> „URL von“ eingeben und <b class="ui">Inhalte von URL abrufen</b> (grünes Symbol) wählen.</li>
+        <li>Auf das blaue <b class="ui">URL</b> tippen, diese Adresse einfügen und mit <b class="ui">✓</b> bestätigen:
           <div class="copy"><input id="cUrl" readonly><button data-copy="cUrl">Kopieren</button></div></li>
-        <li>Die Aktion aufklappen (<b class="ui">›</b> bzw. <b class="ui">Mehr anzeigen</b>):
+        <li>Den blauen Pfeil <b class="ui">›</b> neben „abrufen“ antippen:
           <ul style="padding-left:18px">
-            <li><b class="ui">Methode</b> → <b class="ui">POST</b></li>
-            <li><b class="ui">Header</b> → <b class="ui">Neuer Header</b> (<b class="ui">Neues Feld hinzufügen</b>) → Schlüssel
+            <li><b class="ui">Methode</b>: auf <b class="ui">GET</b> tippen → <b class="ui">POST</b></li>
+            <li>Unter <b class="ui">Header</b> auf <b class="ui">+ neue Überschrift hinzufügen</b> tippen (so heißt „Header hinzufügen“ in iOS 27).
+              In <b class="ui">Schlüssel</b> eintragen
               <div class="copy"><input id="cKey" readonly value="Authorization"><button data-copy="cKey">Kopieren</button></div>
-              und Wert
+              und in <b class="ui">Text</b>
               <div class="copy"><input id="cVal" readonly><button data-copy="cVal">Kopieren</button></div></li>
           </ul></li>
-        <li>Optional als Rückmeldung: <b class="ui">Wörterbuchwert abrufen</b> (Schlüssel <b class="ui">message</b>) und <b class="ui">Mitteilung anzeigen</b>.</li>
-        <li>Den Kurzbefehl <b class="ui" id="cName">Kommen</b> nennen und sichern (<b class="ui">Fertig</b> bzw. Häkchen).
-          Danach das Gleiche für <span id="otherName">„Gehen“</span> – oben umschalten.</li>
+        <li><b>Auslöser hinzufügen:</b> unten in <b class="ui">Suchen</b> den Knopf <b class="ui">Automation</b> antippen →
+          unter <b class="ui">Ort</b> <b class="ui" id="cTrig">Ankunft</b> wählen → im neuen Kasten auf das blaue <b class="ui">Ort</b> tippen und die Arbeit auswählen.
+          <div class="small muted" style="margin-top:4px">Statt oder zusätzlich zum Ort geht auch NFC: in der gleichen Liste
+            <b class="ui">NFC</b> wählen → <b class="ui">NFC-Tag</b> antippen → Aufkleber scannen. Mehrere Auslöser verbindet iOS mit „oder“.</div></li>
+        <li>Zum Benennen oben auf den Titel (anfangs „Inhalte von URL abrufen“) mit <b class="ui">⌄</b> tippen →
+          <b class="ui" id="cName">Kommen</b>. Mit <b class="ui">‹</b> zurück – fertig.
+          Danach das Gleiche für <span id="otherName">„Gehen“</span>.</li>
       </ol>
-      <p class="small" style="margin-bottom:4px"><b>Dann die Automation:</b></p>
-      <ol>
-        <li>In <b class="ui">Kurzbefehle</b> den Bereich <b class="ui">Automation</b> (<b class="ui">Automationen</b>) öffnen → <b class="ui">+</b>
-          (<b class="ui">Neue Automation</b>).</li>
-        <li>Auslöser <b class="ui">Ankommen</b> (<b class="ui">Ort</b> → <b class="ui">Wenn ich ankomme</b>) → Ort der Arbeit festlegen.</li>
-        <li><b class="ui">Sofort ausführen</b> wählen bzw. den Schalter <b class="ui">Vor dem Ausführen fragen</b> ausschalten.</li>
-        <li>Kurzbefehl <b class="ui">Kommen</b> auswählen. Zweite Automation: <b class="ui">Verlassen</b> → gleicher Ort → <b class="ui">Gehen</b>.</li>
-      </ol>
+      <div class="small" style="margin:6px 0 10px"><b>Nur ein NFC-Aufkleber für Kommen und Gehen?</b> Dann einen dritten Kurzbefehl
+        genauso anlegen, aber mit dieser Adresse und nur dem Auslöser NFC (kein Ort):
+        <div class="copy"><input id="cToggle" readonly><button data-copy="cToggle">Kopieren</button></div></div>
+      <details class="small">
+        <summary><b>iOS 26 und älter</b></summary>
+        <ol>
+          <li>Neuen Kurzbefehl anlegen (<b class="ui">+</b>) → <b class="ui">Aktion hinzufügen</b> → <b class="ui">Inhalte von URL abrufen</b>,
+            Adresse, <b class="ui">Methode POST</b> und den Header wie oben eintragen, Kurzbefehl benennen.</li>
+          <li>Unten auf <b class="ui">Automation</b> → <b class="ui">+</b> → <b class="ui">Ankommen</b> (bzw. <b class="ui">Verlassen</b> oder
+            <b class="ui">NFC</b>) → Ort bzw. Aufkleber festlegen → <b class="ui">Sofort ausführen</b> → Kurzbefehl auswählen.</li>
+        </ol>
+      </details>
       <p class="muted small" style="margin-bottom:0">Löst das iPhone mal doppelt aus, ist das egal: Wer schon eingestempelt ist, wird nicht zweimal eingestempelt.
-        Kommst du mit den Menüs nicht klar? Dann reichen Stempel-Link und NFC-Aufkleber (Schritt 2 und 3) völlig.</p>
+        Optional als Rückmeldung: Aktionen <b class="ui">Wörterbuchwert abrufen</b> (Schlüssel <b class="ui">message</b>) und
+        <b class="ui">Mitteilung anzeigen</b> anhängen. Zu kompliziert? Stempel-Link und NFC-Aufkleber (Schritt 2 und 3) reichen völlig.</p>
     </section>
 
     <section class="card warn">
@@ -178,6 +190,8 @@ b.ui { background: var(--code); padding: 1px 6px; border-radius: 6px; font-weigh
     $("sNfcOut").value = base + "/stempeln?a=out&src=nfc";
     $("sNfcToggle").value = base + "/stempeln?a=toggle&src=nfc";
     $("cVal").value = "Bearer " + token;
+    $("cToggle").value = base + "/api/v1/clock/toggle?source=nfc";
+    $("cTrig").textContent = kind === "in" ? "Ankunft" : "Verlassen";
     $("cName").textContent = kind === "in" ? "Kommen" : "Gehen";
     $("otherName").textContent = kind === "in" ? "„Gehen“" : "„Kommen“";
   }
