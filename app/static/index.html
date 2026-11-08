@@ -28,6 +28,7 @@
     <button data-tab="home" class="active">Übersicht <span class="badge hidden" id="badgeHome"></span></button>
     <button data-tab="month">Monat</button>
     <button data-tab="year">Jahr</button>
+    <button data-tab="team" class="decider hidden">Abwesenheiten</button>
     <button data-tab="admin" class="admin hidden">Verwaltung <span class="badge hidden" id="badgeAdmin"></span></button>
     <button data-tab="me">Mein Zugang <span class="badge hidden" id="badgeMe"></span></button>
   </nav>
@@ -116,6 +117,25 @@
   </div>
 
   <!-- JAHR -->
+  <!-- ABWESENHEITEN (Admins: alle, Vorgesetzte: ihr Team) -->
+  <div data-page="team" class="page hidden">
+    <section class="card">
+      <div class="toolbar">
+        <h2>Abwesenheiten</h2>
+        <div class="row">
+          <select id="tmBranch" class="hidden" title="Filiale"></select>
+          <details class="tmPick" id="tmPick"><summary id="tmPickLabel">Alle Mitarbeiter</summary><div id="tmPickList"></div></details>
+          <button id="tmPrev" aria-label="Vormonat">‹</button>
+          <b id="tmLabel" style="min-width:120px;text-align:center"></b>
+          <button id="tmNext" aria-label="Folgemonat">›</button>
+        </div>
+      </div>
+      <div class="scroll"><table class="team" id="tmTable"></table></div>
+      <div class="tmLegend small" id="tmLegend"></div>
+      <div class="err" id="tmErr"></div>
+    </section>
+  </div>
+
   <div data-page="year" class="page hidden">
     <section class="card">
       <div class="toolbar">
@@ -267,6 +287,7 @@
             <label class="inline"><input type="checkbox" class="travSrc" value="shortcut"> Kurzbefehl/Standort</label>
             <label class="inline"><input type="checkbox" class="travSrc" value="web"> Web</label>
             <label class="inline"><input type="checkbox" class="travSrc" value="kiosk"> Kiosk</label>
+            <label class="inline"><input type="checkbox" class="travSrc" value="link"> Stempel-Link (Home-Bildschirm)</label>
           </div>
           <p class="muted small">Beispiel 10 Minuten: wer per NFC um 07:00 kommt, wird ab 06:50 erfasst; wer um 16:00 geht, bis 16:10.</p>
         </fieldset>

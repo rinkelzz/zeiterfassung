@@ -67,64 +67,76 @@ b.ui { background: var(--code); padding: 1px 6px; border-radius: 6px; font-weigh
     </section>
 
     <section class="card">
-      <h2>2. Kurzbefehle anlegen</h2>
+      <h2>2. Am einfachsten: Stempel-Link</h2>
+      <p class="small" style="margin-top:0">Ganz ohne Kurzbefehle – unabhängig davon, wie die Kurzbefehle-App in deiner iOS-Version aussieht, und auch mit Android.
+        Einmal auf diesem Handy einrichten, dann stempelst du per Symbol auf dem Home-Bildschirm oder per NFC-Aufkleber.</p>
+      <ol>
+        <li>Diesen Knopf <b>auf deinem eigenen Handy</b> antippen – die Stempel-Seite öffnet sich und merkt sich dieses Gerät:
+          <div style="margin-top:8px"><button class="primary" id="btnLink" type="button">Stempel-Link auf diesem Handy einrichten</button></div></li>
+        <li>Auf der Stempel-Seite in Safari <b class="ui">Teilen</b> → <b class="ui">Zum Home-Bildschirm</b> wählen.
+          Ab jetzt öffnet ein Tipp aufs Symbol die Seite mit einem großen Knopf „Kommen“ bzw. „Gehen“.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>3. NFC-Aufkleber (optional)</h2>
+      <p class="small" style="margin-top:0">Auf den Aufkleber kommt nur eine Web-Adresse <b>ohne</b> persönlichen Schlüssel – ein Aufkleber reicht deshalb
+        für das ganze Team: Jedes eingerichtete Handy (Schritt 2) stempelt für seinen Besitzer, fremde Handys können nichts tun.</p>
+      <ol>
+        <li>NFC-Aufkleber kaufen (NTAG213/215) und eine App zum Beschreiben laden, z. B. die kostenlose <b class="ui">NFC Tools</b>.</li>
+        <li>In der App <b class="ui">Schreiben</b> → <b class="ui">Datensatz hinzufügen</b> → <b class="ui">URL</b> und eine dieser Adressen eintragen,
+          dann <b class="ui">Schreiben</b> und das Handy an den Aufkleber halten:
+          <div class="small" style="margin-top:6px">Aufkleber „Kommen“:</div>
+          <div class="copy"><input id="sNfcIn" readonly><button data-copy="sNfcIn">Kopieren</button></div>
+          <div class="small">Aufkleber „Gehen“:</div>
+          <div class="copy"><input id="sNfcOut" readonly><button data-copy="sNfcOut">Kopieren</button></div>
+          <div class="small">Nur ein Aufkleber für beides (wechselt bei jedem Scan; doppelt scannen innerhalb einer Minute ändert nichts):</div>
+          <div class="copy"><input id="sNfcToggle" readonly><button data-copy="sNfcToggle">Kopieren</button></div></li>
+        <li>Zum Stempeln: Handy entsperren, oben an den Aufkleber halten und auf die Mitteilung tippen, die erscheint – fertig.</li>
+      </ol>
+      <p class="small" id="travelInfo" style="margin-bottom:0"></p>
+    </section>
+
+    <section class="card">
+      <h2>4. Vollautomatisch beim Ankommen (Kurzbefehle, iPhone)</h2>
+      <p class="muted small" style="margin-top:0">Für Fortgeschrittene. Apple benennt Menüs je nach iOS-Version etwas anders –
+        die Begriffe in Klammern sind die Varianten. Lege zuerst zwei Kurzbefehle an:</p>
       <div class="tabs"><button class="on" data-k="in">„Kommen“</button><button data-k="out">„Gehen“</button></div>
       <ol>
-        <li>App <b class="ui">Kurzbefehle</b> öffnen, oben rechts auf <b class="ui">+</b> tippen.</li>
-        <li><b class="ui">Aktion hinzufügen</b> → nach <b class="ui">Inhalte von URL abrufen</b> suchen und antippen.</li>
-        <li>In der Aktion auf <b class="ui">URL</b> tippen und diese Adresse einfügen:
+        <li>App <b class="ui">Kurzbefehle</b> → <b class="ui">+</b> (neuer Kurzbefehl). Bietet iOS an, den Kurzbefehl in eigenen Worten zu
+          <b>beschreiben</b>, nimm stattdessen die manuelle Bearbeitung – so ist sicher, dass der Schlüssel nur im Kurzbefehl steht.</li>
+        <li>Aktion suchen: <b class="ui">URL</b> eingeben und <b class="ui">Inhalte von URL abrufen</b> (Globus-Symbol) wählen.</li>
+        <li>Als Adresse eintragen:
           <div class="copy"><input id="cUrl" readonly><button data-copy="cUrl">Kopieren</button></div></li>
-        <li>Auf den kleinen Pfeil <b class="ui">›</b> in der Aktion tippen:
+        <li>Die Aktion aufklappen (<b class="ui">›</b> bzw. <b class="ui">Mehr anzeigen</b>):
           <ul style="padding-left:18px">
-            <li><b class="ui">Methode</b> auf <b class="ui">POST</b> stellen</li>
-            <li>bei <b class="ui">Header</b> auf <b class="ui">Neues Feld hinzufügen</b> → <b class="ui">Text</b>.
-              Als Schlüssel:
+            <li><b class="ui">Methode</b> → <b class="ui">POST</b></li>
+            <li><b class="ui">Header</b> → <b class="ui">Neuer Header</b> (<b class="ui">Neues Feld hinzufügen</b>) → Schlüssel
               <div class="copy"><input id="cKey" readonly value="Authorization"><button data-copy="cKey">Kopieren</button></div>
-              als Wert:
+              und Wert
               <div class="copy"><input id="cVal" readonly><button data-copy="cVal">Kopieren</button></div></li>
           </ul></li>
-        <li>Optional für eine Rückmeldung: Aktion <b class="ui">Wörterbuchwert abrufen</b> (Schlüssel <b class="ui">message</b>)
-          und danach <b class="ui">Mitteilung anzeigen</b> hinzufügen. Dann erscheint z. B. „Eingestempelt um 07:02 Uhr“.</li>
-        <li>Oben den Namen <b class="ui" id="cName">Kommen</b> eintragen und auf <b class="ui">Fertig</b> tippen.</li>
+        <li>Optional als Rückmeldung: <b class="ui">Wörterbuchwert abrufen</b> (Schlüssel <b class="ui">message</b>) und <b class="ui">Mitteilung anzeigen</b>.</li>
+        <li>Den Kurzbefehl <b class="ui" id="cName">Kommen</b> nennen und sichern (<b class="ui">Fertig</b> bzw. Häkchen).
+          Danach das Gleiche für <span id="otherName">„Gehen“</span> – oben umschalten.</li>
       </ol>
-      <p class="muted small" style="margin-bottom:0">Danach das Gleiche für <span id="otherName">„Gehen“</span> – oben umschalten, dann stimmen die Adressen.</p>
-    </section>
-
-    <section class="card">
-      <h2>3. Automatisch an der Wache</h2>
+      <p class="small" style="margin-bottom:4px"><b>Dann die Automation:</b></p>
       <ol>
-        <li>In <b class="ui">Kurzbefehle</b> unten auf <b class="ui">Automation</b>, dann <b class="ui">+</b>.</li>
-        <li><b class="ui">Ankommen</b> wählen → Ort der Wache suchen und festlegen → <b class="ui">Sofort ausführen</b> wählen → <b class="ui">Weiter</b>.</li>
-        <li>Den Kurzbefehl <b class="ui">Kommen</b> auswählen.</li>
-        <li>Zweite Automation: <b class="ui">Verlassen</b> → gleicher Ort → <b class="ui">Gehen</b>.</li>
+        <li>In <b class="ui">Kurzbefehle</b> den Bereich <b class="ui">Automation</b> (<b class="ui">Automationen</b>) öffnen → <b class="ui">+</b>
+          (<b class="ui">Neue Automation</b>).</li>
+        <li>Auslöser <b class="ui">Ankommen</b> (<b class="ui">Ort</b> → <b class="ui">Wenn ich ankomme</b>) → Ort der Arbeit festlegen.</li>
+        <li><b class="ui">Sofort ausführen</b> wählen bzw. den Schalter <b class="ui">Vor dem Ausführen fragen</b> ausschalten.</li>
+        <li>Kurzbefehl <b class="ui">Kommen</b> auswählen. Zweite Automation: <b class="ui">Verlassen</b> → gleicher Ort → <b class="ui">Gehen</b>.</li>
       </ol>
-      <p class="muted small" style="margin-bottom:0">Löst das iPhone mal doppelt aus, ist das egal: Wer schon eingestempelt ist, wird nicht zweimal eingestempelt.</p>
-    </section>
-
-    <section class="card">
-      <h2>4. NFC-Aufkleber (optional)</h2>
-      <p class="small" style="margin-top:0">Am sichersten mit <b>zwei Aufklebern</b> an der Wache: einer für „Kommen“, einer für „Gehen“.
-        Das verträgt sich auch mit der Standort-Automation. Lege dafür zwei weitere Kurzbefehle an – genau wie in Schritt 2, nur mit diesen Adressen:</p>
-      NFC Kommen:
-      <div class="copy"><input id="cNfcIn" readonly><button data-copy="cNfcIn">Kopieren</button></div>
-      NFC Gehen:
-      <div class="copy"><input id="cNfcOut" readonly><button data-copy="cNfcOut">Kopieren</button></div>
-      <ol>
-        <li>In <b class="ui">Kurzbefehle</b> → <b class="ui">Automation</b> → <b class="ui">+</b> → <b class="ui">NFC</b> → <b class="ui">Scannen</b>.</li>
-        <li>iPhone oben an den „Kommen“-Aufkleber halten, Namen vergeben (z. B. „Wache Kommen“).</li>
-        <li><b class="ui">Sofort ausführen</b> wählen → Kurzbefehl „NFC Kommen“ auswählen.</li>
-        <li>Das Gleiche für den „Gehen“-Aufkleber.</li>
-      </ol>
-      <p class="small" id="travelInfo" style="margin-bottom:6px"></p>
-      <p class="muted small" style="margin-bottom:0">Nur ein Aufkleber? Dann diese Umschalt-Adresse nehmen – jedes Antippen wechselt zwischen Kommen und Gehen
-        (bitte dann <b>ohne</b> Standort-Automation):</p>
-      <div class="copy"><input id="cToggle" readonly><button data-copy="cToggle">Kopieren</button></div>
+      <p class="muted small" style="margin-bottom:0">Löst das iPhone mal doppelt aus, ist das egal: Wer schon eingestempelt ist, wird nicht zweimal eingestempelt.
+        Kommst du mit den Menüs nicht klar? Dann reichen Stempel-Link und NFC-Aufkleber (Schritt 2 und 3) völlig.</p>
     </section>
 
     <section class="card warn">
       <h2>Wichtig</h2>
       <p class="small" style="margin:0">Dieser Link ist dein persönlicher Schlüssel – wer ihn hat, kann für dich stempeln.
-        Bitte nicht weitergeben. Geht das Handy verloren, kann der Admin den Zugang in der Zeiterfassung sperren.</p>
+        Bitte nicht weitergeben. Geht das Handy verloren, kann der Admin den Zugang in der Zeiterfassung sperren –
+        damit ist auch der Stempel-Link auf diesem Handy gesperrt. Der Schlüssel darf nur stempeln, nicht deine Konten oder Berichte lesen.</p>
     </section>
   </div>
 </main>
@@ -162,12 +174,12 @@ b.ui { background: var(--code); padding: 1px 6px; border-radius: 6px; font-weigh
   }
   function fill() {
     $("cUrl").value = base + "/api/v1/clock/" + kind + "?source=shortcut";
-    $("cNfcIn").value = base + "/api/v1/clock/in?source=nfc";
-    $("cNfcOut").value = base + "/api/v1/clock/out?source=nfc";
+    $("sNfcIn").value = base + "/stempeln?a=in&src=nfc";
+    $("sNfcOut").value = base + "/stempeln?a=out&src=nfc";
+    $("sNfcToggle").value = base + "/stempeln?a=toggle&src=nfc";
     $("cVal").value = "Bearer " + token;
     $("cName").textContent = kind === "in" ? "Kommen" : "Gehen";
     $("otherName").textContent = kind === "in" ? "„Gehen“" : "„Kommen“";
-    $("cToggle").value = base + "/api/v1/clock/toggle?source=nfc";
   }
   function copy(id, btn) {
     var el = $(id), text = el.value;
@@ -199,7 +211,7 @@ b.ui { background: var(--code); padding: 1px 6px; border-radius: 6px; font-weigh
     showStatus(r[1]);
     var st = r[2] || {}, src = st.travel_sources || [];
     if (src.indexOf("nfc") >= 0 && (st.travel_in_minutes || st.travel_out_minutes)) {
-      $("travelInfo").textContent = "Beim Stempeln per NFC wird Wegezeit dazugerechnet: " +
+      $("travelInfo").textContent = "Beim Stempeln per NFC-Aufkleber wird Wegezeit dazugerechnet: " +
         (st.travel_in_minutes ? st.travel_in_minutes + " min vor dem Kommen" : "") +
         (st.travel_in_minutes && st.travel_out_minutes ? " und " : "") +
         (st.travel_out_minutes ? st.travel_out_minutes + " min nach dem Gehen" : "") + ".";
@@ -214,6 +226,7 @@ b.ui { background: var(--code); padding: 1px 6px; border-radius: 6px; font-weigh
       : "Die Zeiterfassung ist gerade nicht erreichbar: " + e.message);
   });
 
+  $("btnLink").onclick = function () { location.href = base + "/stempeln#t=" + encodeURIComponent(token); };
   $("btnIn").onclick = function () { clock("in"); };
   $("btnOut").onclick = function () { clock("out"); };
   Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (b) {

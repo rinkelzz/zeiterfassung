@@ -402,7 +402,7 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         if changes.get(key) is not None:
             _set(conn, key, str(changes[key]))
     if data.travel_sources is not None:
-        allowed = ("nfc", "shortcut", "web", "kiosk", "api")
+        allowed = ("nfc", "shortcut", "web", "kiosk", "link", "api")
         bad = [x for x in data.travel_sources if x not in allowed]
         if bad:
             raise HTTPException(400, f"Unbekannter Stempelweg: {', '.join(bad)}")

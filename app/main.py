@@ -13,7 +13,7 @@ from .db import connect, init_db
 from .dsm import write_ui_config
 from .dsm_auth import proxy_info, publish_proxy_files
 from .mailer import start_scheduler, stop_scheduler
-from .routers import auth, backup, branding, clock, closings, entries, importer, kiosk, leave, reports, requests, updates, users
+from .routers import auth, backup, branding, clock, closings, entries, importer, kiosk, leave, reports, requests, stamp, updates, users
 
 
 @asynccontextmanager
@@ -67,7 +67,7 @@ class _RememberPeer:
 
 app.add_middleware(_RememberPeer)  # zuletzt hinzugefügt = läuft zuerst
 
-for r in (auth.router, backup.router, branding.router, clock.router, closings.router, entries.router, importer.router, kiosk.router, leave.router, reports.router, requests.router, updates.router, users.router):
+for r in (auth.router, backup.router, branding.router, clock.router, closings.router, entries.router, importer.router, kiosk.router, leave.router, reports.router, requests.router, stamp.router, updates.router, users.router):
     app.include_router(r)
 
 
@@ -114,6 +114,13 @@ def setup_page():
 def kiosk_page():
     """Tablet-Seite. Der Freischalt-Schlüssel kommt per #k=… und wird nur im Tablet gespeichert."""
     html = (STATIC_DIR / "kiosk.html").read_text(encoding="utf-8").replace("{{v}}", __version__)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.get("/stempeln", include_in_schema=False)
+def stamp_page():
+    """Stempel-Link für Home-Bildschirm und NFC-Aufkleber (siehe routers/stamp.py)."""
+    html = (STATIC_DIR / "stempeln.html").read_text(encoding="utf-8").replace("{{v}}", __version__)
     return HTMLResponse(html, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 

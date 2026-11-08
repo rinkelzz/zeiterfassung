@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stempeln">
+<meta name="theme-color" content="#0f6e64">
+<title>Stempeln</title>
+<link rel="icon" href="static/icon.png">
+<link rel="apple-touch-icon" href="static/icon.png">
+<script src="static/theme.js?v={{v}}"></script>
+<style>
+:root { --bg: #f2f4f7; --card: #fff; --text: #17202a; --muted: #667085; --accent: #0f6e64; --line: #e3e7ee;
+        --in: #12a150; --out: #d4380d; --warn: #b54708; }
+html.dark { --bg: #11161c; --card: #1b232c; --text: #e8edf2; --muted: #93a0ae; --line: #2a3542; --accent: #19a394; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+  font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 460px; margin: 0 auto; padding: calc(28px + env(safe-area-inset-top)) 18px 32px; text-align: center; }
+.brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 22px; }
+.brand img { height: 56px; max-width: 80%; object-fit: contain; }
+.brand .co { font-weight: 700; font-size: 20px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 28px 22px; box-shadow: 0 1px 3px rgba(16,24,40,.06); }
+.icon { width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 14px; display: grid; place-items: center; font-size: 46px;
+  background: var(--line); color: var(--muted); }
+.icon.in { background: color-mix(in srgb, var(--in) 16%, var(--card)); color: var(--in); }
+.icon.out { background: color-mix(in srgb, var(--out) 14%, var(--card)); color: var(--out); }
+.icon.warn { background: color-mix(in srgb, var(--warn) 14%, var(--card)); color: var(--warn); }
+h1 { font-size: 26px; margin: 0 0 6px; }
+.msg { font-size: 19px; margin: 0 0 6px; }
+.sub { color: var(--muted); margin: 0; }
+button.big { width: 100%; border: 0; border-radius: 16px; padding: 22px 0; font: inherit; font-size: 26px; font-weight: 700;
+  color: #fff; margin-top: 22px; cursor: pointer; }
+button.big.in { background: var(--in); } button.big.out { background: var(--out); }
+button.big:disabled { opacity: .6; }
+.hint { margin-top: 18px; font-size: 15px; color: var(--muted); }
+.hint b { color: var(--text); }
+.hidden { display: none !important; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img id="logo" class="hidden" alt=""><span class="co" id="company"></span></div>
+  <section class="card" aria-live="polite">
+    <div class="icon" id="icon">⏱</div>
+    <h1 id="name">Stempeln</h1>
+    <p class="msg" id="msg">Einen Moment …</p>
+    <p class="sub" id="sub"></p>
+    <button class="big hidden" id="btn" type="button"></button>
+  </section>
+  <p class="hint hidden" id="homeHint">Tipp: In Safari auf <b>Teilen</b> → <b>Zum Home-Bildschirm</b> – dann reicht künftig ein Tipp aufs Symbol.</p>
+  <p class="hint hidden" id="httpHint">Achtung: Diese Seite läuft ohne https. Für das iPhone bitte die https-Adresse aus der Einrichtungsseite verwenden.</p>
+</main>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var q = new URLSearchParams(location.search);
+  var action = q.get("a");                       // in | out | toggle (NFC-Aufkleber)
+  var src = q.get("src") === "nfc" ? "nfc" : "link";
+  var hash = new URLSearchParams(location.hash.slice(1));
+  var token = hash.get("t");
+
+  function api(path, method, body) {
+    return fetch("api/v1/" + path, {
+      method: method || "GET", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "stempeln" },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) { var e = new Error(j.detail || ("Fehler " + r.status)); e.status = r.status; throw e; }
+        return j;
+      });
+    });
+  }
+
+  function show(st, kind) {
+    $("name").textContent = st.user || "Stempeln";
+    $("msg").textContent = st.message || "";
+    $("sub").textContent = st.status === "in" ? "Heute bisher " + st.today_total + " h" : "";
+    var icon = $("icon");
+    icon.className = "icon " + (kind || (st.status === "in" ? "in" : "out"));
+    icon.textContent = kind === "warn" ? "!" : st.status === "in" ? "✓" : "👋";
+    var b = $("btn");
+    b.classList.remove("hidden");
+    b.disabled = false;
+    b.className = "big " + (st.status === "in" ? "out" : "in");
+    b.textContent = st.status === "in" ? "Gehen" : "Kommen";
+    b.onclick = function () { stamp(st.status === "in" ? "out" : "in"); };
+  }
+
+  function fail(e) {
+    var icon = $("icon"); icon.className = "icon warn"; icon.textContent = "!";
+    $("btn").classList.add("hidden");
+    if (e.status === 401) {
+      $("name").textContent = "Nicht eingerichtet";
+      $("msg").textContent = "Dieses Gerät ist noch nicht zum Stempeln eingerichtet.";
+      $("sub").innerHTML = "Öffne einmal deinen persönlichen Stempel-Link auf diesem Gerät – du findest ihn in der Zeiterfassung unter <b>Mein Zugang → iPhone einrichten</b>.";
+    } else {
+      $("name").textContent = "Das hat nicht geklappt";
+      $("msg").textContent = e.message === "Failed to fetch" ? "Keine Verbindung zur Zeiterfassung." : e.message;
+      $("sub").textContent = "Bitte gleich noch einmal versuchen.";
+    }
+  }
+
+  function stamp(a) {
+    $("btn").disabled = true;
+    return api("stamp/" + a + "?src=" + src, "POST").then(function (st) {
+      show(st, st.changed ? null : "warn");
+      if (!st.changed) { $("icon").textContent = "i"; }
+    }).catch(fail);
+  }
+
+  function branding() {
+    api("branding").then(function (b) {
+      if (b.company_name) $("company").textContent = b.company_name;
+      if (b.logo) { var img = $("logo"); img.src = "api/v1/branding/logo?v=" + b.logo.version; img.classList.remove("hidden"); }
+    }).catch(function () {});
+  }
+
+  function start() {
+    branding();
+    var standalone = window.navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+    var first = token ? api("stamp/pair", "POST", { token: token }).then(function (st) {
+      if (st.insecure_http) $("httpHint").classList.remove("hidden");
+      if (!standalone && /iPhone|iPad/.test(navigator.userAgent)) $("homeHint").classList.remove("hidden");
+      return st;
+    }) : Promise.resolve(null);
+    first.then(function () {
+      if (action === "in" || action === "out" || action === "toggle") return stamp(action);
+      return api("stamp/status").then(function (st) { show(st); });
+    }).catch(fail);
+  }
+  start();
+  window.addEventListener("hashchange", function () { location.reload(); });
+})();
+</script>
+</body>
+</html>

@@ -2,6 +2,28 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.26.0] – 2026-11-08
+
+### Neu
+- **Abwesenheitskalender** (Reiter „Abwesenheiten“) für Admins und Vorgesetzte: Monatsübersicht Mitarbeiter × Tage mit
+  Urlaub, Krank, Gleittag, Überstunden-Abbau, Bildungsurlaub, Berufsschule, Elternzeit, halben Tagen und **offenen
+  Anträgen** (gestrichelt); Wochenenden, Feiertage und Teilzeit-freie Tage sind markiert, unten steht die Zahl der
+  Abwesenden pro Tag. Filter nach Filiale und einzelnen Mitarbeitern. Vorgesetzte ohne Admin-Rechte sehen nur ihr Team.
+- **Überschneidungs-Hinweis beim Genehmigen:** Unter „Anträge zur Freigabe“ steht bei jedem offenen Antrag, wer aus
+  derselben Filiale (sonst demselben Team) im Zeitraum schon fehlt – z. B. „Gleichzeitig weg: 2 von 5“ – mit Link
+  direkt in den Kalender.
+- **Stempel-Link ohne Kurzbefehle:** Die neue Seite `/stempeln` stempelt per Symbol auf dem Home-Bildschirm oder per
+  **NFC-Aufkleber mit Web-Adresse** (z. B. mit der App „NFC Tools“ beschrieben). Das Handy wird einmal über die
+  Einrichtungsseite gekoppelt (Schlüssel im HttpOnly-Cookie); der Aufkleber selbst enthält keinen Schlüssel und
+  funktioniert für alle eingerichteten Handys. Umschalt-Aufkleber ignorieren einen zweiten Scan innerhalb einer Minute.
+  Wünsche von @ralfmehner-collab (#4).
+
+### Geändert
+- **Einrichtungsseite fürs iPhone überarbeitet:** Stempel-Link und NFC zuerst, die Kurzbefehl-Anleitung nennt jetzt die
+  Begriffe der verschiedenen iOS-Versionen (z. B. „Sofort ausführen“ bzw. „Vor dem Ausführen fragen“ aus) und rät
+  bei iOS-Versionen mit KI-Beschreibung zur manuellen Bearbeitung, damit der Schlüssel nur im Kurzbefehl steht.
+- Wegezeit kann zusätzlich für den Stempel-Link (Home-Bildschirm) eingeschaltet werden.
+
 ## [0.25.0] – 2026-11-04
 
 ### Neu
@@ -330,6 +352,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.26.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.0
 [0.25.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.25.0
 [0.24.3]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.3
 [0.24.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.24.2

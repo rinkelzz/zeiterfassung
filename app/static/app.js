@@ -117,7 +117,10 @@ async function start() {
   $("ySelKind").innerHTML = Object.entries(state.settings.absence_kinds).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   const [wanted, wantedSec] = ((location.hash || "").slice(1) || store.get("tab") || "home").split("/");
   if (wantedSec) store.set("asec", wantedSec);
-  await showTab(["home", "month", "year", "admin", "me"].includes(wanted) && (wanted !== "admin" || isAdmin()) ? wanted : "home");
+  try { state.canDecide = (await api("leave/count")).can_decide; } catch (e) { state.canDecide = false; }
+  $$(".decider").forEach(el => el.classList.toggle("hidden", !state.canDecide));
+  const allowed = ["home", "month", "year", "admin", "me"].concat(state.canDecide ? ["team"] : []);
+  await showTab(allowed.includes(wanted) && (wanted !== "admin" || isAdmin()) ? wanted : "home");
   clearInterval(state.timer);
   refreshRequestCount();
   state.timer = setInterval(() => {
@@ -136,6 +139,7 @@ async function showTab(name) {
     if (name === "home") { await refreshHome(); loadLeave().catch(e => { $("lvErr").textContent = e.message; }); }
     if (name === "month") await loadMonth();
     if (name === "year") await loadYear();
+    if (name === "team") await loadTeam();
     if (name === "admin") { showAdminSec(store.get("asec") || "mitarbeiter"); await loadAdmin(); }
     if (name === "me") { loadMeMail(); showPinState(); showThemes(); loadMyRequests().catch(e => { $("myRqErr").textContent = e.message; }); await loadTokens(); }
   } catch (e) { if (e.message !== "Nicht angemeldet") console.error(e); }
@@ -630,6 +634,7 @@ async function refreshRequestCount() {
     set($("badgeMe"), c.mine || 0);
     set($("badgeHome"), l.decide || 0);
     state.canDecide = l.can_decide;
+    $$(".decider").forEach(el => el.classList.toggle("hidden", !l.can_decide));
   } catch (e) { /* egal */ }
 }
 
@@ -658,15 +663,88 @@ async function loadLeave() {
 async function loadLeaveDecide() {
   const list = await api("leave?scope=decide" + ($("lvDecideAll").checked ? "" : "&status=offen"));
   $("lvDecide").innerHTML = list.length ? "<thead><tr><th>Mitarbeiter</th><th>Art</th><th>Zeitraum</th><th class=\"num\">Tage</th><th class=\"num\">Resturlaub</th><th>Bemerkung</th><th>Status</th><th></th></tr></thead><tbody>" +
-    list.map(r => `<tr><td>${esc(r.display_name)}</td><td>${esc(r.kind_label)}</td><td>${esc(r.span)}</td><td class="num">${fmtDays(r.days)}</td>
+    list.map(r => `<tr><td>${esc(r.display_name)}</td><td>${esc(r.kind_label)}</td><td>${esc(r.span)}${ovlHtml(r)}</td><td class="num">${fmtDays(r.days)}</td>
       <td class="num">${r.vacation_remaining != null ? fmtDays(r.vacation_remaining) : ""}</td>
       <td class="small">${esc(r.decision_note || r.note || "")}</td><td>${LV_STATUS[r.status] || esc(r.status)}</td>
       <td class="nowrap">${r.can_decide ? `<button class="mini primary" data-lva="${r.id}">Genehmigen</button>
         <button class="mini danger" data-lvr="${r.id}">Ablehnen</button>` : ""}</td></tr>`).join("") + "</tbody>"
     : '<tbody><tr><td class="muted">Keine offenen Anträge.</td></tr></tbody>';
   $$("#lvDecide [data-lva]").forEach(b => b.onclick = () => decideLeave(b.dataset.lva, true));
+  $$("#lvDecide [data-tmgo]").forEach(a => a.onclick = e => {
+    e.preventDefault(); state.teamMonth = a.dataset.tmgo; state.teamHl = Number(a.dataset.uid); showTab("team");
+  });
   $$("#lvDecide [data-lvr]").forEach(b => b.onclick = () => decideLeave(b.dataset.lvr, false));
 }
+function ovlHtml(r) {
+  const o = r.overlap;
+  if (!o) return "";
+  const go = `<a href="#team" data-tmgo="${r.from.slice(0, 7)}" data-uid="${r.user_id}">im Kalender ansehen</a>`;
+  if (!o.absent.length) return `<div class="ovl">Im Zeitraum fehlt sonst niemand (${esc(o.group)}) · ${go}</div>`;
+  const who = o.absent.map(a => `<b>${esc(a.name)}</b> (${esc(a.kinds)} ${esc(a.span)}${a.pending ? ", beantragt" : ""})`).join(", ");
+  const busy = o.absent.length * 2 >= o.size - 1;
+  return `<div class="ovl${busy ? " busy" : ""}">Gleichzeitig weg: <b class="cnt">${o.absent.length} von ${o.size - 1}</b> (${esc(o.group)}): ${who} · ${go}</div>`;
+}
+
+// ---------- Abwesenheitskalender ----------
+const TM_SHORT = { urlaub: "U", krank: "K", gleittag: "G", mehrarbeit: "Ü", bildungsurlaub: "B", sonstiges: "S",
+                   berufsschule: "BS", elternzeit: "EZ" };
+async function loadTeam() {
+  $("tmErr").textContent = "";
+  if (!state.teamMonth) state.teamMonth = state.month || todayIso().slice(0, 7);
+  const [y, m] = state.teamMonth.split("-").map(Number);
+  $("tmLabel").textContent = new Date(y, m - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+  const q = new URLSearchParams({ month: state.teamMonth });
+  if (state.teamBranch) q.set("branch_id", state.teamBranch);
+  let d;
+  try { d = await api("leave/calendar?" + q.toString()); } catch (e) { $("tmErr").textContent = e.message; return; }
+  // Filiale
+  const bsel = $("tmBranch");
+  bsel.classList.toggle("hidden", !d.branches.length);
+  bsel.innerHTML = '<option value="">Alle Filialen</option>' + d.branches.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join("");
+  bsel.value = state.teamBranch || "";
+  // Mitarbeiter-Auswahl (gemerkt pro Browser)
+  const picked = new Set((store.get("teamPick") || "").split(",").filter(Boolean).map(Number));
+  $("tmPickList").innerHTML = `<label><input type="checkbox" data-pall ${picked.size ? "" : "checked"}> <b>Alle</b></label>` +
+    d.users.map(u => `<label><input type="checkbox" data-pick="${u.id}" ${picked.has(u.id) ? "checked" : ""}> ${esc(u.name)}</label>`).join("");
+  const users = picked.size ? d.users.filter(u => picked.has(u.id)) : d.users;
+  $("tmPickLabel").textContent = picked.size ? `${users.length} ausgewählt` : "Alle Mitarbeiter";
+  $$("#tmPickList [data-pick]").forEach(c => c.onchange = () => {
+    const ids = $$("#tmPickList [data-pick]").filter(x => x.checked).map(x => x.dataset.pick);
+    store.set("teamPick", ids.join(",")); loadTeam();
+  });
+  const all = document.querySelector("#tmPickList [data-pall]");
+  if (all) all.onchange = () => { store.set("teamPick", ""); loadTeam(); };
+  // Tabelle
+  const today = todayIso();
+  const cls = day => (day.holiday ? " hol" : (day.weekday >= 5 ? " we" : "")) + (day.date === today ? " today" : "");
+  const head = `<thead><tr><th class="nm">Mitarbeiter</th>` + d.days.map(day =>
+    `<th class="d${cls(day)}" title="${esc(day.holiday || "")}">${WD[day.weekday]}<br>${Number(day.date.slice(8))}</th>`).join("") + "</tr></thead>";
+  const count = {};
+  const rows = users.map(u => {
+    const cells = d.cells[u.id] || {}, off = new Set(u.off);
+    return `<tr class="${u.id === state.teamHl ? "hl" : ""}"><td class="nm" title="${esc(u.name)}">${esc(u.name)}${u.branches.length ? `<small>${esc(u.branches.join(", "))}</small>` : ""}</td>` +
+      d.days.map(day => {
+        const c = cells[day.date];
+        if (c && c.status !== "beantragt") count[day.date] = (count[day.date] || 0) + 1;
+        const inner = c ? `<span class="ab k-${c.kind}${c.half ? " half" : ""}${c.status === "beantragt" ? " pend" : ""}"
+          title="${esc(c.label)}${c.half ? " (halber Tag)" : ""} – ${c.status === "beantragt" ? "beantragt, noch offen" : "eingetragen"}">${TM_SHORT[c.kind] || "•"}</span>` : "";
+        return `<td class="d${cls(day)}${!c && off.has(day.date) && !day.holiday && day.weekday < 5 ? " off" : ""}">${inner}</td>`;
+      }).join("") + "</tr>";
+  }).join("");
+  const many = Math.max(2, Math.ceil(users.length / 2));
+  const sum = users.length ? `<tr class="sum"><td class="nm">abwesend</td>` + d.days.map(day => {
+    const n = count[day.date] || 0;
+    return `<td class="d${cls(day)}${n >= many ? " many" : ""}">${n || ""}</td>`;
+  }).join("") + "</tr>" : "";
+  $("tmTable").innerHTML = head + "<tbody>" + (rows || `<tr><td class="muted nm" colspan="${d.days.length + 1}">Keine Mitarbeiter in dieser Auswahl.</td></tr>`) + sum + "</tbody>";
+  const kinds = Object.entries(TM_SHORT).filter(([k]) => k in state.settings.absence_kinds);
+  $("tmLegend").innerHTML = kinds.map(([k, s]) => `<span><span class="ab k-${k}">${s}</span>${esc(state.settings.absence_kinds[k])}</span>`).join("") +
+    `<span><span class="ab k-urlaub pend">U</span>beantragt (offen)</span><span><span class="ab k-urlaub half">U</span>halber Tag</span>` +
+    `<span><span class="ab offsw">&nbsp;</span>arbeitsfreier Tag (Teilzeit)</span>`;
+  const hl = document.querySelector("#tmTable tr.hl");
+  if (hl) hl.scrollIntoView({ block: "nearest" });
+}
+
 async function decideLeave(id, ok) {
   $("lvDecideErr").textContent = "";
   const note = ok ? (prompt("Anmerkung für den Mitarbeiter (optional):", "") ?? null) : prompt("Warum wird der Antrag abgelehnt?", "");
@@ -1517,6 +1595,11 @@ $("smtpSec").onchange = () => {  // passenden Standard-Port vorschlagen
 };
 $("mailTest").onclick = testMail;
 $("meMailSave").onclick = saveMeMail;
+const tmShift = n => { const [y, m] = state.teamMonth.split("-").map(Number); const d = new Date(y, m - 1 + n, 1);
+  state.teamMonth = `${d.getFullYear()}-${p2(d.getMonth() + 1)}`; state.teamHl = null; loadTeam(); };
+$("tmPrev").onclick = () => tmShift(-1);
+$("tmNext").onclick = () => tmShift(1);
+$("tmBranch").onchange = () => { state.teamBranch = $("tmBranch").value || null; loadTeam(); };
 $("yPrev").onclick = () => { state.year--; clearSel(); loadYear(); };
 $("yNext").onclick = () => { state.year++; clearSel(); loadYear(); };
 $$(".userSel").forEach(s => s.addEventListener("change", () => {

@@ -176,6 +176,8 @@ def list_leave(
             target = conn.execute("SELECT * FROM users WHERE id = ?", (r["user_id"],)).fetchone()
             vac = vacation_account(conn, target, int(r["from_day"][:4]))
             item["vacation_remaining"] = vac["remaining"] if vac else None
+        if scope == "decide" and r["status"] == "offen":
+            item["overlap"] = overlap(conn, r, user)
         out.append(item)
     return out
 
@@ -273,3 +275,119 @@ def withdraw_leave(lid: int, user=Depends(current_user), conn: sqlite3.Connectio
     audit(conn, user["id"], "leave_withdrawn", f"user:{user['id']}", f"{ABSENCE_KINDS.get(req['kind'])} {_span(req)}")
     return leave_out(_load(conn, lid), user)
 
+
+
+# --- Abwesenheitskalender (Admins: alle, Vorgesetzte: ihr Team) ------------------------------
+
+def visible_users(conn, viewer) -> List[sqlite3.Row]:
+    """Wen darf der Betrachter im Kalender sehen? Admins alle aktiven, Vorgesetzte ihr Team (und sich selbst)."""
+    if viewer["is_admin"]:
+        return conn.execute("SELECT * FROM users WHERE active = 1 ORDER BY display_name COLLATE NOCASE").fetchall()
+    team = conn.execute("SELECT * FROM users WHERE active = 1 AND (manager_id = ? OR id = ?) "
+                        "ORDER BY display_name COLLATE NOCASE", (viewer["id"], viewer["id"])).fetchall()
+    if len(team) <= 1:
+        raise HTTPException(403, "Den Abwesenheitskalender sehen Admins und Vorgesetzte")
+    return team
+
+
+def _branch_map(conn) -> dict:
+    out: dict = {}
+    for r in conn.execute("SELECT ub.user_id, b.id, b.name FROM user_branches ub JOIN branches b ON b.id = ub.branch_id "
+                          "ORDER BY b.name COLLATE NOCASE"):
+        out.setdefault(r["user_id"], []).append({"id": r["id"], "name": r["name"]})
+    return out
+
+
+def _cells(conn, user_ids: List[int], d_from: date, d_to: date) -> dict:
+    """{user_id: {YYYY-MM-DD: {kind, label, half, status}}} – eingetragene Abwesenheiten und offene Anträge."""
+    cells: dict = {}
+    if not user_ids:
+        return cells
+    marks = ",".join("?" * len(user_ids))
+    for r in conn.execute(f"SELECT user_id, day, kind, half_day FROM absences WHERE user_id IN ({marks}) "
+                          "AND day BETWEEN ? AND ? AND kind != 'feiertag'", (*user_ids, d_from.isoformat(), d_to.isoformat())):
+        cells.setdefault(r["user_id"], {})[r["day"]] = {
+            "kind": r["kind"], "label": ABSENCE_KINDS.get(r["kind"], r["kind"]), "half": bool(r["half_day"]),
+            "status": "eingetragen"}
+    for r in conn.execute(f"SELECT * FROM leave_requests WHERE status = 'offen' AND user_id IN ({marks}) "
+                          "AND to_day >= ? AND from_day <= ?", (*user_ids, d_from.isoformat(), d_to.isoformat())):
+        lo, hi = max(date.fromisoformat(r["from_day"]), d_from), min(date.fromisoformat(r["to_day"]), d_to)
+        for d in daterange(lo, hi):
+            day = cells.setdefault(r["user_id"], {})
+            if d.isoformat() not in day:  # Eingetragenes geht vor
+                day[d.isoformat()] = {"kind": r["kind"], "label": ABSENCE_KINDS.get(r["kind"], r["kind"]),
+                                      "half": bool(r["half_day"]), "status": "beantragt", "request_id": r["id"]}
+    return cells
+
+
+@router.get("/calendar")
+def leave_calendar(
+    month: str = Query(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="YYYY-MM"),
+    branch_id: Optional[int] = Query(None, description="nur diese Filiale"),
+    users: Optional[str] = Query(None, description="nur diese Mitarbeiter (IDs, mit Komma getrennt)"),
+    user=Depends(current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    """Monatsübersicht der Abwesenheiten: genehmigt/eingetragen und offene Anträge."""
+    import calendar
+    y, m = int(month[:4]), int(month[5:])
+    d_from, d_to = date(y, m, 1), date(y, m, calendar.monthrange(y, m)[1])
+    people = visible_users(conn, user)
+    branches = _branch_map(conn)
+    all_branches = {b["id"]: b["name"] for lst in (branches.get(p["id"], []) for p in people) for b in lst}
+    if branch_id is not None:
+        people = [p for p in people if any(b["id"] == branch_id for b in branches.get(p["id"], []))]
+    if users:
+        try:
+            wanted = {int(x) for x in users.split(",") if x.strip()}
+        except ValueError:
+            raise HTTPException(400, "users: Liste von IDs, z. B. 3,5,8")
+        people = [p for p in people if p["id"] in wanted]
+    holidays = holidays_between(conn, d_from, d_to)
+    days = [{"date": d.isoformat(), "weekday": d.weekday(), "holiday": holidays.get(d)} for d in daterange(d_from, d_to)]
+    out_users = []
+    for p in people:
+        tgt = target_fn(conn, p)
+        out_users.append({"id": p["id"], "name": p["display_name"],
+                          "branches": [b["name"] for b in branches.get(p["id"], [])],
+                          "off": [d["date"] for d in days if tgt(date.fromisoformat(d["date"])) <= 0]})
+    return {"month": month, "days": days, "users": out_users,
+            "cells": {str(k): v for k, v in _cells(conn, [p["id"] for p in people], d_from, d_to).items()},
+            "branches": [{"id": k, "name": v} for k, v in sorted(all_branches.items(), key=lambda x: x[1].lower())]}
+
+
+def overlap(conn, req: sqlite3.Row, viewer) -> dict:
+    """Wer fehlt im Zeitraum des Antrags schon? Vergleichsgruppe: gleiche Filiale(n), sonst gleicher
+    Vorgesetzter, sonst alle aktiven Mitarbeiter – immer nur Leute, die der Betrachter auch im Kalender sieht."""
+    mine = [r[0] for r in conn.execute("SELECT branch_id FROM user_branches WHERE user_id = ?", (req["user_id"],))]
+    if mine:
+        marks = ",".join("?" * len(mine))
+        peers = conn.execute(f"SELECT DISTINCT u.id, u.display_name FROM users u JOIN user_branches ub ON ub.user_id = u.id "
+                             f"WHERE u.active = 1 AND ub.branch_id IN ({marks})", mine).fetchall()
+        names = [r[0] for r in conn.execute(f"SELECT name FROM branches WHERE id IN ({marks}) ORDER BY name", mine)]
+        group = "Filiale " + ", ".join(names)
+    elif req["manager_id"]:
+        peers = conn.execute("SELECT id, display_name FROM users WHERE active = 1 AND manager_id = ?",
+                             (req["manager_id"],)).fetchall()
+        group = f"Team von {req['manager_name']}" if req["manager_name"] else "Team"
+    else:
+        peers = conn.execute("SELECT id, display_name FROM users WHERE active = 1").fetchall()
+        group = "alle Mitarbeiter"
+    if viewer["is_admin"]:
+        allowed = None
+    else:
+        allowed = {r[0] for r in conn.execute("SELECT id FROM users WHERE manager_id = ? OR id = ?", (viewer["id"], viewer["id"]))}
+    others = {p["id"]: p["display_name"] for p in peers
+              if p["id"] != req["user_id"] and (allowed is None or p["id"] in allowed)}
+    d_from, d_to = date.fromisoformat(req["from_day"]), date.fromisoformat(req["to_day"])
+    cells = _cells(conn, list(others), d_from, d_to)
+    items = []
+    for uid, days in cells.items():
+        ds = sorted(days)
+        kinds = sorted({v["label"] for v in days.values()})
+        pending = all(v["status"] == "beantragt" for v in days.values())
+        span = _de(ds[0]) if len(ds) == 1 else f"{_de(ds[0])} – {_de(ds[-1])}"
+        items.append({"user_id": uid, "name": others[uid], "span": span, "days": len(ds),
+                      "kinds": ", ".join(kinds), "pending": pending})
+    items.sort(key=lambda x: x["name"].lower())
+    return {"group": group, "size": len(others) + 1, "absent": items}

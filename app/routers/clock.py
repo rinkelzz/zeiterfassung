@@ -20,7 +20,7 @@ from ..timeutil import fmt_duration, local_hhmm, local_iso, now_utc, now_utc_str
 
 router = APIRouter(prefix="/api/v1/clock", tags=["Stempeln"])
 
-SOURCES = ("web", "shortcut", "kiosk", "nfc", "manual", "api")
+SOURCES = ("web", "shortcut", "kiosk", "nfc", "link", "manual", "api")
 
 
 class ClockIn(BaseModel):

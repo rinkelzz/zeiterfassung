@@ -35,6 +35,10 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
 |---|---|
 | ![Korrekturanträge](docs/screenshots/antraege.png) | ![Monatsabschluss](docs/screenshots/abschluss.png) |
 
+| Abwesenheitskalender (Admins und Vorgesetzte) | Stempel-Link per NFC-Aufkleber |
+|---|---|
+| ![Abwesenheiten](docs/screenshots/abwesenheiten.png) | ![Stempel-Link](docs/screenshots/stempel-link.png) |
+
 | Jahreskalender | Änderungsprotokoll |
 |---|---|
 | ![Jahr](docs/screenshots/jahr.png) | ![Änderungsprotokoll](docs/screenshots/protokoll.png) |
@@ -64,6 +68,8 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
 
 **Stempeln**
 - Weboberfläche (auch am Handy), iPhone-Kurzbefehle, Standort-Automation, NFC-Aufkleber
+- **Stempel-Link** ohne Kurzbefehle: Symbol auf dem Home-Bildschirm oder NFC-Aufkleber mit Web-Adresse –
+  ein Aufkleber für das ganze Team, er enthält keinen persönlichen Schlüssel
 - **Kiosk-Tablet** an der Wache: Name antippen, PIN eingeben, Kommen/Gehen – mit Anzeige, wer gerade da ist,
   den eigenen Kontoständen nach der PIN und Filialen für mehrere Standorte; pro Tablet einstellbar: große oder kleine
   Kacheln oder Liste, Anwesende zuerst, Anzeigedauer der Bestätigung (2–15 Sekunden, Antippen schließt sofort)
@@ -97,6 +103,8 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
   genehmigt per Klick (wird übernommen) oder lehnt mit Begründung ab – mit Mail an beide Seiten
 - **Urlaubsanträge:** Mitarbeiter beantragen Urlaub, Gleittag, Überstunden-Abbau, Bildungs- oder Sonderurlaub
   (auch halbe Tage); der **Vorgesetzte** (z. B. Filialleiter) oder ein Admin genehmigt – erst dann wird eingetragen
+- **Abwesenheitskalender** für Admins (alle) und Vorgesetzte (ihr Team): Monatsübersicht mit Urlaub, Krank & Co.,
+  offenen Anträgen, Filter nach Filiale und Mitarbeitern; beim Genehmigen zeigt die App, wer im Zeitraum schon fehlt
 - **Übersichtliche Verwaltung** mit Unterbereichen (Mitarbeiter, Anträge, Abschluss, Kiosk & Filialen,
   Einstellungen, Mail, Sicherung & Updates, Protokoll)
 - **Monatsabschluss** pro Mitarbeiter: Monat sperren und Kontostände festschreiben, Wiederöffnen nur mit Begründung
@@ -195,7 +203,18 @@ Greift jemand per `http://` von außerhalb des Heimnetzes zu, zeigt die App oben
 ### iPhone und NFC einrichten
 
 Unter **Mein Zugang → QR-Code erzeugen** und mit der iPhone-Kamera scannen. Die Einrichtungsseite
-erklärt Schritt für Schritt die Kurzbefehle „Kommen“/„Gehen“, die Standort-Automation und NFC.
+erklärt Schritt für Schritt den Stempel-Link, NFC-Aufkleber, die Kurzbefehle „Kommen“/„Gehen“ und die Standort-Automation.
+
+**Stempel-Link (am einfachsten, ohne Kurzbefehle):** Auf der Einrichtungsseite „Stempel-Link auf diesem Handy
+einrichten“ antippen. Die Seite `<server>/stempeln` merkt sich das Gerät (der Schlüssel liegt danach in einem
+HttpOnly-Cookie, nicht mehr in der Adresse) und zeigt einen großen Knopf Kommen/Gehen – in Safari mit
+**Teilen → Zum Home-Bildschirm** als Symbol ablegen. Für **NFC** eine dieser Adressen mit einer App wie „NFC Tools“
+auf einen Aufkleber schreiben: `<server>/stempeln?a=in&src=nfc`, `…?a=out&src=nfc` oder `…?a=toggle&src=nfc`
+(Umschalten; ein zweiter Scan innerhalb einer Minute ändert nichts). Der Aufkleber enthält keinen Schlüssel –
+er funktioniert für jedes eingerichtete Handy, fremde Handys sehen nur „nicht eingerichtet“. Beim Scannen erscheint
+oben eine Mitteilung, ein Tipp darauf stempelt.
+
+**Kurzbefehle (vollautomatisch per Standort):**
 Technisch ist es jeweils ein `POST` mit `Authorization: Bearer <token>`. Diese Schlüssel gelten **nur zum
 Stempeln** – geht ein Handy oder NFC-Aufkleber verloren, kommt damit niemand an Konten, Berichte oder die
 Verwaltung. Trotzdem das verlorene Gerät unter „Mein Zugang“ bzw. in der Verwaltung sperren.
@@ -210,7 +229,7 @@ Verwaltung. Trotzdem das verlorene Gerät unter „Mein Zugang“ bzw. in der Ve
 Die Antwort enthält `message` (z. B. „Eingestempelt um 07:02 Uhr“). Mit den Kurzbefehl-Aktionen
 „Wörterbuchwert abrufen“ (Schlüssel `message`) und „Mitteilung anzeigen“ erscheint sie als Mitteilung.
 
-**NFC:** Kurzbefehle → Automation → NFC → Aufkleber scannen → „Sofort ausführen“. Mit einem Aufkleber
+**NFC per Kurzbefehl (Alternative):** Kurzbefehle → Automation → NFC → Aufkleber scannen → „Sofort ausführen“. Mit einem Aufkleber
 die Umschalt-Adresse verwenden (dann **ohne** Standort-Automation), mit zwei Aufklebern Kommen und Gehen
 getrennt. Für Metallflächen werden **On-Metal-NFC-Aufkleber** (mit Ferrit-Schicht) benötigt. Die
 **Wegezeit** (Verwaltung → Einstellungen) wird standardmäßig nur bei NFC-Stempeln dazugerechnet.
@@ -273,6 +292,13 @@ die Entscheidung per Mail und sieht seine Anträge unter **Mein Zugang**.
 
 Ohne Vorgesetzten gehen Anträge an die Admins; Admins können jeden Antrag entscheiden. Offene Anträge lassen
 sich zurückziehen.
+
+**Abwesenheitskalender:** Admins und Vorgesetzte sehen den Reiter **Abwesenheiten** – eine Monatsübersicht
+(Mitarbeiter × Tage) mit Urlaub, Krank, Gleittag & Co., offenen Anträgen (gestrichelt), halben Tagen,
+Wochenenden, Feiertagen und Teilzeit-freien Tagen; unten die Zahl der Abwesenden pro Tag. Filter nach Filiale
+und einzelnen Mitarbeitern. Vorgesetzte ohne Admin-Rechte sehen nur ihr Team. In **Anträge zur Freigabe**
+steht bei jedem offenen Antrag, wer aus derselben Filiale (bzw. demselben Team) im Zeitraum schon fehlt –
+mit Link „im Kalender ansehen“.
 
 **Admins anlegen:** Beim Anlegen „Admin“ ankreuzen oder unter Mitarbeiter → Bearbeiten das Häkchen **Admin** setzen.
 Die eigenen Admin-Rechte kann man sich nicht selbst entziehen, und der letzte Admin bleibt immer Admin.
@@ -390,6 +416,8 @@ Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The 
 - Correction requests: employees request adding, changing or deleting a punch; admins approve (applied
   automatically) or reject with a reason, with email notifications
 - Leave requests (vacation, flex days, half days …) approved by the employee's manager (e.g. branch manager) or an admin
+- Absence calendar for admins (everyone) and managers (their team) with pending requests; overlap hint when approving
+- "Stamp link" without Shortcuts: home-screen icon or NFC tag with a plain URL (no secret on the tag, one tag for the whole team)
 - Month closing per employee: locks the month and freezes the account balances (reopen with a reason)
 - Monthly and yearly reports as PDF and Excel, delivered automatically by email (own SMTP server)
 - Runs in its own DSM window with single sign-on for DSM users; login with DSM credentials incl. 2FA
