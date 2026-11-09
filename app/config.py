@@ -29,7 +29,7 @@ class Settings:
         self.port = int(os.environ.get("ZE_PORT", "8765"))
         # Session-Cookie nur über HTTPS senden (hinter Reverse Proxy mit TLS: an)
         self.cookie_secure = _bool("ZE_COOKIE_SECURE", False)
-        self.session_days = int(os.environ.get("ZE_SESSION_DAYS", "30"))
+        self.session_days = int(os.environ.get("ZE_SESSION_DAYS", "7"))
         # Ordner der DSM-Oberfläche (ui/), dort liegt app.json fürs DSM-Fenster
         self.ui_dir = os.environ.get("ZE_UI_DIR", "")
         # Automatischer Berichtsversand per Mail (Hintergrund-Thread); in Tests aus

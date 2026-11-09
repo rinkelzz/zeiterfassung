@@ -70,6 +70,8 @@ def _strip_secrets(db: sqlite3.Connection) -> None:
     """Mail-Passwort in der Sicherungskopie leeren – und per VACUUM auch aus freien Seiten entfernen."""
     db.execute("PRAGMA secure_delete = ON")
     db.executemany("UPDATE app_settings SET value = '' WHERE key = ?", [(k,) for k in SECRET_SETTINGS])
+    # Browser-Sitzungen gehören nicht in eine Sicherung (nach dem Wiederherstellen bleibt man trotzdem angemeldet)
+    db.execute("DELETE FROM sessions")
     db.commit()
     db.execute("VACUUM")
 
@@ -248,6 +250,10 @@ def restore(name: str, actor_id: Optional[int] = None) -> Dict:
             try:
                 # Mail-Passwort steht nicht in der Sicherung → auf derselben NAS das aktuelle behalten
                 kept = {k: get_setting(live, k) for k in SECRET_SETTINGS}
+                # Sitzungen stehen nicht in der Sicherung → angemeldete Benutzer bleiben angemeldet
+                sessions = [tuple(r) for r in live.execute(
+                    "SELECT s.token_hash, s.created_at, s.expires_at, u.username "
+                    "FROM sessions s JOIN users u ON u.id = s.user_id").fetchall()]
                 src.backup(live)
                 live.row_factory = sqlite3.Row
                 migrate(live)  # ältere Sicherung → aktuelles Schema
@@ -256,6 +262,11 @@ def restore(name: str, actor_id: Optional[int] = None) -> Dict:
                         live.execute("INSERT INTO app_settings(key, value) VALUES (?, ?) "
                                      "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (k, v))
                 smtp_missing = bool(get_setting(live, "smtp_host")) and not get_setting(live, "smtp_password")
+                for token_hash, created_at, expires_at, username in sessions:
+                    u = live.execute("SELECT id FROM users WHERE username = ? AND active = 1", (username,)).fetchone()
+                    if u:
+                        live.execute("INSERT OR IGNORE INTO sessions(token_hash, user_id, created_at, expires_at) "
+                                     "VALUES (?, ?, ?, ?)", (token_hash, u[0], created_at, expires_at))
                 audit(live, actor_id, "backup_restored", name, f"vorher gesichert als {before['name']}")
             finally:
                 src.close()

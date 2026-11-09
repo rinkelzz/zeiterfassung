@@ -65,7 +65,9 @@ def publish_proxy_files() -> bool:
             p = target / name
             tmp = p.with_name(name + ".tmp")
             tmp.write_text(content, encoding="utf-8")
-            os.chmod(tmp, 0o644)  # der DSM-Webserver muss es lesen können
+            # Nur der Paketbenutzer darf den Schlüssel lesen: app.cgi läuft als Paketbenutzer (auf einer NAS mit DSM 7
+            # geprüft). Sonst könnte sich jeder lokale Benutzer gegenüber 127.0.0.1 als beliebiger DSM-Benutzer ausgeben.
+            os.chmod(tmp, 0o600 if name == ".proxy_secret" else 0o644)
             tmp.replace(p)
         return True
     except OSError as e:

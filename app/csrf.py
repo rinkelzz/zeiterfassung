@@ -28,7 +28,9 @@ def _netloc(url: Optional[str]) -> str:
 
 
 def _own_hosts(headers) -> Set[str]:
-    hosts = {h.strip().lower() for h in (headers.get("host"), headers.get("x-forwarded-host")) if h}
+    # Nur der Host-Header (setzt der Browser selbst) und die eingetragene öffentliche Adresse zählen –
+    # X-Forwarded-Host könnte ein vorgeschalteter Proxy ungeprüft vom Client übernehmen.
+    hosts = {h.strip().lower() for h in (headers.get("host"),) if h}
     for h in list(hosts):  # Standard-Ports weglassen dürfen
         for port in (":80", ":443"):
             if h.endswith(port):
