@@ -19,6 +19,7 @@ Unterstützt wird jeweils die neueste Version unter [Releases](https://github.co
   **Öffentliche Adresse** in den Einstellungen eintragen.
 - Der Schlüssel für das DSM-Fenster (`.proxy_secret` im Paketordner) wird nur von Verbindungen über
   127.0.0.1 ohne `X-Forwarded-For` angenommen, also nur von `app.cgi` auf der NAS selbst.
+  Die Datei ist nur für den Paketbenutzer lesbar (Modus 0600), unter dem auch `app.cgi` läuft.
 - Updates kommen aus den GitHub-Releases dieses Repos. Sie sind nicht zusätzlich signiert – geschützt
   sind sie durch HTTPS und das (per Zwei-Faktor gesicherte) GitHub-Konto des Maintainers.
 - Das SMTP-Passwort liegt in der Datenbank der App (`/var/packages/zeiterfassung/var/`), lesbar nur für
