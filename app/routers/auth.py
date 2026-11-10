@@ -75,6 +75,7 @@ def user_out(row: sqlite3.Row) -> dict:
         "has_pin": bool(row["pin_hash"]) if "pin_hash" in row.keys() else False,
         "manager_id": row["manager_id"] if "manager_id" in row.keys() else None,
         "theme": row["theme"] if "theme" in row.keys() else None,
+        "calendar_access": bool(row["calendar_access"]) if "calendar_access" in row.keys() else False,
     }
 
 

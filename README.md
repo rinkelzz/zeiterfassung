@@ -300,6 +300,10 @@ und einzelnen Mitarbeitern. Vorgesetzte ohne Admin-Rechte sehen nur ihr Team. In
 steht bei jedem offenen Antrag, wer aus derselben Filiale (bzw. demselben Team) im Zeitraum schon fehlt –
 mit Link „im Kalender ansehen“.
 
+Einzelne Mitarbeiter lassen sich unter **Mitarbeiter → Bearbeiten → Rolle** mit **„Darf den Abwesenheitskalender sehen“**
+freigeben: Sie sehen die Kollegen ihrer Filiale(n) nur als „abwesend“ (ohne Art, ohne offene Anträge). Welche Wochentage
+im Kalender weiß sind, legt **Einstellungen → Allgemein → Arbeitstage der Firma** fest (z. B. Di–Sa).
+
 **Admins anlegen:** Beim Anlegen „Admin“ ankreuzen oder unter Mitarbeiter → Bearbeiten das Häkchen **Admin** setzen.
 Die eigenen Admin-Rechte kann man sich nicht selbst entziehen, und der letzte Admin bleibt immer Admin.
 

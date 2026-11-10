@@ -78,7 +78,7 @@ def test_request_and_approve_by_manager(admin, team, mails):
     to, subject, body = mails[-1]
     assert to == ["leiternord@example.de"] and "Urlaubsantrag von Anton" in subject and "Resturlaub 2026 danach: 25" in body
     # Zähler
-    assert nord.get("/api/v1/leave/count").json() == {"decide": 1, "mine": 0, "can_decide": True}
+    assert nord.get("/api/v1/leave/count").json() == {"decide": 1, "mine": 0, "can_decide": True, "can_calendar": True}
     assert sued.get("/api/v1/leave/count").json()["decide"] == 0
     assert anton.get("/api/v1/leave/count").json()["can_decide"] is False
     # falscher Filialleiter und der Mitarbeiter selbst dürfen nicht

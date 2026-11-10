@@ -261,7 +261,7 @@ table.team tr.sum td.many { color: var(--out); }
 .ab.offsw { background-color: var(--card); border: 1px solid var(--line);
   background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--muted) 30%, transparent) 4px 5px); }
 .k-urlaub { --k: #2e78d6; } .k-krank { --k: #d92d20; } .k-gleittag { --k: #0e9384; } .k-mehrarbeit { --k: #dc6803; }
-.k-bildungsurlaub { --k: #6941c6; } .k-sonstiges { --k: #667085; } .k-berufsschule { --k: #0086c9; } .k-elternzeit { --k: #c11574; }
+.k-abwesend { --k: #7d8796; } .k-bildungsurlaub { --k: #6941c6; } .k-sonstiges { --k: #667085; } .k-berufsschule { --k: #0086c9; } .k-elternzeit { --k: #c11574; }
 .tmLegend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; color: var(--muted); align-items: center; }
 .tmLegend .ab { display: inline-block; width: 22px; margin: 0 4px 0 0; vertical-align: middle; text-align: center; }
 details.tmPick { position: relative; }

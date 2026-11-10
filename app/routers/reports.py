@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from .. import csvsafe
 from ..config import THEMES, settings as app_settings
-from ..db import audit, get_db, get_setting
+from ..db import audit, company_workdays, get_db, get_setting
 from ..mailer import FORMATS, MailError, send_mail, send_report, smtp_config, valid_email
 from ..report_files import parse_period, render
 from ..dsm import write_ui_config
@@ -272,6 +272,7 @@ class SettingsIn(BaseModel):
     bundesland: Optional[str] = None
     company_free_days: Optional[str] = Field(None, max_length=300, description="z. B. 12-24, 12-31")
     theme_default: Optional[str] = Field(None, description="Standard-Design für alle (classic, dsm, dark, warm)")
+    company_workdays: Optional[List[int]] = Field(None, description="Arbeitstage der Firma (1 = Mo … 7 = So), im Abwesenheitskalender weiß")
     regional_holidays: Optional[List[str]] = Field(
         None, description="eingeschaltete regionale Feiertage des Bundeslands (Schlüssel aus regional_options)")
     break_mode: Optional[str] = Field(None, description="none, arbzg oder fixed")
@@ -309,6 +310,7 @@ def _settings_out(conn) -> dict:
         "regional_by_land": regional_all(),
         "theme_default": get_setting(conn, "theme_default") or "classic",
         "themes": THEMES,
+        "company_workdays": company_workdays(conn),
         "regional_holidays": sorted(parse_regional(get_setting(conn, "regional_holidays") or "default",
                                                    get_setting(conn, "bundesland"))),
         "break_mode": rule["mode"],
@@ -371,6 +373,11 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         if bl != get_setting(conn, "bundesland") and "regional_holidays" not in changes:
             _set(conn, "regional_holidays", "default")  # neues Land → dessen Voreinstellung
         _set(conn, "bundesland", bl)
+    if "company_workdays" in changes:
+        days = sorted(set(data.company_workdays or []))
+        if not days or any(d < 1 or d > 7 for d in days):
+            raise HTTPException(400, "Arbeitstage: mindestens ein Wochentag (1 = Mo … 7 = So)")
+        _set(conn, "company_workdays", ",".join(str(d) for d in days))
     if "theme_default" in changes:
         if data.theme_default not in THEMES:
             raise HTTPException(400, "Unbekanntes Design")

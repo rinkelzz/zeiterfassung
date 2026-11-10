@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -121,6 +121,7 @@ DEFAULT_SETTINGS = {
     "regional_holidays": "default",
     "theme_default": "classic",
     "company_name": "",
+    "company_workdays": "1,2,3,4,5",   # im Abwesenheitskalender weiß hinterlegte Wochentage (1 = Mo)
 }
 
 
@@ -310,6 +311,10 @@ def migrate(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE kiosk_devices ADD COLUMN present_first INTEGER NOT NULL DEFAULT 0")
         if "done_seconds" not in cols:
             conn.execute("ALTER TABLE kiosk_devices ADD COLUMN done_seconds INTEGER NOT NULL DEFAULT 4")
+    if version < 17:
+        # Abwesenheitskalender auch für einzelne Mitarbeiter (eigene Filiale, nur „abwesend“)
+        if "calendar_access" not in _columns(conn, "users"):
+            conn.execute("ALTER TABLE users ADD COLUMN calendar_access INTEGER NOT NULL DEFAULT 0")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
@@ -413,3 +418,10 @@ def audit(conn: sqlite3.Connection, actor_id, action: str, target: str = "", det
         "INSERT INTO audit_log(ts, actor_id, action, target, details, subject_user_id) VALUES (?, ?, ?, ?, ?, ?)",
         (now_utc_str(), actor_id, action, target, details, audit_subject(conn, actor_id, action, target, details)),
     )
+
+
+def company_workdays(conn) -> list:
+    """Wochentage, an denen die Firma arbeitet (1 = Mo … 7 = So) – für den Abwesenheitskalender."""
+    raw = get_setting(conn, "company_workdays") or "1,2,3,4,5"
+    days = sorted({int(x) for x in raw.split(",") if x.strip().isdigit() and 1 <= int(x) <= 7})
+    return days or [1, 2, 3, 4, 5]

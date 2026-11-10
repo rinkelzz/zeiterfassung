@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.27.0] – 2026-11-10
+
+### Neu
+- **Abwesenheitskalender für einzelne Mitarbeiter freigeben:** Unter Verwaltung → Mitarbeiter → Bearbeiten → Rolle
+  gibt es den Haken **„Darf den Abwesenheitskalender sehen“** – auch ohne Admin- oder Vorgesetzten-Rechte. Freigegebene
+  Mitarbeiter sehen die Kollegen ihrer Filiale(n) (ohne Filiale alle), aber nur als neutrales **„abwesend“** – ohne Art
+  (Krankheit bleibt privat) und ohne offene Anträge. Die eigenen Einträge sehen sie vollständig.
+- **Arbeitstage der Firma** (Verwaltung → Einstellungen → Allgemein): Diese Wochentage sind im Abwesenheitskalender weiß,
+  die übrigen grau – z. B. Dienstag bis Samstag. Standard bleibt Montag bis Freitag.
+  Wünsche von @ralfmehner-collab (#5).
+
 ## [0.26.2] – 2026-11-09
 
 ### Sicherheit (aus einem externen Review)
@@ -373,6 +384,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.27.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.27.0
 [0.26.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.2
 [0.26.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.1
 [0.26.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.0

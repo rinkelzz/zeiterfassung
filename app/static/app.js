@@ -117,9 +117,10 @@ async function start() {
   $("ySelKind").innerHTML = Object.entries(state.settings.absence_kinds).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   const [wanted, wantedSec] = ((location.hash || "").slice(1) || store.get("tab") || "home").split("/");
   if (wantedSec) store.set("asec", wantedSec);
-  try { state.canDecide = (await api("leave/count")).can_decide; } catch (e) { state.canDecide = false; }
-  $$(".decider").forEach(el => el.classList.toggle("hidden", !state.canDecide));
-  const allowed = ["home", "month", "year", "admin", "me"].concat(state.canDecide ? ["team"] : []);
+  try { const lc = await api("leave/count"); state.canDecide = lc.can_decide; state.canCalendar = lc.can_calendar; }
+  catch (e) { state.canDecide = false; state.canCalendar = false; }
+  $$(".decider").forEach(el => el.classList.toggle("hidden", !state.canCalendar));
+  const allowed = ["home", "month", "year", "admin", "me"].concat(state.canCalendar ? ["team"] : []);
   await showTab(allowed.includes(wanted) && (wanted !== "admin" || isAdmin()) ? wanted : "home");
   clearInterval(state.timer);
   refreshRequestCount();
@@ -634,7 +635,8 @@ async function refreshRequestCount() {
     set($("badgeMe"), c.mine || 0);
     set($("badgeHome"), l.decide || 0);
     state.canDecide = l.can_decide;
-    $$(".decider").forEach(el => el.classList.toggle("hidden", !l.can_decide));
+    state.canCalendar = l.can_calendar;
+    $$(".decider").forEach(el => el.classList.toggle("hidden", !l.can_calendar));
   } catch (e) { /* egal */ }
 }
 
@@ -687,7 +689,7 @@ function ovlHtml(r) {
 
 // ---------- Abwesenheitskalender ----------
 const TM_SHORT = { urlaub: "U", krank: "K", gleittag: "G", mehrarbeit: "Ü", bildungsurlaub: "B", sonstiges: "S",
-                   berufsschule: "BS", elternzeit: "EZ" };
+                   berufsschule: "BS", elternzeit: "EZ", abwesend: "A" };
 async function loadTeam() {
   $("tmErr").textContent = "";
   if (!state.teamMonth) state.teamMonth = state.month || todayIso().slice(0, 7);
@@ -716,7 +718,9 @@ async function loadTeam() {
   if (all) all.onchange = () => { store.set("teamPick", ""); loadTeam(); };
   // Tabelle
   const today = todayIso();
-  const cls = day => (day.holiday ? " hol" : (day.weekday >= 5 ? " we" : "")) + (day.date === today ? " today" : "");
+  const workdays = new Set(d.workdays || [1, 2, 3, 4, 5]);
+  const isWork = day => workdays.has(day.weekday + 1);
+  const cls = day => (day.holiday ? " hol" : (!isWork(day) ? " we" : "")) + (day.date === today ? " today" : "");
   const head = `<thead><tr><th class="nm">Mitarbeiter</th>` + d.days.map(day =>
     `<th class="d${cls(day)}" title="${esc(day.holiday || "")}">${WD[day.weekday]}<br>${Number(day.date.slice(8))}</th>`).join("") + "</tr></thead>";
   const count = {};
@@ -728,7 +732,7 @@ async function loadTeam() {
         if (c && c.status !== "beantragt") count[day.date] = (count[day.date] || 0) + 1;
         const inner = c ? `<span class="ab k-${c.kind}${c.half ? " half" : ""}${c.status === "beantragt" ? " pend" : ""}"
           title="${esc(c.label)}${c.half ? " (halber Tag)" : ""} – ${c.status === "beantragt" ? "beantragt, noch offen" : "eingetragen"}">${TM_SHORT[c.kind] || "•"}</span>` : "";
-        return `<td class="d${cls(day)}${!c && off.has(day.date) && !day.holiday && day.weekday < 5 ? " off" : ""}">${inner}</td>`;
+        return `<td class="d${cls(day)}${!c && off.has(day.date) && !day.holiday && isWork(day) ? " off" : ""}">${inner}</td>`;
       }).join("") + "</tr>";
   }).join("");
   const many = Math.max(2, Math.ceil(users.length / 2));
@@ -738,7 +742,8 @@ async function loadTeam() {
   }).join("") + "</tr>" : "";
   $("tmTable").innerHTML = head + "<tbody>" + (rows || `<tr><td class="muted nm" colspan="${d.days.length + 1}">Keine Mitarbeiter in dieser Auswahl.</td></tr>`) + sum + "</tbody>";
   const kinds = Object.entries(TM_SHORT).filter(([k]) => k in state.settings.absence_kinds);
-  $("tmLegend").innerHTML = kinds.map(([k, s]) => `<span><span class="ab k-${k}">${s}</span>${esc(state.settings.absence_kinds[k])}</span>`).join("") +
+  $("tmLegend").innerHTML = (d.detail === "mixed" ? `<span><span class="ab k-abwesend">A</span>abwesend (Kollegen, ohne Art)</span>` : "") +
+    kinds.map(([k, s]) => `<span><span class="ab k-${k}">${s}</span>${esc(state.settings.absence_kinds[k])}</span>`).join("") +
     `<span><span class="ab k-urlaub pend">U</span>beantragt (offen)</span><span><span class="ab k-urlaub half">U</span>halber Tag</span>` +
     `<span><span class="ab offsw">&nbsp;</span>arbeitsfreier Tag (Teilzeit)</span>`;
   const hl = document.querySelector("#tmTable tr.hl");
@@ -1199,6 +1204,7 @@ function openUserEdit(tr) {
         <label title="Bekommt die Urlaubsanträge zur Freigabe">Vorgesetzter (genehmigt Urlaub)
           <select class="umgr"><option value="">– keiner (Admins) –</option>${state.allUsers.filter(m => m.active && m.id !== u.id)
             .map(m => `<option value="${m.id}" ${m.id === u.manager_id ? "selected" : ""}>${esc(m.display_name)}</option>`).join("")}</select></label>
+        <label class="inline" title="Sieht die Kollegen seiner Filiale(n) – nur „abwesend“, ohne Art (Krankheit bleibt privat)"><input type="checkbox" class="ucal" ${u.calendar_access || u.is_admin ? "checked" : ""} ${u.is_admin ? "disabled" : ""}> Darf den Abwesenheitskalender sehen</label>
         <label class="inline"><input type="checkbox" class="uadm" ${u.is_admin ? "checked" : ""} ${self ? 'disabled title="Eigene Admin-Rechte kann man sich nicht selbst entziehen"' : ""}> Admin (darf alles verwalten)</label>
       </fieldset>
       <fieldset><legend>Konten</legend>
@@ -1239,6 +1245,7 @@ async function saveUserRow(btn) {
       report_mail: tr.querySelector(".urm").checked,
       manager_id: tr.querySelector(".umgr").value ? Number(tr.querySelector(".umgr").value) : null,
     };
+    if (!tr.querySelector(".ucal").disabled) body.calendar_access = tr.querySelector(".ucal").checked;
     if (!tr.querySelector(".uadm").disabled) body.is_admin = tr.querySelector(".uadm").checked;
     const pw = tr.querySelector(".up").value;
     if (pw) body.password = pw;
@@ -1293,6 +1300,9 @@ async function loadSettingsForm() {
   $("setBl").value = s.bundesland; $("setFree").value = s.company_free_days;
   $("setTheme").innerHTML = Object.entries(s.themes || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   $("setTheme").value = s.theme_default || "classic";
+  const cw = new Set(s.company_workdays || [1, 2, 3, 4, 5]);
+  $("setWorkdays").innerHTML = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((n, i) =>
+    `<label class="inline"><input type="checkbox" class="cwd" value="${i + 1}" ${cw.has(i + 1) ? "checked" : ""}> ${n}</label>`).join("");
   applyBranding(state.branding || { company_name: "", logo: null });
   showRegional(s.bundesland, s.regional_holidays);
   $("setUrl").value = s.public_url || "";
@@ -1339,6 +1349,7 @@ async function saveSettings() {
     await api("settings", { method: "PATCH", body: { bundesland: $("setBl").value, company_free_days: $("setFree").value,
       regional_holidays: $$(".regHol").filter(c => c.checked).map(c => c.value),
       theme_default: $("setTheme").value,
+      company_workdays: $$(".cwd").filter(c => c.checked).map(c => Number(c.value)),
       break_mode: $("setBreak").value, break_minutes: Number($("setMin").value || 0), public_url: $("setUrl").value.trim(),
       dsm_login: $("setDsmLogin").checked, dsm_auto_create: $("setDsmCreate").checked, dsm_admins: $("setDsmAdmins").checked,
       dsm_url: $("setDsmUrl").value.trim() || null,
