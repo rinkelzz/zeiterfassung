@@ -15,13 +15,13 @@ from pydantic import BaseModel, Field
 
 from ..closing import ensure_open
 from ..db import audit, company_workdays, get_db
-from ..reports import ABSENCE_KINDS, holidays_between, target_fn, vacation_account
+from ..reports import ABSENCE_KINDS, SICK_KINDS, holidays_between, target_fn, vacation_account
 from ..security import current_user
 from ..timeutil import daterange, local_iso, now_utc_str
 from .requests import _mail
 
 router = APIRouter(prefix="/api/v1/leave", tags=["Urlaubsanträge"])
-KINDS = ("urlaub", "gleittag", "mehrarbeit", "bildungsurlaub", "sonstiges")
+KINDS = ("urlaub", "gleittag", "mehrarbeit", "bildungsurlaub", "sonstiges", "kind_krank")
 STATUS = ("offen", "genehmigt", "abgelehnt", "zurueckgezogen")
 SELECT = ("SELECT l.*, u.display_name, u.manager_id, d.display_name AS decided_by_name, "
           "m.display_name AS manager_name FROM leave_requests l JOIN users u ON u.id = l.user_id "
@@ -280,12 +280,20 @@ def withdraw_leave(lid: int, user=Depends(current_user), conn: sqlite3.Connectio
 
 # --- Abwesenheitskalender (Admins: alle, Vorgesetzte: ihr Team) ------------------------------
 
-def _has_calendar_flag(viewer) -> bool:
-    return "calendar_access" in viewer.keys() and bool(viewer["calendar_access"])
+# Stufen für Mitarbeiter ohne Admin-/Vorgesetzten-Rechte (users.calendar_access)
+LEVEL_NONE, LEVEL_NEUTRAL, LEVEL_NO_SICK, LEVEL_FULL = 0, 1, 2, 3
+LEVEL_LABELS = {0: "kein Zugriff", 1: "nur „abwesend“", 2: "mit Art (Krank als „abwesend“)", 3: "alles inkl. Krank"}
+
+
+def _flag(viewer) -> int:
+    try:
+        return max(0, min(3, int(viewer["calendar_access"] or 0)))
+    except (IndexError, KeyError, TypeError, ValueError):
+        return 0
 
 
 def can_see_calendar(conn, viewer) -> bool:
-    if viewer["is_admin"] or _has_calendar_flag(viewer):
+    if viewer["is_admin"] or _flag(viewer):
         return True
     return bool(conn.execute("SELECT 1 FROM users WHERE manager_id = ? AND active = 1", (viewer["id"],)).fetchone())
 
@@ -293,31 +301,52 @@ def can_see_calendar(conn, viewer) -> bool:
 def visible_users(conn, viewer):
     """Wen darf der Betrachter im Kalender sehen – und wie genau?
 
-    → (Liste der Mitarbeiter, Menge der IDs mit allen Details). Admins sehen alle mit Details, Vorgesetzte ihr Team
-    (und sich selbst) mit Details. Mitarbeiter mit der Freigabe „Abwesenheitskalender“ sehen zusätzlich die
-    Kollegen ihrer Filiale(n) – ohne Filiale alle –, aber nur als neutrales „abwesend“ (keine Art, keine offenen
-    Anträge): Krankheit geht Kollegen nichts an."""
+    → (Liste der Mitarbeiter, {ID: Stufe}). Admins sehen alle vollständig, Vorgesetzte ihr Team (und sich selbst)
+    vollständig. Mitarbeiter mit Freigabe sehen die Kollegen ihrer Filiale(n) bzw. – je nach Umfang – alle, in ihrer
+    Stufe: 1 nur „abwesend“ (ohne offene Anträge), 2 mit Art und offenen Anträgen, aber Krank/Kind krank nur als
+    „abwesend“, 3 alles. Die eigenen Einträge sieht jeder vollständig."""
     order = " ORDER BY display_name COLLATE NOCASE"
     if viewer["is_admin"]:
         rows = conn.execute("SELECT * FROM users WHERE active = 1" + order).fetchall()
-        return rows, {r["id"] for r in rows}
-    full = {r["id"] for r in conn.execute("SELECT id FROM users WHERE active = 1 AND (manager_id = ? OR id = ?)",
-                                         (viewer["id"], viewer["id"]))}
-    ids = set(full)
-    if _has_calendar_flag(viewer):
+        return rows, {r["id"]: LEVEL_FULL for r in rows}
+    levels = {r["id"]: LEVEL_FULL for r in conn.execute(
+        "SELECT id FROM users WHERE active = 1 AND (manager_id = ? OR id = ?)", (viewer["id"], viewer["id"]))}
+    flag = _flag(viewer)
+    if flag:
+        scope = (viewer["calendar_scope"] if "calendar_scope" in viewer.keys() else None) or "branch"
         mine = [r[0] for r in conn.execute("SELECT branch_id FROM user_branches WHERE user_id = ?", (viewer["id"],))]
-        if mine:
+        if scope == "branch" and mine:
             marks = ",".join("?" * len(mine))
-            ids |= {r[0] for r in conn.execute(
+            others = {r[0] for r in conn.execute(
                 f"SELECT DISTINCT u.id FROM users u JOIN user_branches ub ON ub.user_id = u.id "
                 f"WHERE u.active = 1 AND ub.branch_id IN ({marks})", mine)}
         else:
-            ids |= {r[0] for r in conn.execute("SELECT id FROM users WHERE active = 1")}
-    elif len(full) <= 1:
+            others = {r[0] for r in conn.execute("SELECT id FROM users WHERE active = 1")}
+        for uid in others:
+            levels.setdefault(uid, flag)
+    elif len(levels) <= 1:
         raise HTTPException(403, "Den Abwesenheitskalender sehen Admins, Vorgesetzte und freigegebene Mitarbeiter")
-    marks = ",".join("?" * len(ids))
-    rows = conn.execute(f"SELECT * FROM users WHERE id IN ({marks})" + order, list(ids)).fetchall()
-    return rows, full
+    marks = ",".join("?" * len(levels))
+    rows = conn.execute(f"SELECT * FROM users WHERE id IN ({marks})" + order, list(levels)).fetchall()
+    return rows, levels
+
+
+def restrict(days: dict, level: int) -> dict:
+    """Tage eines Mitarbeiters auf die Stufe des Betrachters zuschneiden."""
+    if level >= LEVEL_FULL:
+        return days
+    out = {}
+    for d, c in days.items():
+        if level <= LEVEL_NEUTRAL:
+            if c["status"] == "beantragt":
+                continue
+            out[d] = {"kind": "abwesend", "label": "abwesend", "half": c["half"], "status": c["status"]}
+        elif c["kind"] in SICK_KINDS:
+            if c["status"] != "beantragt":
+                out[d] = {"kind": "abwesend", "label": "abwesend", "half": c["half"], "status": c["status"]}
+        else:
+            out[d] = c
+    return out
 
 
 def _branch_map(conn) -> dict:
@@ -362,7 +391,7 @@ def leave_calendar(
     import calendar
     y, m = int(month[:4]), int(month[5:])
     d_from, d_to = date(y, m, 1), date(y, m, calendar.monthrange(y, m)[1])
-    people, full = visible_users(conn, user)
+    people, levels = visible_users(conn, user)
     branches = _branch_map(conn)
     all_branches = {b["id"]: b["name"] for lst in (branches.get(p["id"], []) for p in people) for b in lst}
     if branch_id is not None:
@@ -383,11 +412,9 @@ def leave_calendar(
                           "off": [d["date"] for d in days if tgt(date.fromisoformat(d["date"])) <= 0]})
     cells = _cells(conn, [p["id"] for p in people], d_from, d_to)
     for uid in list(cells):
-        if uid not in full:   # nur „abwesend“, offene Anträge gar nicht
-            cells[uid] = {d: {"kind": "abwesend", "label": "abwesend", "half": c["half"], "status": "eingetragen"}
-                          for d, c in cells[uid].items() if c["status"] != "beantragt"}
+        cells[uid] = restrict(cells[uid], levels.get(uid, LEVEL_NEUTRAL))
     return {"month": month, "days": days, "users": out_users, "workdays": company_workdays(conn),
-            "detail": "full" if all(p["id"] in full for p in people) else "mixed",
+            "detail": "full" if all(levels.get(p["id"]) == LEVEL_FULL for p in people) else "mixed",
             "cells": {str(k): v for k, v in cells.items()},
             "branches": [{"id": k, "name": v} for k, v in sorted(all_branches.items(), key=lambda x: x[1].lower())]}
 

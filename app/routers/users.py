@@ -81,7 +81,9 @@ class UserUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=200)
     report_mail: Optional[bool] = None
     manager_id: Optional[int] = Field(None, description="Vorgesetzter; null = keiner")
-    calendar_access: Optional[bool] = Field(None, description="Darf den Abwesenheitskalender seiner Filiale sehen (nur „abwesend“)")
+    calendar_access: Optional[int] = Field(None, ge=0, le=3, description="Abwesenheitskalender: 0 kein Zugriff, 1 nur „abwesend“, "
+                                           "2 mit Art (Krank/Kind krank als „abwesend“), 3 alles")
+    calendar_scope: Optional[str] = Field(None, pattern=r"^(branch|all)$", description="branch = eigene Filiale(n), all = alle")
 
     @field_validator("email")
     @classmethod
@@ -222,7 +224,10 @@ def update_user(user_id: int, data: UserUpdate, admin=Depends(admin_user), conn:
                 raise HTTPException(400, "Erfassungsbeginn darf nicht leer sein")
             fields.append("tracking_start = ?")
             values.append(value.isoformat())
-        elif key in ("is_admin", "active", "report_mail", "calendar_access"):
+        elif key == "calendar_access":
+            fields.append("calendar_access = ?")
+            values.append(int(value or 0))
+        elif key in ("is_admin", "active", "report_mail"):
             fields.append(f"{key} = ?")
             values.append(int(value))
         else:

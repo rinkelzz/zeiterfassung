@@ -326,8 +326,10 @@ und einzelnen Mitarbeitern. Vorgesetzte ohne Admin-Rechte sehen nur ihr Team. In
 steht bei jedem offenen Antrag, wer aus derselben Filiale (bzw. demselben Team) im Zeitraum schon fehlt –
 mit Link „im Kalender ansehen“.
 
-Einzelne Mitarbeiter lassen sich unter **Mitarbeiter → Bearbeiten → Rolle** mit **„Darf den Abwesenheitskalender sehen“**
-freigeben: Sie sehen die Kollegen ihrer Filiale(n) nur als „abwesend“ (ohne Art, ohne offene Anträge). Welche Wochentage
+Mitarbeiter ohne Admin- oder Vorgesetzten-Rechte lassen sich unter **Mitarbeiter → Bearbeiten → Rolle → Abwesenheitskalender**
+freigeben – in vier Stufen: *kein Zugriff*, *nur „abwesend“*, *mit Art* (Urlaub, Gleittag … und offene Anträge; Krank und
+Kind krank erscheinen nur als „abwesend“) oder *alles, auch Krank*. Dazu wählbar, ob sie die Kollegen ihrer **eigenen
+Filiale(n)** oder **alle Mitarbeiter** sehen. Ihre eigenen Einträge sehen sie immer vollständig. Welche Wochentage
 im Kalender weiß sind, legt **Einstellungen → Allgemein → Arbeitstage der Firma** fest (z. B. Di–Sa).
 
 **Kalender-Abo (Nextcloud, iPhone, Outlook):** Unter **Abwesenheiten → Kalender-Abo** legt jeder, der den Kalender

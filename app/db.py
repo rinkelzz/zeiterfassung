@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -334,6 +334,11 @@ def migrate(conn: sqlite3.Connection) -> None:
             label TEXT,
             created_at TEXT NOT NULL,
             last_used_at TEXT)""")
+    if version < 19:
+        # Abwesenheitskalender: calendar_access ist jetzt eine Stufe (0 kein, 1 nur „abwesend“,
+        # 2 mit Art ohne Krankheit, 3 alles) – bisherige Freigaben (1) bleiben „nur abwesend“. Dazu der Umfang.
+        if "calendar_scope" not in _columns(conn, "users"):
+            conn.execute("ALTER TABLE users ADD COLUMN calendar_scope TEXT NOT NULL DEFAULT 'branch'")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

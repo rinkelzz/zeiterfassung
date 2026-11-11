@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.30.0] – 2026-11-11
+
+### Neu
+- **Abwesenheitsart „Kind krank“** – zählt wie Krank (Soll entfällt, kein Urlaubsverbrauch), lässt sich eintragen,
+  importieren und auch als Antrag melden.
+- **Abwesenheitskalender in Stufen freigeben** (Mitarbeiter → Bearbeiten → Rolle): *kein Zugriff*, *nur „abwesend“*,
+  *mit Art* (inkl. offener Anträge; Krank und Kind krank nur als „abwesend“) oder *alles, auch Krank* – dazu, ob die
+  Kollegen der eigenen Filiale(n) oder alle Mitarbeiter zu sehen sind. Bisherige Freigaben bleiben „nur abwesend“.
+  Kalender-Abos richten sich nach derselben Stufe. Wünsche von @ralfmehner-collab (#5).
+
 ## [0.29.2] – 2026-11-11
 
 ### Geändert
@@ -428,6 +438,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.30.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.30.0
 [0.29.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.2
 [0.29.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.1
 [0.29.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.0

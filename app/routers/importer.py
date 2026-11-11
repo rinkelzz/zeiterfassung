@@ -38,6 +38,7 @@ TYPE_MAP = {
     "urlaub": "urlaub", "krank": "krank", "feiertag": "feiertag", "gleittag": "gleittag",
     "mehrarbeit": "mehrarbeit", "mehrarbeit-entnahme": "mehrarbeit", "entnahme mehrarbeit": "mehrarbeit",
     "sonstiges": "sonstiges", "sonderurlaub": "sonstiges", "frei": "gleittag",
+    "kind krank": "kind_krank", "kind_krank": "kind_krank", "kinderkrank": "kind_krank", "child_sick": "kind_krank",
 }
 COLS = {
     "date": ("datum", "date", "day", "tag"),

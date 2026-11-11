@@ -25,7 +25,7 @@ from ..reports import holidays_between, target_fn
 from ..security import current_user
 from ..timeutil import daterange, local_iso, now_utc, now_utc_str
 from .auth import server_url
-from .leave import _cells, can_see_calendar, visible_users
+from .leave import LEVEL_FULL, LEVEL_NEUTRAL, _cells, can_see_calendar, restrict, visible_users
 
 router = APIRouter(prefix="/api/v1/calendar", tags=["Kalender-Abo"])
 
@@ -128,31 +128,29 @@ def _fold(line: str) -> str:
 
 
 def _people(conn, feed):
-    """→ (Mitarbeiter, IDs mit Details) für diesen Link."""
+    """→ (Mitarbeiter, {ID: Stufe}) für diesen Link."""
     if feed["kind"] == "branch":
         if feed["branch_id"] is None:
             rows = conn.execute("SELECT * FROM users WHERE active = 1").fetchall()
         else:
             rows = conn.execute("SELECT u.* FROM users u JOIN user_branches ub ON ub.user_id = u.id "
                                 "WHERE u.active = 1 AND ub.branch_id = ?", (feed["branch_id"],)).fetchall()
-        return rows, ({r["id"] for r in rows} if feed["show_kinds"] else set())
+        return rows, {r["id"]: (LEVEL_FULL if feed["show_kinds"] else LEVEL_NEUTRAL) for r in rows}
     owner = conn.execute("SELECT * FROM users WHERE id = ? AND active = 1", (feed["user_id"],)).fetchone()
     if not owner:
         raise HTTPException(404, "Kalender nicht gefunden")
     return visible_users(conn, owner)
 
 
-def _events(conn, people, full, include_pending: bool, d_from: date, d_to: date):
+def _events(conn, people, levels, include_pending: bool, d_from: date, d_to: date):
     """Zusammenhängende Abwesenheiten je Mitarbeiter und Art zu Terminen zusammenfassen. Lücken, an denen der
     Mitarbeiter ohnehin nicht arbeitet (Wochenende, Teilzeit-frei, Feiertag), unterbrechen einen Termin nicht."""
     cells = _cells(conn, [p["id"] for p in people], d_from, d_to)
     holidays = holidays_between(conn, d_from, d_to)
     events = []
     for p in people:
-        days = cells.get(p["id"], {})
-        if p["id"] not in full:
-            days = {d: {**c, "kind": "abwesend", "label": "abwesend"} for d, c in days.items() if c["status"] != "beantragt"}
-        elif not include_pending:
+        days = restrict(cells.get(p["id"], {}), levels.get(p["id"], LEVEL_NEUTRAL))
+        if not include_pending:
             days = {d: c for d, c in days.items() if c["status"] != "beantragt"}
         if not days:
             continue
@@ -184,7 +182,7 @@ def ics(token: str, conn: sqlite3.Connection = Depends(get_db)):
     if not feed:
         raise HTTPException(404, "Kalender nicht gefunden")
     try:
-        people, full = _people(conn, feed)
+        people, levels = _people(conn, feed)
     except HTTPException:
         raise HTTPException(404, "Kalender nicht gefunden")   # Recht verloren → nichts mehr liefern
     conn.execute("UPDATE calendar_feeds SET last_used_at = ? WHERE id = ?", (now_utc_str(), feed["id"]))
@@ -200,7 +198,7 @@ def ics(token: str, conn: sqlite3.Connection = Depends(get_db)):
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//rinkelzz//Zeiterfassung//DE", "CALSCALE:GREGORIAN",
              "METHOD:PUBLISH", f"X-WR-CALNAME:{_esc(name)}", "X-WR-TIMEZONE:Europe/Berlin",
              "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H"]
-    for ev in _events(conn, people, full, bool(feed["include_pending"]), d_from, d_to):
+    for ev in _events(conn, people, levels, bool(feed["include_pending"]), d_from, d_to):
         kind, status, half = ev["key"]
         title = f"{ev['user']['display_name']} – {ev['label']}"
         if half:

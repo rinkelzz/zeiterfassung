@@ -689,7 +689,7 @@ function ovlHtml(r) {
 
 // ---------- Abwesenheitskalender ----------
 const TM_SHORT = { urlaub: "U", krank: "K", gleittag: "G", mehrarbeit: "Ü", bildungsurlaub: "B", sonstiges: "S",
-                   berufsschule: "BS", elternzeit: "EZ", abwesend: "A" };
+                   berufsschule: "BS", elternzeit: "EZ", kind_krank: "KK", abwesend: "A" };
 async function loadTeam() {
   $("tmErr").textContent = "";
   if (!state.teamMonth) state.teamMonth = state.month || todayIso().slice(0, 7);
@@ -1231,7 +1231,13 @@ function openUserEdit(tr) {
         <label title="Bekommt die Urlaubsanträge zur Freigabe">Vorgesetzter (genehmigt Urlaub)
           <select class="umgr"><option value="">– keiner (Admins) –</option>${state.allUsers.filter(m => m.active && m.id !== u.id)
             .map(m => `<option value="${m.id}" ${m.id === u.manager_id ? "selected" : ""}>${esc(m.display_name)}</option>`).join("")}</select></label>
-        <label class="inline" title="Sieht die Kollegen seiner Filiale(n) – nur „abwesend“, ohne Art (Krankheit bleibt privat)"><input type="checkbox" class="ucal" ${u.calendar_access || u.is_admin ? "checked" : ""} ${u.is_admin ? "disabled" : ""}> Darf den Abwesenheitskalender sehen</label>
+        ${u.is_admin ? '<div class="small muted">Abwesenheitskalender: sieht als Admin alles</div>' : `
+        <label title="Was der Mitarbeiter im Reiter Abwesenheiten von Kollegen sieht – die eigenen Einträge sieht er immer vollständig">Abwesenheitskalender
+          <select class="ucal">${[[0, "kein Zugriff"], [1, "nur „abwesend“"], [2, "mit Art – Krank/Kind krank als „abwesend“"], [3, "alles, auch Krank"]]
+            .map(([v, t]) => `<option value="${v}" ${(u.calendar_access || 0) === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <label title="Welche Kollegen im Kalender erscheinen">Kollegen im Kalender
+          <select class="ucalscope"><option value="branch" ${u.calendar_scope !== "all" ? "selected" : ""}>eigene Filiale(n)</option>
+            <option value="all" ${u.calendar_scope === "all" ? "selected" : ""}>alle Mitarbeiter</option></select></label>`}
         <label class="inline"><input type="checkbox" class="uadm" ${u.is_admin ? "checked" : ""} ${self ? 'disabled title="Eigene Admin-Rechte kann man sich nicht selbst entziehen"' : ""}> Admin (darf alles verwalten)</label>
       </fieldset>
       <fieldset><legend>Konten</legend>
@@ -1272,7 +1278,7 @@ async function saveUserRow(btn) {
       report_mail: tr.querySelector(".urm").checked,
       manager_id: tr.querySelector(".umgr").value ? Number(tr.querySelector(".umgr").value) : null,
     };
-    if (!tr.querySelector(".ucal").disabled) body.calendar_access = tr.querySelector(".ucal").checked;
+    if (tr.querySelector(".ucal")) { body.calendar_access = Number(tr.querySelector(".ucal").value); body.calendar_scope = tr.querySelector(".ucalscope").value; }
     if (!tr.querySelector(".uadm").disabled) body.is_admin = tr.querySelector(".uadm").checked;
     const pw = tr.querySelector(".up").value;
     if (pw) body.password = pw;

@@ -169,7 +169,7 @@ class AbsenceCreate(BaseModel):
     user_id: int
     from_day: date
     to_day: Optional[date] = None
-    kind: str = Field(description="urlaub, krank, bildungsurlaub, gleittag, mehrarbeit, feiertag, sonstiges, berufsschule, elternzeit")
+    kind: str = Field(description="urlaub, krank, bildungsurlaub, gleittag, mehrarbeit, feiertag, sonstiges, berufsschule, elternzeit, kind_krank")
     half_day: bool = False
     note: Optional[str] = Field(None, max_length=200)
     only_workdays: bool = Field(True, description="Wochenenden, freie Tage und Feiertage überspringen")

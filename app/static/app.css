@@ -2,14 +2,14 @@
   --bg: #f4f5f7; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
   --accent: #0f766e; --accent-ink: #fff; --in: #15803d; --out: #b91c1c;
   --k-urlaub: #bfdbfe; --k-krank: #fecaca; --k-bildungsurlaub: #c7d2fe; --k-gleittag: #fde68a;
-  --k-mehrarbeit: #fed7aa; --k-feiertag: #ddd6fe; --k-sonstiges: #e5e7eb; --k-berufsschule: #bbf7d0; --k-elternzeit: #fbcfe8; --k-sel: #0f766e;
+  --k-mehrarbeit: #fed7aa; --k-feiertag: #ddd6fe; --k-sonstiges: #e5e7eb; --k-berufsschule: #bbf7d0; --k-elternzeit: #fbcfe8; --k-kind_krank: #fda4af; --k-sel: #0f766e;
   --weekend: #eef0f3; --worked: #99f6e4;
 }
 /* dunkel: Klassisch bei dunklem Gerät (Klasse .dark setzt das Skript) und Design „Nacht“ */
 html.dark { --bg: #11151c; --card: #1a2029; --text: #e7eaf0; --muted: #9aa3b2; --line: #2a3240;
           --accent: #2dd4bf; --accent-ink: #062b28; --in: #4ade80; --out: #f87171;
           --k-urlaub: #1e3a8a; --k-krank: #7f1d1d; --k-bildungsurlaub: #3730a3; --k-gleittag: #713f12;
-          --k-mehrarbeit: #7c2d12; --k-feiertag: #4c1d95; --k-sonstiges: #374151; --k-berufsschule: #14532d; --k-elternzeit: #831843; --k-sel: #2dd4bf;
+          --k-mehrarbeit: #7c2d12; --k-feiertag: #4c1d95; --k-sonstiges: #374151; --k-berufsschule: #14532d; --k-elternzeit: #831843; --k-kind_krank: #881337; --k-sel: #2dd4bf;
           --weekend: #151a22; --worked: #134e4a; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -102,6 +102,7 @@ body.is-admin .cell.d { cursor: pointer; }
 .k-mehrarbeit { background: var(--k-mehrarbeit); } .k-feiertag { background: var(--k-feiertag); }
 .k-sonstiges { background: var(--k-sonstiges); }
 .k-berufsschule { background: var(--k-berufsschule); } .k-elternzeit { background: var(--k-elternzeit); }
+.k-kind_krank { background: var(--k-kind_krank); }
 .selbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; border-radius: 10px;
           background: var(--bg); margin-bottom: 10px; position: sticky; top: 64px; z-index: 3; border: 1px solid var(--line); }
 
@@ -261,7 +262,7 @@ table.team tr.sum td.many { color: var(--out); }
 .ab.offsw { background-color: var(--card); border: 1px solid var(--line);
   background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--muted) 30%, transparent) 4px 5px); }
 .k-urlaub { --k: #2e78d6; } .k-krank { --k: #d92d20; } .k-gleittag { --k: #0e9384; } .k-mehrarbeit { --k: #dc6803; }
-.k-abwesend { --k: #7d8796; } .k-bildungsurlaub { --k: #6941c6; } .k-sonstiges { --k: #667085; } .k-berufsschule { --k: #0086c9; } .k-elternzeit { --k: #c11574; }
+.k-abwesend { --k: #7d8796; } .k-bildungsurlaub { --k: #6941c6; } .k-sonstiges { --k: #667085; } .k-berufsschule { --k: #0086c9; } .k-elternzeit { --k: #c11574; } .k-kind_krank { --k: #e31b54; }
 .tmLegend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; color: var(--muted); align-items: center; }
 .tmLegend .ab { display: inline-block; width: 22px; margin: 0 4px 0 0; vertical-align: middle; text-align: center; }
 details.tmPick { position: relative; }

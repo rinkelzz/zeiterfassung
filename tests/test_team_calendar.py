@@ -100,7 +100,7 @@ def test_calendar_access_for_employee_neutral(admin, team):
     c = login("tc_lisa")
     assert c.get("/api/v1/leave/count").json()["can_calendar"] is False
     assert c.get("/api/v1/leave/calendar", params={"month": "2027-03"}).status_code == 403
-    assert admin.patch(f"/api/v1/users/{lisa}", json={"calendar_access": True}).json()["calendar_access"] is True
+    assert admin.patch(f"/api/v1/users/{lisa}", json={"calendar_access": True}).json()["calendar_access"] == 1
     assert c.get("/api/v1/leave/count").json()["can_calendar"] is True
     d = c.get("/api/v1/leave/calendar", params={"month": "2027-03"}).json()
     ids = {u["id"] for u in d["users"]}
@@ -202,3 +202,36 @@ def test_ics_personal_rights(admin, team, monkeypatch):
     # fremder Link lässt sich nicht löschen
     assert ida.delete(f"/api/v1/calendar/feeds/{f['id']}").status_code == 404
     assert _ics("/api/v1/calendar/zecal_falsch.ics").status_code == 404
+
+
+def test_calendar_levels_scope_and_child_sick(admin, team):
+    """Stufen 2/3, Umfang „alle“ und die neue Art „Kind krank“."""
+    lisa = next(u["id"] for u in admin.get("/api/v1/users").json() if u["username"] == "tc_lisa")
+    # Jan: Kind krank am 22.03., Ida: offener Antrag (aus früherem Test), Kai: krank
+    assert admin.post("/api/v1/absences", json={"user_id": team["jan"], "from_day": "2027-03-22", "to_day": "2027-03-22",
+                                                "kind": "kind_krank"}).status_code == 201
+    c = login("tc_lisa")
+    # Stufe 2: Art sichtbar, Krank/Kind krank als „abwesend“, offene Anträge sichtbar
+    assert admin.patch(f"/api/v1/users/{lisa}", json={"calendar_access": 2}).json()["calendar_access"] == 2
+    d = c.get("/api/v1/leave/calendar", params={"month": "2027-03"}).json()
+    assert d["cells"][str(team["jan"])]["2027-03-08"]["kind"] == "urlaub"
+    assert d["cells"][str(team["jan"])]["2027-03-22"]["kind"] == "abwesend"
+    assert d["cells"][str(team["kai"])]["2027-03-09"]["kind"] == "abwesend"
+    assert any(v["status"] == "beantragt" for v in d["cells"].get(str(team["ida"]), {}).values())
+    assert team["fremd"] not in {u["id"] for u in d["users"]}
+    # Stufe 3 + Umfang alle: alles, auch Fremd
+    r = admin.patch(f"/api/v1/users/{lisa}", json={"calendar_access": 3, "calendar_scope": "all"}).json()
+    assert r["calendar_access"] == 3 and r["calendar_scope"] == "all"
+    d = c.get("/api/v1/leave/calendar", params={"month": "2027-03"}).json()
+    assert d["cells"][str(team["jan"])]["2027-03-22"] == {"kind": "kind_krank", "label": "Kind krank", "half": False,
+                                                          "status": "eingetragen"}
+    assert d["cells"][str(team["kai"])]["2027-03-09"]["kind"] == "krank"
+    assert team["fremd"] in {u["id"] for u in d["users"]}
+    assert admin.patch(f"/api/v1/users/{lisa}", json={"calendar_access": 4}).status_code == 422
+    assert admin.patch(f"/api/v1/users/{lisa}", json={"calendar_scope": "welt"}).status_code == 422
+    # Kind krank: Soll entfällt wie bei Krank, kann auch beantragt werden
+    assert "kind_krank" in admin.get("/api/v1/settings").json()["absence_kinds"]
+    r = c.post("/api/v1/leave", json={"kind": "kind_krank", "from_day": "2027-03-24"})
+    assert r.status_code == 201 and r.json()["kind_label"] == "Kind krank"
+    admin.patch(f"/api/v1/users/{lisa}", json={"calendar_access": 0, "calendar_scope": "branch"})
+    assert c.get("/api/v1/leave/calendar", params={"month": "2027-03"}).status_code == 403

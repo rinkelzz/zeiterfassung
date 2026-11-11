@@ -39,10 +39,14 @@ ABSENCE_KINDS = {
     "sonstiges": "Sonderurlaub / frei",
     "berufsschule": "Berufsschule",
     "elternzeit": "Elternzeit",
+    "kind_krank": "Kind krank",
 }
+# Gesundheitsdaten: im Abwesenheitskalender für Kollegen ohne volle Rechte nur als „abwesend“
+SICK_KINDS = {"krank", "kind_krank"}
 # Arten, bei denen das Soll entfällt (bezahlt frei)
 # Berufsschule: zählt als Arbeitszeit (Soll gilt als erfüllt); Elternzeit: kein Soll, kein Urlaubsverbrauch
-ZERO_TARGET_KINDS = {"urlaub", "krank", "bildungsurlaub", "feiertag", "sonstiges", "berufsschule", "elternzeit"}
+# Kind krank: wie Krank (Soll entfällt, kein Urlaubsverbrauch)
+ZERO_TARGET_KINDS = {"urlaub", "krank", "bildungsurlaub", "feiertag", "sonstiges", "berufsschule", "elternzeit", "kind_krank"}
 MIN_BREAK_S = 15 * 60  # nach ArbZG zählen nur Pausen ab 15 Minuten
 BREAK_MODES = {"none": "kein Abzug", "arbzg": "nach ArbZG (6 h → 30 min, 9 h → 45 min)", "fixed": "fester Abzug pro Arbeitstag"}
 
