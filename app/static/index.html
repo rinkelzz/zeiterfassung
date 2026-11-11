@@ -134,6 +134,33 @@
       <div class="tmLegend small" id="tmLegend"></div>
       <div class="err" id="tmErr"></div>
     </section>
+    <section class="card">
+      <h2>Kalender-Abo</h2>
+      <p class="muted small" style="margin-top:0">Die Abwesenheiten als Kalender in Nextcloud, auf dem iPhone, in Outlook oder Thunderbird –
+        schreibgeschützt, wird automatisch aktualisiert (Nextcloud lädt Abos in seinem eigenen Rhythmus neu).
+        Der Link ist geheim: Wer ihn hat, sieht die Abwesenheiten. Er lässt sich hier jederzeit löschen.</p>
+      <div class="row">
+        <button id="calNew" class="primary">Persönlichen Abo-Link anlegen</button>
+        <label class="inline small"><input type="checkbox" id="calPend"> offene Anträge zeigen</label>
+      </div>
+      <div class="row admin hidden" id="calAdminRow" style="margin-top:10px">
+        <button id="calNewBranch">Link für Filiale anlegen</button>
+        <select id="calBranch"></select>
+        <label class="inline small"><input type="checkbox" id="calKinds" checked> Art zeigen (Urlaub, Krank …)</label>
+        <label class="inline small"><input type="checkbox" id="calBPend"> offene Anträge zeigen</label>
+      </div>
+      <div id="calNewBox" class="hidden" style="margin-top:12px">
+        <div class="ok small"><b>Neuer Link – nur jetzt sichtbar, bitte kopieren:</b></div>
+        <div class="copy"><input id="calUrl" readonly><button id="calCopy">Kopieren</button></div>
+        <ul class="small muted" style="padding-left:18px;margin:6px 0 0">
+          <li><b>Nextcloud:</b> Kalender → <b>+ Neuer Kalender</b> → <b>Neues Abonnement aus Link (schreibgeschützt)</b> → Link einfügen.</li>
+          <li><b>iPhone:</b> Einstellungen → Apps → Kalender → Kalender-Accounts → Account hinzufügen → Andere → <b>Kalenderabo hinzufügen</b>.</li>
+          <li><b>Outlook:</b> Kalender hinzufügen → <b>Aus dem Internet abonnieren</b>.</li>
+        </ul>
+      </div>
+      <div class="scroll" style="margin-top:12px"><table id="calTable"></table></div>
+      <div class="err" id="calErr"></div>
+    </section>
   </div>
 
   <div data-page="year" class="page hidden">
@@ -403,7 +430,7 @@
     </section>
     <section class="card asec" data-asec="system">
       <h2>Daten übernehmen (CSV-Import)</h2>
-      <p class="muted small" style="margin-top:0">Buchungen: CSV-Export der Gleitzeit-App (<code>datum;checkin;checkout;dauer_h;notiz</code>) oder eigene Tabelle mit Datum/Kommen/Gehen.
+      <p class="muted small" style="margin-top:0">Buchungen: CSV-Export der Gleitzeit-App (<code>datum;checkin;checkout;dauer_h;notiz</code>) oder eigene Tabelle mit Datum/Kommen/Gehen – oder nur zwei Spalten mit Datum und Uhrzeit (z. B. <code>03.11.2026 07:02;03.11.2026 15:30</code>, mit oder ohne Kopfzeile).
         Abwesenheiten und Ü-Tage: Tabellenexport von <code>absences</code> bzw. <code>day_flags</code> (z. B. aus phpMyAdmin, CSV mit Semikolon).</p>
       <div class="row">
         <label>Für <select id="impUser" class="userSel2"></select></label>

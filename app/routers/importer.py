@@ -2,7 +2,8 @@
 
 Drei Arten:
 - entries:   Buchungen. Format des Gleitzeit-Exports `datum;checkin;checkout;dauer_h;notiz`,
-             aber auch eigene Tabellen mit Spalten wie Datum/Kommen/Gehen/Notiz.
+             eigene Tabellen mit Spalten wie Datum/Kommen/Gehen/Notiz – oder nur zwei Spalten mit
+             Datum und Uhrzeit: `Kommen;Gehen` bzw. „Datum Kommen“/„Datum Gehen“ (auch ohne Kopfzeile).
 - absences:  Abwesenheiten, z. B. Tabellenexport von `absences` (date;type;half_day;note).
 - dayflags:  Überstunden-Markierungen, Tabellenexport von `day_flags` (date;overtime).
 
@@ -75,8 +76,36 @@ def _rows(text: str) -> Tuple[Optional[Dict[str, int]], List[Tuple[int, List[str
             for idx, c in enumerate(first):
                 if c in names and key not in header:
                     header[key] = idx
+        if "start" not in header or "end" not in header:
+            fuzzy = _fuzzy_header(first) or {}
+            header.update({k: v for k, v in fuzzy.items() if k not in header})
+            if "start" in fuzzy and "date" in header and header["date"] in (fuzzy["start"], fuzzy.get("end")):
+                del header["date"]
+    else:
+        header = _fuzzy_header(first)
+    if header is not None:
         lines = lines[1:]
     return header, lines
+
+
+# Spaltennamen wie „Datum Kommen“, „Arbeitsbeginn“, „Ende (Datum/Uhrzeit)“
+FUZZY = {
+    "start": ("kommen", "beginn", "arbeitsbeginn", "start", "checkin", "eingestempelt"),
+    "end": ("gehen", "ende", "arbeitsende", "checkout", "ausgestempelt"),
+    "note": ("notiz", "note", "bemerkung", "kommentar"),
+}
+
+
+def _fuzzy_header(first: List[str]) -> Optional[Dict[str, int]]:
+    import re
+    found: Dict[str, int] = {}
+    for idx, c in enumerate(first):
+        words = set(re.split(r"[^a-zäöüß]+", c))
+        for key, names in FUZZY.items():
+            if key not in found and words & set(names):
+                found[key] = idx
+                break
+    return found if "start" in found and "end" in found else None
 
 
 def _get(row: List[str], header: Optional[Dict[str, int]], key: str, pos: Optional[int]) -> str:
@@ -98,10 +127,13 @@ def _parse_date(s: str) -> Optional[date]:
 
 
 def _parse_dt(s: str, day: Optional[date]) -> Optional[datetime]:
-    s = s.strip().replace("T", " ")
+    s = " ".join(s.strip().replace("T", " ").replace(",", " ").split())
+    if s.lower().endswith(" uhr"):
+        s = s[:-4]
     if not s:
         return None
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M"):
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M",
+                "%d.%m.%y %H:%M:%S", "%d.%m.%y %H:%M", "%d/%m/%Y %H:%M"):
         try:
             return datetime.strptime(s, fmt)
         except ValueError:
@@ -127,10 +159,17 @@ def _plan_entries(conn: sqlite3.Connection, user_id: int, text: str) -> List[dic
     now = now_utc_str()
     planned: List[Tuple[str, str]] = []
     out = []
+    # Ohne Kopfzeile: steht in Spalte 1 schon Datum + Uhrzeit, ist es das Format „Kommen;Gehen;Notiz“
+    two_col = header is None and bool(lines) and _parse_dt(lines[0][1][0], None) is not None
     for lineno, row in lines:
-        day = _parse_date(_get(row, header, "date", 0))
-        raw_in, raw_out = _get(row, header, "start", 1), _get(row, header, "end", 2)
-        note = _get(row, header, "note", 4)[:200] or None
+        if two_col:
+            day = None
+            raw_in, raw_out = _get(row, None, "start", 0), _get(row, None, "end", 1)
+            note = _get(row, None, "note", 2)[:200] or None
+        else:
+            day = _parse_date(_get(row, header, "date", 0))
+            raw_in, raw_out = _get(row, header, "start", 1), _get(row, header, "end", 2)
+            note = _get(row, header, "note", 4)[:200] or None
         item = {"line": lineno, "raw": ";".join(row)[:120], "note": note}
         start = _parse_dt(raw_in, day)
         end = _parse_dt(raw_out, day or (start.date() if start else None))

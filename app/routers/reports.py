@@ -503,6 +503,8 @@ AUDIT_ACTIONS = {
     "kiosk_deleted": ("einstellungen", "Kiosk-Tablet gesperrt"),
     "kiosk_branch": ("einstellungen", "Kiosk-Tablet: Filiale geändert"),
     "kiosk_updated": ("einstellungen", "Kiosk-Tablet: Anzeige geändert"),
+    "calendar_feed_created": ("einstellungen", "Kalender-Abo angelegt"),
+    "calendar_feed_deleted": ("einstellungen", "Kalender-Abo gelöscht"),
     "branch_saved": ("einstellungen", "Filiale gespeichert"),
     "branch_deleted": ("einstellungen", "Filiale gelöscht"),
     "leave_requested": ("antraege", "Urlaubsantrag gestellt"),

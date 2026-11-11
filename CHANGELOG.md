@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.28.0] – 2026-11-11
+
+### Neu
+- **Abwesenheiten als Kalender-Abo** (Reiter Abwesenheiten → Kalender-Abo) – für Nextcloud, iPhone, Outlook oder
+  Thunderbird, schreibgeschützt. Jeder, der den Abwesenheitskalender sehen darf, legt sich einen **persönlichen
+  Link** an; er zeigt genau das, was die Person auch in der App sieht. Admins können zusätzlich **Links für eine
+  Filiale** (oder alle) anlegen, z. B. für einen gemeinsamen Team-Kalender – wahlweise mit Art (Urlaub, Krank …) oder
+  nur „abwesend“. Bei beiden wählbar: **offene Anträge** als „(beantragt)“. Zusammenhängende Tage werden zu einem
+  Termin zusammengefasst, Wochenenden und freie Tage unterbrechen ihn nicht. Links sind geheim, nur als Hash
+  gespeichert und jederzeit löschbar; verliert jemand das Recht, liefert sein Link nichts mehr.
+- **CSV-Import: nur zwei Spalten mit Datum und Uhrzeit** – z. B. `03.11.2026 07:02;03.11.2026 15:30`, mit oder ohne
+  Kopfzeile, auch mit Spaltennamen wie „Datum Kommen“/„Datum Gehen“ oder „Arbeitsbeginn“/„Arbeitsende“, kurzen
+  Jahreszahlen und „Uhr“. Nachtdienste über Mitternacht werden richtig erkannt.
+  Wünsche von @ralfmehner-collab (#5).
+
 ## [0.27.0] – 2026-11-10
 
 ### Neu
@@ -384,6 +399,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.28.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.28.0
 [0.27.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.27.0
 [0.26.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.2
 [0.26.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.1

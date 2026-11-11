@@ -748,6 +748,33 @@ async function loadTeam() {
     `<span><span class="ab offsw">&nbsp;</span>arbeitsfreier Tag (Teilzeit)</span>`;
   const hl = document.querySelector("#tmTable tr.hl");
   if (hl) hl.scrollIntoView({ block: "nearest" });
+  $("calAdminRow").classList.toggle("hidden", !isAdmin());
+  $("calBranch").innerHTML = '<option value="">Alle Mitarbeiter</option>' + d.branches.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join("");
+  loadCalFeeds();
+}
+
+async function loadCalFeeds() {
+  let list;
+  try { list = await api("calendar/feeds"); } catch (e) { $("calErr").textContent = e.message; return; }
+  $("calTable").innerHTML = list.length ? `<thead><tr><th>Link</th><th>Inhalt</th><th>angelegt</th><th>zuletzt abgerufen</th><th></th></tr></thead><tbody>` +
+    list.map(f => `<tr><td>${f.kind === "branch" ? "Filiale: " + esc(f.branch || "alle Mitarbeiter") : "persönlich"}${f.owner_id !== state.me.id ? ` <span class="muted small">(${esc(f.owner)})</span>` : ""}</td>
+      <td class="small">${f.show_kinds ? "mit Art" : "nur „abwesend“"}${f.include_pending ? ", mit offenen Anträgen" : ""}</td>
+      <td>${fmtDT(f.created_at)}</td><td>${f.last_used_at ? fmtDT(f.last_used_at) : "–"}</td>
+      <td><button class="mini danger" data-caldel="${f.id}">Löschen</button></td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="muted small">Noch kein Abo-Link angelegt.</td></tr></tbody>';
+  $$("#calTable [data-caldel]").forEach(b => b.onclick = async () => {
+    if (!confirm("Diesen Abo-Link löschen? Kalender, die ihn abonniert haben, bekommen danach keine Daten mehr.")) return;
+    try { await api("calendar/feeds/" + b.dataset.caldel, { method: "DELETE" }); loadCalFeeds(); } catch (e) { $("calErr").textContent = e.message; }
+  });
+}
+
+async function newCalFeed(body) {
+  $("calErr").textContent = "";
+  try {
+    const f = await api("calendar/feeds", { method: "POST", body: { ...body, host_hint: location.hostname } });
+    $("calUrl").value = f.url; $("calNewBox").classList.remove("hidden"); $("calUrl").select();
+    loadCalFeeds();
+  } catch (e) { $("calErr").textContent = e.message; }
 }
 
 async function decideLeave(id, ok) {
@@ -1609,6 +1636,10 @@ $("meMailSave").onclick = saveMeMail;
 const tmShift = n => { const [y, m] = state.teamMonth.split("-").map(Number); const d = new Date(y, m - 1 + n, 1);
   state.teamMonth = `${d.getFullYear()}-${p2(d.getMonth() + 1)}`; state.teamHl = null; loadTeam(); };
 $("tmPrev").onclick = () => tmShift(-1);
+$("calNew").onclick = () => newCalFeed({ kind: "personal", include_pending: $("calPend").checked });
+$("calNewBranch").onclick = () => newCalFeed({ kind: "branch", branch_id: $("calBranch").value ? Number($("calBranch").value) : null,
+  show_kinds: $("calKinds").checked, include_pending: $("calBPend").checked });
+$("calCopy").onclick = () => { $("calUrl").select(); try { navigator.clipboard.writeText($("calUrl").value); } catch (e) {} $("calCopy").textContent = "Kopiert"; setTimeout(() => $("calCopy").textContent = "Kopieren", 1500); };
 $("tmNext").onclick = () => tmShift(1);
 $("tmBranch").onchange = () => { state.teamBranch = $("tmBranch").value || null; loadTeam(); };
 $("yPrev").onclick = () => { state.year--; clearSel(); loadYear(); };

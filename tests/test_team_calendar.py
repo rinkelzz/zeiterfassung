@@ -121,3 +121,84 @@ def test_company_workdays_setting(admin):
     assert admin.patch("/api/v1/settings", json={"company_workdays": []}).status_code == 400
     assert admin.patch("/api/v1/settings", json={"company_workdays": [0, 8]}).status_code == 400
     admin.patch("/api/v1/settings", json={"company_workdays": [1, 2, 3, 4, 5]})
+
+
+# --- Kalender-Abo (ICS) ---------------------------------------------------------------------
+
+def _ics(url):
+    path = "/api/v1/calendar/" + url.split("/api/v1/calendar/")[1]
+    with TestClient(app) as anon:
+        return anon.get(path)
+
+
+def _events(text):
+    out = []
+    for block in text.split("BEGIN:VEVENT")[1:]:
+        lines = block.replace("\r\n ", "").split("\r\n")
+        ev = {l.split(":", 1)[0]: l.split(":", 1)[1] for l in lines if ":" in l}
+        out.append(ev)
+    return out
+
+
+def test_ics_feed_admin_branch_and_personal(admin, team, monkeypatch):
+    import app.routers.calendar_feed as cf
+    from datetime import datetime, timezone
+    monkeypatch.setattr(cf, "now_utc", lambda: datetime(2027, 3, 1, 8, 0, tzinfo=timezone.utc))
+    bid = next(b["id"] for b in admin.get("/api/v1/branches").json() if b["name"] == "Kalender-Wache")
+    # Filial-Link mit Art und offenen Anträgen
+    f = admin.post("/api/v1/calendar/feeds", json={"kind": "branch", "branch_id": bid, "include_pending": True,
+                                                    "show_kinds": True, "host_hint": "nas.local"})
+    assert f.status_code == 201, f.text
+    url = f.json()["url"]
+    assert "/api/v1/calendar/zecal_" in url and url.endswith(".ics")
+    r = _ics(url)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/calendar")
+    assert r.text.startswith("BEGIN:VCALENDAR\r\n") and r.text.endswith("END:VCALENDAR\r\n")
+    assert all(len(l.encode()) <= 75 for l in r.text.split("\r\n"))
+    evs = _events(r.text)
+    summ = {e["SUMMARY"]: e for e in evs}
+    jan = summ["Jan – Urlaub"]       # 08.–10.03.2027 als ein Termin, Ende exklusiv
+    assert jan["DTSTART;VALUE=DATE"] == "20270308" and jan["DTEND;VALUE=DATE"] == "20270311"
+    assert "Kai – Krank" in summ
+    pend = [e for e in evs if e["SUMMARY"] == "Ida – Urlaub (beantragt)"]
+    assert pend and pend[0]["STATUS"] == "TENTATIVE"
+    assert pend[0]["DTSTART;VALUE=DATE"] == "20270308" and pend[0]["DTEND;VALUE=DATE"] == "20270313"
+    assert not any(e["SUMMARY"].startswith("Fremd") for e in evs)
+    # Filial-Link ohne Art, ohne Anträge
+    g = admin.post("/api/v1/calendar/feeds", json={"kind": "branch", "branch_id": bid, "include_pending": False,
+                                                    "show_kinds": False}).json()
+    evs = _events(_ics(g["url"]).text)
+    assert {e["SUMMARY"] for e in evs} >= {"Jan – abwesend", "Kai – abwesend"}
+    assert not any("beantragt" in e["SUMMARY"] or "Krank" in e["SUMMARY"] for e in evs)
+    # Liste und Löschen
+    ids = [x["id"] for x in admin.get("/api/v1/calendar/feeds").json()]
+    assert f.json()["id"] in ids and g["id"] in ids
+    assert admin.delete(f"/api/v1/calendar/feeds/{g['id']}").json()["ok"]
+    assert _ics(g["url"]).status_code == 404
+
+
+def test_ics_personal_rights(admin, team, monkeypatch):
+    import app.routers.calendar_feed as cf
+    from datetime import datetime, timezone
+    monkeypatch.setattr(cf, "now_utc", lambda: datetime(2027, 3, 1, 8, 0, tzinfo=timezone.utc))
+    ida = login("tc_ida")
+    assert ida.post("/api/v1/calendar/feeds", json={"kind": "personal"}).status_code == 403
+    assert ida.post("/api/v1/calendar/feeds", json={"kind": "branch"}).status_code == 403
+    boss = login("tc_chefin")
+    f = boss.post("/api/v1/calendar/feeds", json={"kind": "personal", "include_pending": False}).json()
+    evs = _events(_ics(f["url"]).text)
+    names = {e["SUMMARY"].split(" – ")[0] for e in evs}
+    assert "Jan" in names and "Fremd" not in names
+    assert not any("beantragt" in e["SUMMARY"] for e in evs)
+    # Ida verliert ihre Vorgesetzte → Chefin hat kein Team mehr → Link liefert nichts
+    for k in ("ida", "jan", "kai"):
+        admin.patch(f"/api/v1/users/{team[k]}", json={"manager_id": None})
+    try:
+        assert _ics(f["url"]).status_code == 404
+    finally:
+        for k in ("ida", "jan", "kai"):
+            admin.patch(f"/api/v1/users/{team[k]}", json={"manager_id": team["chefin"]})
+    assert _ics(f["url"]).status_code == 200
+    # fremder Link lässt sich nicht löschen
+    assert ida.delete(f"/api/v1/calendar/feeds/{f['id']}").status_code == 404
+    assert _ics("/api/v1/calendar/zecal_falsch.ics").status_code == 404

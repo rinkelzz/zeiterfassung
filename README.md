@@ -114,7 +114,8 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
 - **Excel**: Monat mit allen Tagen; Jahr mit Monatssummen und einem Blatt pro Monat
 - **Per Mail**: eigener SMTP-Server; automatisch am 1. des Monats (Vormonat) und am 1. Januar (Vorjahr),
   jeder Bericht nur einmal, mit Versandprotokoll – oder jederzeit von Hand
-- CSV-Export, CSV-Import (z. B. aus [gleitzeit](https://github.com/rinkelzz/gleitzeit))
+- CSV-Export, CSV-Import (z. B. aus [gleitzeit](https://github.com/rinkelzz/gleitzeit) oder zwei Spalten „Datum Kommen“/„Datum Gehen“)
+- Abwesenheiten als **Kalender-Abo** (ICS) für Nextcloud, iPhone und Outlook
 - **Änderungsprotokoll** in der Verwaltung: wer hat wann was geändert, filterbar nach Mitarbeiter,
   Zeitraum, Bereich und Suchtext, als CSV exportierbar
 
@@ -303,6 +304,13 @@ mit Link „im Kalender ansehen“.
 Einzelne Mitarbeiter lassen sich unter **Mitarbeiter → Bearbeiten → Rolle** mit **„Darf den Abwesenheitskalender sehen“**
 freigeben: Sie sehen die Kollegen ihrer Filiale(n) nur als „abwesend“ (ohne Art, ohne offene Anträge). Welche Wochentage
 im Kalender weiß sind, legt **Einstellungen → Allgemein → Arbeitstage der Firma** fest (z. B. Di–Sa).
+
+**Kalender-Abo (Nextcloud, iPhone, Outlook):** Unter **Abwesenheiten → Kalender-Abo** legt jeder, der den Kalender
+sehen darf, einen persönlichen Link an (zeigt dasselbe wie die App); Admins zusätzlich Links je Filiale – mit Art oder
+nur „abwesend“, offene Anträge wahlweise. In Nextcloud: Kalender → **+ Neuer Kalender → Neues Abonnement aus Link**.
+Nextcloud muss die Adresse erreichen können; liegt die Zeiterfassung im lokalen Netz, braucht Nextcloud in der
+`config.php` die Einstellung `'allow_local_remote_servers' => true`. Nextcloud aktualisiert Abos in seinem eigenen
+Rhythmus (einstellbar vom Nextcloud-Admin).
 
 **Admins anlegen:** Beim Anlegen „Admin“ ankreuzen oder unter Mitarbeiter → Bearbeiten das Häkchen **Admin** setzen.
 Die eigenen Admin-Rechte kann man sich nicht selbst entziehen, und der letzte Admin bleibt immer Admin.

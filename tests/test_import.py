@@ -91,3 +91,21 @@ def test_import_requires_admin(ctx):
         other.post("/api/v1/auth/login", json={"username": "importtim", "password": "geheim123"})
         r = other.post("/api/v1/import", json={"user_id": uid, "kind": "entries", "csv_text": "x", "commit": False})
         assert r.status_code == 403
+
+
+@pytest.mark.parametrize("text", [
+    "Kommen;Gehen\n02.03.2026 07:02;02.03.2026 15:30\n03.03.2026 22:00;04.03.2026 06:00\n",
+    "Datum Kommen;Datum Gehen;Bemerkung\n02.03.2026 07:02;02.03.2026 15:30;\n03.03.2026 22:00;04.03.2026 06:00;Nacht\n",
+    "Arbeitsbeginn,Arbeitsende\n2026-03-02 07:02,2026-03-02 15:30\n2026-03-03 22:00,2026-03-04 06:00\n",
+    "02.03.2026 07:02;02.03.2026 15:30\n03.03.2026 22:00;04.03.2026 06:00\n",            # ohne Kopfzeile
+    "02.03.26 07:02 Uhr;02.03.26 15:30 Uhr\n03.03.26, 22:00;04.03.26, 06:00\n",            # kurze Jahre, „Uhr“, Komma
+])
+def test_two_column_datetime_format(ctx, text):
+    """Ralfs Format: Spalte 1 = Datum + Kommen, Spalte 2 = Datum + Gehen (auch Nachtdienst über Mitternacht)."""
+    c, _ = ctx
+    uid = c.post("/api/v1/users", json={"username": f"imp2_{abs(hash(text)) % 10**8}", "display_name": "Zwei Spalten",
+                                        "password": "geheim123", "tracking_start": "2026-03-01"}).json()["id"]
+    rows = run(c, uid, "entries", text, False)["rows"]
+    assert [r["status"] for r in rows] == ["neu", "neu"], rows
+    assert rows[0]["start"] == "2026-03-02 07:02" and rows[0]["end"] == "2026-03-02 15:30"
+    assert rows[1]["start"] == "2026-03-03 22:00" and rows[1]["end"] == "2026-03-04 06:00" and rows[1]["hours"] == 8.0
