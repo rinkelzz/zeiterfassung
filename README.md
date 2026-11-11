@@ -112,7 +112,7 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
 **Berichte**
 - **PDF**: Arbeitszeitnachweis pro Monat (mit Kontoständen und Unterschriftszeilen) und Jahresübersicht
 - **Excel**: Monat mit allen Tagen; Jahr mit Monatssummen und einem Blatt pro Monat
-- **Per Mail**: eigener SMTP-Server; automatisch am 1. des Monats (Vormonat) und am 1. Januar (Vorjahr),
+- **Per Mail**: eigener SMTP-Server, **Microsoft 365** (Graph, Client-Secret oder Zertifikat) oder ein eigener Mailweg; automatisch am 1. des Monats (Vormonat) und am 1. Januar (Vorjahr),
   jeder Bericht nur einmal, mit Versandprotokoll – oder jederzeit von Hand
 - CSV-Export, CSV-Import (z. B. aus [gleitzeit](https://github.com/rinkelzz/gleitzeit) oder zwei Spalten „Datum Kommen“/„Datum Gehen“)
 - Abwesenheiten als **Kalender-Abo** (ICS) für Nextcloud, iPhone und Outlook
@@ -263,6 +263,30 @@ Testmail senden, dann „Monatsbericht automatisch“ bzw. „Jahresbericht auto
 Jeder Mitarbeiter braucht eine Mailadresse (Verwaltung → Mitarbeiter → Bearbeiten oder selbst unter „Mein Zugang“).
 Bei GMX, Web.de oder Gmail meist ein **App-Passwort** verwenden.
 
+**Microsoft 365 (Exchange Online) ohne SMTP:** unter „Versand über“ **Microsoft 365 (Graph)** wählen und eine
+Entra-App-Registrierung mit der **Anwendungsberechtigung `Mail.Send`** (mit Administratorzustimmung) eintragen:
+Verzeichnis-ID (Tenant), Anwendungs-ID (Client) und entweder ein **Client-Secret** oder ein **Zertifikat** (PEM-Datei
+mit Zertifikat und Schlüssel ohne Passwort, z. B. `openssl pkcs12 -in zert.pfx -nodes -out zert.pem`; das Zertifikat
+selbst in der App-Registrierung hochladen). Die Mails gehen vom Postfach der Absender-Adresse. Tipp: Mit einer
+*Application Access Policy* in Exchange lässt sich die App auf dieses eine Postfach beschränken. Secret und
+Zertifikat liegen in der Datenbank, werden aber nicht mitgesichert.
+
+**Eigener Mailweg (für Fortgeschrittene):** Wer einen eigenen Versanddienst betreibt, trägt ihn in der
+`config.env` der NAS ein (`/var/packages/zeiterfassung/var/config.env` – bleibt bei Updates erhalten, nur per SSH
+änderbar, nie über die Weboberfläche) und startet das Paket neu. Danach erscheint unter „Versand über“ die Option
+**Eigener Mailweg**:
+
+```sh
+# Programm: bekommt die fertige Mail (RFC 5322, mit Anhängen) auf stdin,
+# Empfänger/Absender zusätzlich in ZE_MAIL_TO / ZE_MAIL_FROM; Exit-Code 0 = verschickt
+ZE_MAIL_COMMAND="/volume1/scripts/mein-mailer --queue"
+# oder Unix-Socket: Mail senden, Schreibseite schließen, Dienst antwortet mit einer Zeile „OK …“ (sonst Fehlertext)
+ZE_MAIL_SOCKET="/run/graphmailer/mail.sock"
+```
+
+Eigene Änderungen an Dateien im Programmordner (z. B. `app/mailer.py`) werden bei jedem Update überschrieben –
+dafür sind diese Einstellungen da.
+
 ### Vergessenes Ausstempeln
 
 Läuft eine Buchung länger als 12 Stunden, bekommen der Mitarbeiter und alle Admins mit Mailadresse
@@ -379,6 +403,8 @@ Beim ersten Start wird `admin` angelegt; das Passwort steht in `data/ERSTES_ADMI
 | `ZE_MAIL_SCHEDULER` | `1` | Hintergrundaufgaben an/aus (Berichte per Mail, Erinnerungen, Datensicherung, Update-Prüfung) |
 | `ZE_UPDATE_CHECK` | `1` | bei GitHub nach neuen Versionen sehen (Paketquelle) |
 | `ZE_UPDATE_REPO` | `rinkelzz/zeiterfassung` | Repo, aus dem Updates kommen |
+| `ZE_MAIL_COMMAND` | leer | eigener Mailweg: Programm, das die Mail auf stdin bekommt (siehe Berichte per Mail) |
+| `ZE_MAIL_SOCKET` | leer | eigener Mailweg: Unix-Socket eines Maildienstes |
 
 **Aufbau:** FastAPI + SQLite (`app/`), Oberfläche ohne Build-Schritt (`app/static/`). Berechnung der
 Konten in `app/reports.py` (ab dem letzten Monatsabschluss, `app/closing.py`), Berichte in `app/report_files.py` (PDF ohne Fremdbibliothek über `app/pdf.py`,
@@ -431,7 +457,7 @@ Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The 
 - Absence calendar for admins (everyone) and managers (their team) with pending requests; overlap hint when approving
 - "Stamp link" without Shortcuts: home-screen icon or NFC tag with a plain URL (no secret on the tag, one tag for the whole team)
 - Month closing per employee: locks the month and freezes the account balances (reopen with a reason)
-- Monthly and yearly reports as PDF and Excel, delivered automatically by email (own SMTP server)
+- Monthly and yearly reports as PDF and Excel, delivered automatically by email (own SMTP server, Microsoft 365 via Graph with secret or certificate, or a custom transport via program/Unix socket configured in config.env)
 - Runs in its own DSM window with single sign-on for DSM users; login with DSM credentials incl. 2FA
 - Nightly database backup to a shared folder (for Hyper Backup) with one-click restore
 - Updates through the Package Center: the app serves as its own package source

@@ -36,8 +36,8 @@ def _public_url(conn) -> str:
 
 
 def _remind(conn, user: sqlite3.Row, entry: sqlite3.Row, limit_h: float, auto: bool) -> List[str]:
-    from .mailer import MailError, send_mail, smtp_config, valid_email
-    if not smtp_config(conn)["host"]:
+    from .mailer import MailError, mail_ready, send_mail, valid_email
+    if not mail_ready(conn):
         return []
     start = parse_utc(entry["start_utc"])
     s_local = to_local(start)

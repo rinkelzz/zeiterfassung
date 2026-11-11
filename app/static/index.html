@@ -355,6 +355,35 @@
         <label class="inline"><input type="checkbox" class="mailFmt" value="pdf"> PDF</label>
         <label class="inline"><input type="checkbox" class="mailFmt" value="xlsx"> Excel</label>
       </div>
+      <h3>Versand über</h3>
+      <div class="row">
+        <label class="inline"><input type="radio" name="mailTr" value="smtp"> Mailserver (SMTP)</label>
+        <label class="inline"><input type="radio" name="mailTr" value="graph"> Microsoft 365 (Graph)</label>
+        <label class="inline" id="mailTrExtLbl"><input type="radio" name="mailTr" value="external"> Eigener Mailweg (config.env)</label>
+      </div>
+      <div id="mailGraph" class="hidden" style="margin-top:8px">
+        <p class="muted small" style="margin:0 0 6px">Entra-App-Registrierung mit der <b>Anwendungsberechtigung Mail.Send</b>
+          (Administratorzustimmung erteilen). Tipp: Mit einer Exchange-Zugriffsrichtlinie lässt sich die App auf das Absender-Postfach beschränken.
+          Die Mail geht vom Postfach der Absender-Adresse unten.</p>
+        <div class="row">
+          <label>Verzeichnis-ID (Tenant) <input id="grTenant" placeholder="0f1e2d3c-… oder firma.onmicrosoft.com" style="width:270px"></label>
+          <label>Anwendungs-ID (Client) <input id="grClient" placeholder="a1b2c3d4-…" style="width:270px"></label>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <label>Client-Secret <input id="grSecret" type="password" autocomplete="new-password" style="width:220px"></label>
+          <button class="mini danger hidden" id="grSecretDel" type="button">Secret löschen</button>
+          <span class="muted small">– oder –</span>
+          <label class="btn small" style="display:inline-block">Zertifikat (.pem) laden <input type="file" id="grCertFile" accept=".pem,.crt,.key,.txt" hidden></label>
+          <span class="small" id="grCertInfo"></span>
+          <button class="mini danger hidden" id="grCertDel" type="button">Zertifikat löschen</button>
+        </div>
+        <p class="muted small" style="margin:4px 0 0">Zertifikat: eine PEM-Datei mit Zertifikat <b>und</b> privatem Schlüssel ohne Passwort,
+          z. B. aus einer .pfx mit <code>openssl pkcs12 -in zert.pfx -nodes -out zert.pem</code>. Ist beides hinterlegt, wird das Zertifikat genommen.
+          Secret und Zertifikat werden nicht mitgesichert.</p>
+        <label class="inline small" style="margin-top:6px"><input type="checkbox" id="grSaveSent"> Kopie in „Gesendete Elemente“ ablegen</label>
+      </div>
+      <div id="mailExternal" class="hidden muted small" style="margin-top:8px"></div>
+      <div id="mailSmtp">
       <h3>Mailserver (SMTP)</h3>
       <div class="row">
         <label>Server <input id="smtpHost" placeholder="smtp.strato.de" style="width:180px"></label>
@@ -366,6 +395,7 @@
         </select></label>
         <label>Benutzer <input id="smtpUser" autocomplete="off" style="width:180px"></label>
         <label>Passwort <input id="smtpPw" type="password" autocomplete="new-password" style="width:150px"></label>
+      </div>
       </div>
       <div class="row" style="margin-top:8px">
         <label>Absender-Adresse <input id="smtpFrom" type="email" placeholder="zeit@meinedomain.de" style="width:200px"></label>

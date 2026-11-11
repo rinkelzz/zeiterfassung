@@ -2,6 +2,19 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.29.0] – 2026-11-11
+
+### Neu
+- **Mailversand über Microsoft 365 (Microsoft Graph)** – ohne SMTP: Verwaltung → Mail → „Versand über“ →
+  Microsoft 365. Anmeldung als Entra-App mit der Anwendungsberechtigung `Mail.Send`, wahlweise per **Client-Secret**
+  oder **Zertifikat** (PEM; die Anmeldung wird ohne Zusatzbibliothek selbst signiert). Anhänge (PDF/Excel) wie
+  gewohnt, optional Kopie in „Gesendete Elemente“. Secret und Zertifikat werden nicht mitgesichert.
+- **Eigener Mailweg über config.env:** `ZE_MAIL_COMMAND` (Programm bekommt die fertige Mail auf stdin) oder
+  `ZE_MAIL_SOCKET` (Unix-Socket, Antwort „OK“). Bewusst nur in der config.env der NAS einstellbar, nicht über die
+  Weboberfläche – und damit updatesicher, ohne Programmdateien anzupassen.
+- Automatische Berichte, Erinnerungen und „Passwort vergessen“ prüfen jetzt den gewählten Mailweg statt nur den
+  SMTP-Server. Wunsch von @denberg92 (#6).
+
 ## [0.28.0] – 2026-11-11
 
 ### Neu
@@ -399,6 +412,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.29.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.0
 [0.28.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.28.0
 [0.27.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.27.0
 [0.26.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.26.2

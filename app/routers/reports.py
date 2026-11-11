@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from .. import csvsafe
 from ..config import THEMES, settings as app_settings
 from ..db import audit, company_workdays, get_db, get_setting
-from ..mailer import FORMATS, MailError, send_mail, send_report, smtp_config, valid_email
+from ..mailer import FORMATS, TRANSPORTS, MailError, mail_ready, send_mail, send_report, valid_email
 from ..report_files import parse_period, render
 from ..dsm import write_ui_config
 from ..holidays import BUNDESLAENDER, holidays_for_year, parse_company_free_days, parse_regional, regional_all, regional_options
@@ -237,7 +237,7 @@ def mail_report(data: MailReportIn, user=Depends(current_user), conn: sqlite3.Co
     except ValueError as e:
         raise HTTPException(400, str(e))
     except MailError as e:
-        raise HTTPException(502 if smtp_config(conn)["host"] else 400, str(e))
+        raise HTTPException(502 if mail_ready(conn) else 400, str(e))
     return {"ok": True, "to": to, "message": f"Bericht an {to} verschickt"}
 
 
@@ -261,7 +261,7 @@ def mail_test(data: MailTestIn, admin=Depends(admin_user), conn: sqlite3.Connect
                   "Hallo,\n\nder Mailversand der Zeiterfassung funktioniert.\n\n"
                   "Monats- und Jahresberichte kommen ab jetzt an die Adressen der Mitarbeiter.")
     except MailError as e:
-        raise HTTPException(502 if smtp_config(conn)["host"] else 400, str(e))
+        raise HTTPException(502 if mail_ready(conn) else 400, str(e))
     audit(conn, admin["id"], "mail_test", "", data.to)
     return {"ok": True, "message": f"Testmail an {data.to.strip()} verschickt"}
 
@@ -293,12 +293,35 @@ class SettingsIn(BaseModel):
     smtp_password: Optional[str] = Field(None, max_length=200, description="leer lassen = unverändert")
     smtp_from: Optional[str] = Field(None, max_length=200)
     smtp_from_name: Optional[str] = Field(None, max_length=100)
+    mail_transport: Optional[str] = Field(None, description="smtp, graph (Microsoft 365) oder external (config.env)")
+    graph_tenant: Optional[str] = Field(None, max_length=100, description="Verzeichnis-ID (Tenant) der Entra-App")
+    graph_client_id: Optional[str] = Field(None, max_length=100, description="Anwendungs-ID (Client-ID)")
+    graph_secret: Optional[str] = Field(None, max_length=300, description="Client-Secret; leer = unverändert")
+    graph_cert_pem: Optional[str] = Field(None, max_length=20000, description="Zertifikat + Schlüssel (PEM); leer = unverändert")
+    graph_clear: Optional[str] = Field(None, description="secret oder cert: gespeicherte Anmeldedaten löschen")
+    graph_save_sent: Optional[bool] = Field(None, description="Kopie in „Gesendete Elemente“ ablegen")
     mail_monthly: Optional[bool] = None
     mail_yearly: Optional[bool] = None
     mail_formats: Optional[List[str]] = None
     open_limit_hours: Optional[float] = Field(None, ge=0, le=48, description="Erinnern nach X Stunden, 0 = aus")
     open_auto_close: Optional[bool] = Field(None, description="Um Mitternacht nach der Grenze automatisch beenden")
     arbzg_warnings: Optional[bool] = Field(None, description="Hinweise: über 10 h am Tag, unter 11 h Ruhezeit")
+
+
+def _external_target() -> str:
+    from .. import mail_external
+    return mail_external.target()
+
+
+def _cert_thumbprint(conn) -> str:
+    pem = get_setting(conn, "graph_cert_pem")
+    if not pem:
+        return ""
+    from .. import mail_graph
+    try:
+        return mail_graph.load_credentials(pem)["thumbprint"]
+    except mail_graph.GraphError:
+        return "ungültig"
 
 
 def _settings_out(conn) -> dict:
@@ -336,6 +359,13 @@ def _settings_out(conn) -> dict:
         "smtp_password_set": bool(get_setting(conn, "smtp_password")),
         "smtp_from": get_setting(conn, "smtp_from"),
         "smtp_from_name": get_setting(conn, "smtp_from_name"),
+        "mail_transport": get_setting(conn, "mail_transport") or "smtp",
+        "mail_external": _external_target(),
+        "graph_tenant": get_setting(conn, "graph_tenant"),
+        "graph_client_id": get_setting(conn, "graph_client_id"),
+        "graph_secret_set": bool(get_setting(conn, "graph_secret")),
+        "graph_cert_thumbprint": _cert_thumbprint(conn),
+        "graph_save_sent": get_setting(conn, "graph_save_sent") == "1",
         "mail_monthly": get_setting(conn, "mail_monthly") == "1",
         "mail_yearly": get_setting(conn, "mail_yearly") == "1",
         "mail_formats": [x for x in (get_setting(conn, "mail_formats") or "").split(",") if x],
@@ -440,6 +470,32 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         _set(conn, "smtp_security", data.smtp_security)
     if data.smtp_password:  # leer = unverändert
         _set(conn, "smtp_password", data.smtp_password)
+    if changes.get("mail_transport") is not None:
+        if data.mail_transport not in TRANSPORTS:
+            raise HTTPException(400, "Mailweg muss smtp, graph oder external sein")
+        if data.mail_transport == "external" and not _external_target():
+            raise HTTPException(400, "Ein eigener Mailweg wird in der config.env der NAS eingetragen "
+                                     "(ZE_MAIL_COMMAND oder ZE_MAIL_SOCKET) – danach Paket neu starten")
+        _set(conn, "mail_transport", data.mail_transport)
+    for key in ("graph_tenant", "graph_client_id"):
+        if key in changes:
+            val = (changes[key] or "").strip()
+            if val and not re.match(r"^[A-Za-z0-9.-]{3,100}$", val):
+                raise HTTPException(400, "Tenant- und Client-ID: z. B. 0f1e2d3c-… (GUID) oder firma.onmicrosoft.com")
+            _set(conn, key, val)
+    if data.graph_secret:
+        _set(conn, "graph_secret", data.graph_secret.strip())
+    if data.graph_cert_pem:
+        from .. import mail_graph
+        try:
+            mail_graph.load_credentials(data.graph_cert_pem)
+        except mail_graph.GraphError as e:
+            raise HTTPException(400, str(e))
+        _set(conn, "graph_cert_pem", data.graph_cert_pem.strip())
+    if data.graph_clear in ("secret", "cert"):
+        _set(conn, "graph_secret" if data.graph_clear == "secret" else "graph_cert_pem", "")
+    if changes.get("graph_save_sent") is not None:
+        _set(conn, "graph_save_sent", "1" if data.graph_save_sent else "0")
     if changes.get("open_limit_hours") is not None:
         _set(conn, "open_limit_hours", f"{data.open_limit_hours:g}")
     if changes.get("arbzg_warnings") is not None:
@@ -461,7 +517,7 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         _set(conn, "public_url", url)
         write_ui_config(conn)
     if changes:
-        logged = {k: ("***" if k == "smtp_password" else v) for k, v in changes.items()}
+        logged = {k: ("***" if k in ("smtp_password", "graph_secret", "graph_cert_pem") else v) for k, v in changes.items()}
         audit(conn, admin["id"], "settings_updated", ",".join(sorted(changes)), str(logged))
     return _settings_out(conn)
 

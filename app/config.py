@@ -36,6 +36,10 @@ class Settings:
         self.mail_scheduler = _bool("ZE_MAIL_SCHEDULER", True)
         # Regelmäßig bei GitHub nach neuen Versionen sehen (Paketquelle fürs Paket-Zentrum)
         self.update_check = _bool("ZE_UPDATE_CHECK", True)
+        # Optional: eigener Mailweg (nur hier in config.env, nicht in der Weboberfläche – aus Sicherheitsgründen).
+        # Die fertige Mail (RFC 5322, mit Anhängen) geht an ein Programm (stdin) oder an einen Unix-Socket.
+        self.mail_command = os.environ.get("ZE_MAIL_COMMAND", "").strip()
+        self.mail_socket = os.environ.get("ZE_MAIL_SOCKET", "").strip()
         # Optional: Startpasswort für den ersten Admin
         self.initial_admin_password = os.environ.get("ZE_ADMIN_PASSWORD")
 

@@ -99,6 +99,12 @@ DEFAULT_SETTINGS = {
     "smtp_security": "starttls",   # starttls | ssl | none
     "smtp_user": "",
     "smtp_password": "",
+    "mail_transport": "smtp",
+    "graph_tenant": "",
+    "graph_client_id": "",
+    "graph_secret": "",
+    "graph_cert_pem": "",
+    "graph_save_sent": "0",
     "smtp_from": "",
     "smtp_from_name": "Zeiterfassung",
     "mail_monthly": "0",           # am 1. des Monats ab 6 Uhr: Bericht für den Vormonat

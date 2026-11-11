@@ -1352,6 +1352,17 @@ async function loadSettingsForm() {
   $("smtpSec").value = s.smtp_security || "starttls"; $("smtpUser").value = s.smtp_user || "";
   $("smtpPw").value = ""; $("smtpPw").placeholder = s.smtp_password_set ? "gespeichert – leer = unverändert" : "";
   $("smtpFrom").value = s.smtp_from || ""; $("smtpFromName").value = s.smtp_from_name || "";
+  $$("input[name=mailTr]").forEach(r => r.checked = r.value === (s.mail_transport || "smtp"));
+  $("mailTrExtLbl").classList.toggle("hidden", !s.mail_external && s.mail_transport !== "external");
+  $("mailExternal").innerHTML = s.mail_external ? `Die Mails gehen an: <b>${esc(s.mail_external)}</b> (eingetragen in der config.env der NAS).`
+    : "In der config.env ist kein eigener Mailweg eingetragen (ZE_MAIL_COMMAND oder ZE_MAIL_SOCKET).";
+  $("grTenant").value = s.graph_tenant || ""; $("grClient").value = s.graph_client_id || "";
+  $("grSecret").value = ""; $("grSecret").placeholder = s.graph_secret_set ? "gespeichert – leer = unverändert" : "";
+  $("grSecretDel").classList.toggle("hidden", !s.graph_secret_set);
+  $("grCertInfo").textContent = s.graph_cert_thumbprint ? "Zertifikat hinterlegt, Fingerabdruck " + s.graph_cert_thumbprint : "";
+  $("grCertDel").classList.toggle("hidden", !s.graph_cert_thumbprint);
+  $("grSaveSent").checked = !!s.graph_save_sent;
+  showMailTr();
   if (!$("mailTestTo").value) $("mailTestTo").value = state.me.email || "";
   loadMailLog().catch(() => {});
   const h = await api("holidays");
@@ -1398,13 +1409,40 @@ async function saveMail() {
     const body = { mail_monthly: $("mailMonthly").checked, mail_yearly: $("mailYearly").checked,
       mail_formats: $$(".mailFmt").filter(c => c.checked).map(c => c.value),
       smtp_host: $("smtpHost").value.trim(), smtp_port: Number($("smtpPort").value || 587), smtp_security: $("smtpSec").value,
-      smtp_user: $("smtpUser").value.trim(), smtp_from: $("smtpFrom").value.trim(), smtp_from_name: $("smtpFromName").value.trim() };
+      smtp_user: $("smtpUser").value.trim(), smtp_from: $("smtpFrom").value.trim(), smtp_from_name: $("smtpFromName").value.trim(),
+      mail_transport: mailTr(), graph_tenant: $("grTenant").value.trim(), graph_client_id: $("grClient").value.trim(),
+      graph_save_sent: $("grSaveSent").checked };
     if ($("smtpPw").value) body.smtp_password = $("smtpPw").value;
+    if ($("grSecret").value) body.graph_secret = $("grSecret").value;
+    if (state.grCertPem) body.graph_cert_pem = state.grCertPem;
     await api("settings", { method: "PATCH", body });
+    state.grCertPem = null;
     await loadSettingsForm();
     okMsg($("mailErr"), "Gespeichert.");
   } catch (e) { $("mailErr").textContent = e.message; }
 }
+const mailTr = () => (document.querySelector("input[name=mailTr]:checked") || {}).value || "smtp";
+function showMailTr() {
+  const t = mailTr();
+  $("mailSmtp").classList.toggle("hidden", t !== "smtp");
+  $("mailGraph").classList.toggle("hidden", t !== "graph");
+  $("mailExternal").classList.toggle("hidden", t !== "external");
+}
+$$("input[name=mailTr]").forEach(r => r.onchange = showMailTr);
+$("grCertFile").onchange = () => {
+  const f = $("grCertFile").files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { state.grCertPem = String(rd.result); $("grCertInfo").textContent = f.name + " – wird beim Speichern geprüft"; };
+  rd.readAsText(f);
+};
+const grClear = async (what) => {
+  if (!confirm(what === "cert" ? "Zertifikat löschen?" : "Client-Secret löschen?")) return;
+  try { await api("settings", { method: "PATCH", body: { graph_clear: what } }); await loadSettingsForm(); }
+  catch (e) { $("mailErr").textContent = e.message; }
+};
+$("grSecretDel").onclick = () => grClear("secret");
+$("grCertDel").onclick = () => grClear("cert");
 async function testMail() {
   $("mailErr").textContent = "";
   const to = $("mailTestTo").value.trim();

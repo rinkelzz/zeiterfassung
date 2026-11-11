@@ -61,8 +61,8 @@ def _load(conn, rid: int) -> sqlite3.Row:
 
 def _mail(conn, recipients: List[str], subject: str, body: str) -> None:
     """Benachrichtigung – Fehler beim Versand stören den Ablauf nicht."""
-    from ..mailer import MailError, send_mail, smtp_config, valid_email
-    if not smtp_config(conn)["host"]:
+    from ..mailer import MailError, mail_ready, send_mail, valid_email
+    if not mail_ready(conn):
         return
     url = (get_setting(conn, "public_url") or "").rstrip("/")
     text = body + ("\n\n" + url if url else "") + "\n\nDiese Mail wurde automatisch von der Zeiterfassung verschickt."

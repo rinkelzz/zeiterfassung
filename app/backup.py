@@ -63,7 +63,7 @@ def check_dir(path: str) -> Path:
 
 
 # Zugangsdaten, die nicht in die Sicherung gehören (nach dem Wiederherstellen auf einer anderen NAS neu eintragen)
-SECRET_SETTINGS = ("smtp_password",)
+SECRET_SETTINGS = ("smtp_password", "graph_secret", "graph_cert_pem")
 
 
 def _strip_secrets(db: sqlite3.Connection) -> None:
@@ -261,7 +261,11 @@ def restore(name: str, actor_id: Optional[int] = None) -> Dict:
                     if v and not get_setting(live, k):
                         live.execute("INSERT INTO app_settings(key, value) VALUES (?, ?) "
                                      "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (k, v))
-                smtp_missing = bool(get_setting(live, "smtp_host")) and not get_setting(live, "smtp_password")
+                transport = get_setting(live, "mail_transport") or "smtp"
+                if transport == "graph":
+                    smtp_missing = not (get_setting(live, "graph_secret") or get_setting(live, "graph_cert_pem"))
+                else:
+                    smtp_missing = bool(get_setting(live, "smtp_host")) and not get_setting(live, "smtp_password")
                 for token_hash, created_at, expires_at, username in sessions:
                     u = live.execute("SELECT id FROM users WHERE username = ? AND active = 1", (username,)).fetchone()
                     if u:

@@ -1,4 +1,9 @@
-"""Berichte per Mail: SMTP-Versand, Versandprotokoll und automatischer Zeitplan.
+"""Berichte per Mail: Versand (SMTP, Microsoft 365 oder eigener Mailweg), Versandprotokoll und Zeitplan.
+
+Mailwege (Einstellung mail_transport):
+- smtp:     klassisch über einen Mailserver
+- graph:    Microsoft 365 über Microsoft Graph (app/mail_graph.py), Client-Secret oder Zertifikat
+- external: eigenes Programm oder Unix-Socket, nur über config.env einstellbar (app/mail_external.py)
 
 Zeitplan (wenn in den Einstellungen eingeschaltet):
 - Monatsbericht: am 1. eines Monats ab 6 Uhr für den Vormonat
@@ -51,6 +56,46 @@ def smtp_config(conn: sqlite3.Connection) -> Dict:
     }
 
 
+TRANSPORTS = ("smtp", "graph", "external")
+
+
+def mail_transport(conn: sqlite3.Connection) -> str:
+    t = get_setting(conn, "mail_transport") or "smtp"
+    return t if t in TRANSPORTS else "smtp"
+
+
+def graph_config(conn: sqlite3.Connection) -> Dict:
+    from . import mail_graph
+    pem = get_setting(conn, "graph_cert_pem")
+    cfg = {"tenant": get_setting(conn, "graph_tenant").strip(), "client_id": get_setting(conn, "graph_client_id").strip(),
+           "secret": get_setting(conn, "graph_secret"), "creds": None, "cert_thumbprint": "",
+           "save_sent": get_setting(conn, "graph_save_sent") == "1"}
+    if pem:
+        cfg["creds"] = mail_graph.load_credentials(pem)
+        cfg["cert_thumbprint"] = cfg["creds"]["thumbprint"]
+    return cfg
+
+
+def mail_ready(conn: sqlite3.Connection) -> bool:
+    """Ist ein Mailweg vollständig eingerichtet? (für Zeitplan und Hinweise)"""
+    t = mail_transport(conn)
+    if t == "graph":
+        return bool(get_setting(conn, "graph_tenant") and get_setting(conn, "graph_client_id")
+                    and (get_setting(conn, "graph_secret") or get_setting(conn, "graph_cert_pem")))
+    if t == "external":
+        return bool(settings.mail_command or settings.mail_socket)
+    return bool(smtp_config(conn)["host"])
+
+
+def not_ready_message(conn: sqlite3.Connection) -> str:
+    t = mail_transport(conn)
+    if t == "graph":
+        return "Microsoft 365 ist nicht vollständig eingerichtet (Verwaltung → Mail)"
+    if t == "external":
+        return "Kein eigener Mailweg in config.env eingetragen (ZE_MAIL_COMMAND oder ZE_MAIL_SOCKET)"
+    return "Kein Mailserver eingetragen (Verwaltung → Einstellungen → Mailversand)"
+
+
 def mail_formats(conn: sqlite3.Connection) -> List[str]:
     fm = [x for x in (get_setting(conn, "mail_formats") or "").split(",") if x in FORMATS]
     return fm or ["pdf"]
@@ -59,8 +104,9 @@ def mail_formats(conn: sqlite3.Connection) -> List[str]:
 def send_mail(conn: sqlite3.Connection, to: str, subject: str, body: str,
               attachments: Optional[List[Tuple[str, bytes, str]]] = None) -> None:
     cfg = smtp_config(conn)
-    if not cfg["host"]:
-        raise MailError("Kein Mailserver eingetragen (Verwaltung → Einstellungen → Mailversand)")
+    transport = mail_transport(conn)
+    if not mail_ready(conn):
+        raise MailError(not_ready_message(conn))
     if not valid_email(cfg["from"]):
         raise MailError("Absenderadresse fehlt oder ist ungültig")
     if not valid_email(to):
@@ -74,6 +120,20 @@ def send_mail(conn: sqlite3.Connection, to: str, subject: str, body: str,
     for name, data, mime in attachments or []:
         maintype, subtype = mime.split("/", 1)
         msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=name)
+    if transport == "graph":
+        from . import mail_graph
+        try:
+            mail_graph.send(graph_config(conn), cfg["from"], cfg["from_name"], to, subject, body, attachments or [])
+        except mail_graph.GraphError as e:
+            raise MailError(str(e))
+        return
+    if transport == "external":
+        from . import mail_external
+        try:
+            mail_external.send(bytes(msg), to, cfg["from"])
+        except mail_external.ExternalMailError as e:
+            raise MailError(str(e))
+        return
     try:
         ctx = ssl.create_default_context()
         if cfg["security"] == "ssl":
@@ -173,7 +233,7 @@ def run_due(conn: sqlite3.Connection, now: Optional[datetime] = None) -> List[Di
     """Fällige Berichte an alle Mitarbeiter mit Mailadresse schicken (einmal pro Bericht)."""
     now = now or now_utc()
     periods = due_periods(conn, to_local(now))
-    if not periods or not smtp_config(conn)["host"]:
+    if not periods or not mail_ready(conn):
         return []
     results = []
     users = conn.execute(
