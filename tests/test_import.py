@@ -99,6 +99,10 @@ def test_import_requires_admin(ctx):
     "Arbeitsbeginn,Arbeitsende\n2026-03-02 07:02,2026-03-02 15:30\n2026-03-03 22:00,2026-03-04 06:00\n",
     "02.03.2026 07:02;02.03.2026 15:30\n03.03.2026 22:00;04.03.2026 06:00\n",            # ohne Kopfzeile
     "02.03.26 07:02 Uhr;02.03.26 15:30 Uhr\n03.03.26, 22:00;04.03.26, 06:00\n",            # kurze Jahre, „Uhr“, Komma
+    "Mo., 2.März 2026 07:02;Mo., 2.März 2026 15:30\nDi., 3.Mrz. 2026 22:00;Mi., 4.Mrz. 2026 06:00\n",  # Ralfs Altsystem
+    "Kommen;Gehen\nMontag, 2. März 2026, 07:02 Uhr;Montag, 2. März 2026, 15:30 Uhr\n"
+    "Dienstag, 3. März 2026, 22:00 Uhr;Mittwoch, 4. März 2026, 06:00 Uhr\n",
+    "Mo., 2.März 2026 07:02\tMo., 2.März 2026 15:30\nDi., 3.März 2026 22:00\tMi., 4.März 2026 06:00\n",  # Tabs (Excel)
 ])
 def test_two_column_datetime_format(ctx, text):
     """Ralfs Format: Spalte 1 = Datum + Kommen, Spalte 2 = Datum + Gehen (auch Nachtdienst über Mitternacht)."""
@@ -109,3 +113,14 @@ def test_two_column_datetime_format(ctx, text):
     assert [r["status"] for r in rows] == ["neu", "neu"], rows
     assert rows[0]["start"] == "2026-03-02 07:02" and rows[0]["end"] == "2026-03-02 15:30"
     assert rows[1]["start"] == "2026-03-03 22:00" and rows[1]["end"] == "2026-03-04 06:00" and rows[1]["hours"] == 8.0
+
+
+def test_german_month_names():
+    from app.routers.importer import _parse_dt, _parse_date
+    from datetime import datetime, date
+    assert _parse_dt("Fr., 2.Jan. 2026 08:00", None) == datetime(2026, 1, 2, 8, 0)
+    assert _parse_dt("Fr., 2.Jan. 2026 17:00", None) == datetime(2026, 1, 2, 17, 0)
+    assert _parse_dt("Sa., 31.Okt. 26 8:05", None) == datetime(2026, 10, 31, 8, 5)
+    assert _parse_date("Do., 1.Mai 2026") == date(2026, 5, 1)
+    assert _parse_dt("Fr., 2.Foo. 2026 08:00", None) is None
+    assert _parse_dt("Fr., 31.Feb. 2026 08:00", None) is None

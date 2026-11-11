@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.29.2] – 2026-11-11
+
+### Geändert
+- **CSV-Import versteht Datumsangaben mit Monatsnamen**, wie sie manche Altsysteme exportieren – z. B.
+  `Fr., 2.Jan. 2026 08:00` oder `Montag, 5. Januar 2026, 07:30 Uhr` (Wochentag wird ignoriert, Monat abgekürzt
+  oder ausgeschrieben, auch „Mrz.“/„März“). Kommas im Datum stören die Spaltenerkennung nicht mehr: Das
+  Trennzeichen (Tab, Semikolon, Komma) wird jetzt an gleich langen Zeilen erkannt. Danke an @ralfmehner-collab (#5).
+
 ## [0.29.1] – 2026-11-11
 
 ### Neu
@@ -420,6 +428,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.29.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.2
 [0.29.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.1
 [0.29.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.0
 [0.28.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.28.0

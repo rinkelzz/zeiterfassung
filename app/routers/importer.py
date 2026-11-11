@@ -12,6 +12,7 @@ Vorhandene Daten werden nie stillschweigend überschrieben; Dubletten und
 Überschneidungen werden erkannt und übersprungen.
 """
 import csv
+import re
 import io
 import sqlite3
 from datetime import date, datetime, timedelta
@@ -60,10 +61,7 @@ class ImportIn(BaseModel):
 
 def _rows(text: str) -> Tuple[Optional[Dict[str, int]], List[Tuple[int, List[str]]]]:
     text = text.lstrip("﻿")
-    sample = text[:2000]
-    delim = ";" if sample.count(";") >= sample.count(",") else ","
-    if "\t" in sample and sample.count("\t") > sample.count(delim):
-        delim = "\t"
+    delim = _delimiter(text)
     reader = csv.reader(io.StringIO(text), delimiter=delim)
     lines = [(i + 1, [c.strip() for c in row]) for i, row in enumerate(reader) if any(c.strip() for c in row)]
     if not lines:
@@ -116,6 +114,42 @@ def _get(row: List[str], header: Optional[Dict[str, int]], key: str, pos: Option
     return "" if v.upper() == "NULL" else v
 
 
+def _delimiter(text: str) -> str:
+    """Trennzeichen erkennen: Tab, Semikolon oder Komma – das, mit dem die ersten Zeilen gleich viele (≥ 2) Spalten
+    haben. So stört ein Komma im Text („Fr., 2.Jan. 2026 08:00“) in einer Semikolon-Datei nicht."""
+    sample = [ln for ln in text[:4000].splitlines() if ln.strip()][:20]
+    for delim in ("\t", ";", ","):
+        counts = {len(row) for row in csv.reader(sample, delimiter=delim)}
+        if len(counts) == 1 and counts.pop() >= 2:
+            return delim
+    head = text[:2000]
+    return ";" if head.count(";") >= head.count(",") else ","
+
+
+# Deutsche Datumsangaben mit Monatsnamen, z. B. „Fr., 2.Jan. 2026 08:00“ oder „Montag, 5. Januar 2026, 7:30 Uhr“
+MONTHS = {"jan": 1, "januar": 1, "feb": 2, "februar": 2, "mär": 3, "mrz": 3, "maer": 3, "märz": 3, "maerz": 3,
+          "apr": 4, "april": 4, "mai": 5, "jun": 6, "juni": 6, "jul": 7, "juli": 7, "aug": 8, "august": 8,
+          "sep": 9, "sept": 9, "september": 9, "okt": 10, "oktober": 10, "nov": 11, "november": 11,
+          "dez": 12, "dezember": 12}
+GERMAN_DT = re.compile(r"^(?:[A-Za-zÄÖÜäöü]{2,10}\.?,?\s*)?(\d{1,2})\.\s*([A-Za-zÄÖÜäöü]{3,9})\.?\s*(\d{2,4})"
+                       r"(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*uhr)?)?$", re.I)
+
+
+def _parse_german(s: str) -> Optional[datetime]:
+    m = GERMAN_DT.match(s.strip())
+    if not m:
+        return None
+    month = MONTHS.get(m.group(2).lower())
+    if not month:
+        return None
+    year = int(m.group(3))
+    year += 2000 if year < 100 else 0
+    try:
+        return datetime(year, month, int(m.group(1)), int(m.group(4) or 0), int(m.group(5) or 0), int(m.group(6) or 0))
+    except ValueError:
+        return None
+
+
 def _parse_date(s: str) -> Optional[date]:
     s = s.strip()
     for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y"):
@@ -123,10 +157,14 @@ def _parse_date(s: str) -> Optional[date]:
             return datetime.strptime(s[:10] if fmt == "%Y-%m-%d" else s, fmt).date()
         except ValueError:
             continue
-    return None
+    g = _parse_german(s)
+    return g.date() if g else None
 
 
 def _parse_dt(s: str, day: Optional[date]) -> Optional[datetime]:
+    g = _parse_german(s)
+    if g and re.search(r"\d:\d\d", s):
+        return g
     s = " ".join(s.strip().replace("T", " ").replace(",", " ").split())
     if s.lower().endswith(" uhr"):
         s = s[:-4]
