@@ -362,15 +362,50 @@ def get_db() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+PRE_UPDATE_KEEP = 3
+
+
+def _backup_before_migration():
+    """Steht ein Update der Datenbank an (ältere Schema-Version), vorher eine Sicherung anlegen
+    („…_vor-update.db.gz“ im Paketordner, die letzten drei bleiben). Klappt das nicht, startet die App nicht –
+    lieber gar nicht als ohne Sicherung umbauen."""
+    db_file = settings.db_path
+    if not db_file.exists() or db_file.stat().st_size == 0:
+        return None
+    probe = sqlite3.connect(str(db_file))
+    try:
+        version = probe.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        probe.close()
+    if version == 0 or version >= SCHEMA_VERSION:
+        return None
+    from . import backup
+    from .timeutil import now_utc, to_local
+    folder = backup.local_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    name = f"zeiterfassung_{to_local(now_utc()).strftime('%Y-%m-%d_%H%M')}_vor-update.db.gz"
+    try:
+        backup._snapshot(folder / name)
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"Sicherung vor dem Datenbank-Update fehlgeschlagen – Update abgebrochen, nichts verändert: {e}")
+    old = sorted(folder.glob("zeiterfassung_*_vor-update.db.gz"))
+    for f in old[:-PRE_UPDATE_KEEP]:
+        f.unlink()
+    return name
+
+
 def init_db() -> None:
     """Legt Datenordner, Schema und (beim ersten Start) den Admin an."""
     from .security import hash_password  # vermeidet Import-Zyklus
 
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+    pre_update = _backup_before_migration()
     conn = connect()
     try:
         conn.executescript(SCHEMA)
         migrate(conn)
+        if pre_update:
+            audit(conn, None, "backup_created", pre_update, "automatisch vor dem Update der Datenbank")
         for key, value in DEFAULT_SETTINGS.items():
             conn.execute(
                 "INSERT OR IGNORE INTO app_settings(key, value) VALUES (?, ?)", (key, value)

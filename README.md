@@ -175,7 +175,8 @@ gehört zusätzlich ein **freigegebener Ordner** dazu:
 
 Sicherungen lassen sich dort auch von Hand erstellen, herunterladen, wiederherstellen und löschen
 (einzeln oder mehrere per Häkchen, die neueste ist geschützt); vor dem Wiederherstellen wird der aktuelle
-Stand automatisch gesichert. Die Sicherungen enthalten
+Stand automatisch gesichert, ebenso **vor jedem Update, das die Datenbank umbaut** (`…_vor-update`, die letzten drei
+bleiben; klappt diese Sicherung nicht, wird das Update der Datenbank abgebrochen). Die Sicherungen enthalten
 Arbeitszeiten und Passwort-Hashes. Das **Mail-Passwort wird nicht mitgesichert** – beim Wiederherstellen auf
 derselben NAS bleibt es erhalten, auf einer neuen NAS trägst du es einmal neu ein. Trotzdem:
 

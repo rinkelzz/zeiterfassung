@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.29.1] – 2026-11-11
+
+### Neu
+- **Automatische Sicherung vor jedem Datenbank-Update:** Bringt ein Update eine neue Datenbank-Version mit, legt die
+  App vor dem Umbau eine Sicherung an (`…_vor-update.db.gz` im Paketordner, die letzten drei bleiben; sichtbar und
+  wiederherstellbar unter Sicherung & Updates). Schlägt die Sicherung fehl, wird das Update der Datenbank abgebrochen
+  und nichts verändert.
+
 ## [0.29.0] – 2026-11-11
 
 ### Neu
@@ -412,6 +420,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.29.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.1
 [0.29.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.0
 [0.28.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.28.0
 [0.27.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.27.0
