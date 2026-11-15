@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -110,6 +110,10 @@ DEFAULT_SETTINGS = {
     "mail_monthly": "0",           # am 1. des Monats ab 6 Uhr: Bericht für den Vormonat
     "mail_yearly": "0",            # am 1. Januar ab 6 Uhr: Jahresbericht fürs Vorjahr
     "mail_formats": "pdf,xlsx",    # Anhänge
+    # Monatszusammenfassung aller Mitarbeiter am 1. an eigene Adressen (z. B. Steuerbüro)
+    "summary_mail": "0",
+    "summary_recipients": "",      # durch Komma getrennt
+    "summary_with_reports": "1",   # Arbeitszeitnachweise aller Mitarbeiter als ein PDF mitschicken
     # Vergessenes Ausstempeln: nach X Stunden erinnern (0 = aus), um Mitternacht danach beenden
     "open_limit_hours": "12",
     # Hinweise nach Arbeitszeitgesetz (über 10 h am Tag, unter 11 h Ruhezeit)
@@ -339,6 +343,15 @@ def migrate(conn: sqlite3.Connection) -> None:
         # 2 mit Art ohne Krankheit, 3 alles) – bisherige Freigaben (1) bleiben „nur abwesend“. Dazu der Umfang.
         if "calendar_scope" not in _columns(conn, "users"):
             conn.execute("ALTER TABLE users ADD COLUMN calendar_scope TEXT NOT NULL DEFAULT 'branch'")
+    if version < 20:
+        # Monatszusammenfassung aller Mitarbeiter (z. B. ans Steuerbüro): Versandprotokoll je Monat
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS summary_mails ("
+            " period TEXT PRIMARY KEY,"
+            " status TEXT NOT NULL,"
+            " attempts INTEGER NOT NULL DEFAULT 0,"
+            " last_attempt TEXT, sent_at TEXT, recipient TEXT, error TEXT)"
+        )
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

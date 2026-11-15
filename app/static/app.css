@@ -275,3 +275,4 @@ details.tmPick label { display: flex; gap: 8px; align-items: center; padding: 3p
 .ovl.busy b.cnt { color: var(--out); }
 .copy { display: flex; gap: 6px; margin: 6px 0; }
 .copy input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+td.stamps { font-variant-numeric: tabular-nums; line-height: 1.35; white-space: nowrap; }

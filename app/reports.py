@@ -375,6 +375,16 @@ def compute_report(
             if d in rest_short:
                 warnings.append({"code": "rest11", "text": f"Ruhezeit nur {fmt_duration(rest_short[d])} h"})
         tot["warnings"] += len(warnings)
+        next_midnight = day_start_utc(d + timedelta(days=1))
+        blocks = [
+            {
+                "in": local_hhmm(a),
+                # letzter Block noch offen → None; Schicht über Mitternacht → 24:00 statt 00:00
+                "out": None if (d in open_days and i == len(intervals) - 1)
+                else "24:00" if b == next_midnight else local_hhmm(b),
+            }
+            for i, (a, b) in enumerate(intervals)
+        ]
         days.append(
             {
                 "date": key,
@@ -390,6 +400,7 @@ def compute_report(
                 "needs_check": d in check_days,
                 "warnings": warnings,
                 "segments": len(intervals),
+                "blocks": blocks,
                 "entry_ids": sorted(set(entries_per_day[d])),
                 "absence": kind,
                 "absence_id": ab["id"] if ab else None,

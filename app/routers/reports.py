@@ -241,13 +241,65 @@ def mail_report(data: MailReportIn, user=Depends(current_user), conn: sqlite3.Co
     return {"ok": True, "to": to, "message": f"Bericht an {to} verschickt"}
 
 
+# --- Monatszusammenfassung aller Mitarbeiter -------------------------------------------
+
+@router.get("/reports/summary")
+def summary_download(
+    period: str = Query(..., description="JJJJ-MM"),
+    file: str = Query("pdf", description="pdf, xlsx oder reports (alle Arbeitszeitnachweise in einem PDF)"),
+    admin=Depends(admin_user),
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    """Monatszusammenfassung aller Mitarbeiter (z. B. fürs Steuerbüro) als PDF oder Excel."""
+    from .. import summary
+    if file not in ("pdf", "xlsx", "reports"):
+        raise HTTPException(400, "file muss pdf, xlsx oder reports sein")
+    try:
+        s = summary.build_summary(conn, period)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if file == "pdf":
+        body, name, mime = summary.summary_pdf(s), f"Monatszusammenfassung_{period}.pdf", summary.MIME_PDF
+    elif file == "xlsx":
+        body, name, mime = summary.summary_xlsx(s), f"Monatszusammenfassung_{period}.xlsx", summary.MIME_XLSX
+    else:
+        body, name, mime = summary.reports_pdf(s), f"Arbeitszeitnachweise_{period}.pdf", summary.MIME_PDF
+    audit(conn, admin["id"], "summary_download", None, f"{period} {file}")
+    return Response(content=body, media_type=mime,
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+class SummaryMailIn(BaseModel):
+    period: str = Field(..., description="JJJJ-MM")
+
+
+@router.post("/reports/summary/mail")
+def summary_mail(data: SummaryMailIn, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
+    """Monatszusammenfassung sofort an die hinterlegten Adressen schicken."""
+    from .. import summary
+    try:
+        kind, _, _ = parse_period(data.period)
+        if kind != "month":
+            raise ValueError("Die Zusammenfassung gibt es pro Monat (JJJJ-MM)")
+        to = summary.send_summary(conn, data.period, actor_id=admin["id"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except MailError as e:
+        raise HTTPException(502 if mail_ready(conn) and summary.recipients(conn) else 400, str(e))
+    return {"ok": True, "to": to}
+
+
 @router.get("/reports/mail-log", tags=["Einstellungen"])
 def mail_log(limit: int = Query(100, le=500), admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
     """Automatisch verschickte Berichte (und Fehlversuche)."""
     rows = conn.execute(
         "SELECT m.*, u.display_name FROM report_mails m JOIN users u ON u.id = m.user_id "
         "ORDER BY m.last_attempt DESC LIMIT ?", (limit,)).fetchall()
-    return [dict(r) for r in rows]
+    out = [dict(r) for r in rows]
+    for r in conn.execute("SELECT * FROM summary_mails ORDER BY last_attempt DESC LIMIT ?", (limit,)):
+        out.append({**dict(r), "user_id": None, "display_name": "Monatszusammenfassung", "summary": True})
+    out.sort(key=lambda r: r.get("last_attempt") or "", reverse=True)
+    return out[:limit]
 
 
 class MailTestIn(BaseModel):
@@ -303,6 +355,9 @@ class SettingsIn(BaseModel):
     mail_monthly: Optional[bool] = None
     mail_yearly: Optional[bool] = None
     mail_formats: Optional[List[str]] = None
+    summary_mail: Optional[bool] = None
+    summary_recipients: Optional[str] = Field(None, max_length=1000, description="Adressen, durch Komma getrennt")
+    summary_with_reports: Optional[bool] = None
     open_limit_hours: Optional[float] = Field(None, ge=0, le=48, description="Erinnern nach X Stunden, 0 = aus")
     open_auto_close: Optional[bool] = Field(None, description="Um Mitternacht nach der Grenze automatisch beenden")
     arbzg_warnings: Optional[bool] = Field(None, description="Hinweise: über 10 h am Tag, unter 11 h Ruhezeit")
@@ -369,6 +424,9 @@ def _settings_out(conn) -> dict:
         "mail_monthly": get_setting(conn, "mail_monthly") == "1",
         "mail_yearly": get_setting(conn, "mail_yearly") == "1",
         "mail_formats": [x for x in (get_setting(conn, "mail_formats") or "").split(",") if x],
+        "summary_mail": get_setting(conn, "summary_mail") == "1",
+        "summary_recipients": get_setting(conn, "summary_recipients"),
+        "summary_with_reports": get_setting(conn, "summary_with_reports") != "0",
         "open_limit_hours": float(get_setting(conn, "open_limit_hours") or 0),
         "open_auto_close": get_setting(conn, "open_auto_close") == "1",
         "arbzg_warnings": get_setting(conn, "arbzg_warnings") != "0",
@@ -388,7 +446,7 @@ def get_settings(request: Request, user=Depends(current_user), conn: sqlite3.Con
     out = _settings_out(conn)
     # Mailserver-Zugang geht nur Admins etwas an – und nie über einen Stempel-Schlüssel
     if not user["is_admin"] or getattr(request.state, "via_token", False):
-        for k in [k for k in out if k.startswith("smtp_")]:
+        for k in [k for k in out if k.startswith(("smtp_", "summary_"))]:
             out.pop(k)
     return out
 
@@ -503,6 +561,21 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
     if changes.get("open_auto_close") is not None:
         _set(conn, "open_auto_close", "1" if data.open_auto_close else "0")
     for key in ("mail_monthly", "mail_yearly"):
+        if changes.get(key) is not None:
+            _set(conn, key, "1" if changes[key] else "0")
+    if "summary_recipients" in changes or data.summary_mail:
+        raw = data.summary_recipients if "summary_recipients" in changes else get_setting(conn, "summary_recipients")
+        addrs = list(dict.fromkeys(a.strip() for a in (raw or "").replace(";", ",").split(",") if a.strip()))
+        bad = [a for a in addrs if not valid_email(a)]
+        if bad:
+            raise HTTPException(400, f"Ungültige Adresse für die Monatszusammenfassung: {', '.join(bad)}")
+        if len(addrs) > 10:
+            raise HTTPException(400, "Höchstens 10 Adressen für die Monatszusammenfassung")
+        if data.summary_mail and not addrs:
+            raise HTTPException(400, "Für den automatischen Versand der Monatszusammenfassung bitte mindestens eine Adresse eintragen")
+        if "summary_recipients" in changes:
+            _set(conn, "summary_recipients", ", ".join(addrs))
+    for key in ("summary_mail", "summary_with_reports"):
         if changes.get(key) is not None:
             _set(conn, key, "1" if changes[key] else "0")
     if data.mail_formats is not None:

@@ -214,8 +214,6 @@ def _day_note(d: Dict) -> str:
         parts.append("Ü-Tag")
     if d["travel_min"]:
         parts.append(f"Wegezeit {d['travel_min']} min")
-    if d["segments"] > 1:
-        parts.append(f"{d['segments']} Buchungen")
     if d["running"]:
         parts.append("läuft")
     if d.get("needs_check"):
@@ -320,9 +318,37 @@ def _vacation_block(pdf: PDF, data: Dict, y: float) -> float:
     return y
 
 
-def month_pdf(data: Dict) -> bytes:
-    pdf = PDF(f"Arbeitszeitnachweis {data['title']} – {data['user']['display_name']}")
-    y = _pdf_header(pdf, data, "Arbeitszeitnachweis")
+PAGE_BOTTOM = 795  # unterhalb davon steht nur noch die Fußzeile
+
+
+def _pdf_continue(pdf: PDF, data: Dict, heading: str) -> float:
+    """Neue Seite mit schmalem Kopf (Name, Zeitraum) – liefert die erste freie Zeile."""
+    pdf.text(L, 815, f"Erstellt am {data['created']:%d.%m.%Y um %H:%M} Uhr · Zeiterfassung", 7, color=GREY)
+    pdf.new_page()
+    u = data["user"]
+    pdf.text(L, 46, f"{heading} {data['title']} – {u['display_name']}", 11, True)
+    pdf.text(R, 46, "Fortsetzung", 8, align="right", color=GREY)
+    pdf.line(L, 54, R, 54, 0.8, (0.3, 0.3, 0.3))
+    return 70
+
+
+def _day_lines(d: Dict) -> List[Tuple[str, str]]:
+    """Kommen/Gehen je Stempelblock; der erste Block steht in der Tageszeile."""
+    blocks = d.get("blocks") or []
+    if not blocks:
+        return [("", "")]
+    return [(b["in"], b["out"] or "läuft") for b in blocks]
+
+
+def month_pdf(data: Dict, pdf: Optional[PDF] = None) -> Optional[bytes]:
+    """Monatsnachweis als PDF. Mit pdf=… wird er an ein bestehendes Dokument angehängt (Sammel-PDF)."""
+    heading = "Arbeitszeitnachweis"
+    own = pdf is None
+    if own:
+        pdf = PDF(f"{heading} {data['title']} – {data['user']['display_name']}")
+    else:
+        pdf.new_page()
+    y = _pdf_header(pdf, data, heading)
     # Spalten: (Titel, Breite, Ausrichtung)
     cols = [("Datum", 50, "left"), ("Tag", 22, "left"), ("Kommen", 40, "left"), ("Gehen", 40, "left"),
             ("Pause", 34, "right"), ("Ist", 40, "right"), ("Soll", 40, "right"), ("Differenz", 48, "right"),
@@ -335,23 +361,30 @@ def month_pdf(data: Dict) -> bytes:
     def cell_x(i):
         return xs[i] + cols[i][1] - 4 if cols[i][2] == "right" else xs[i] + 3
 
-    rh = 13.2
-    pdf.rect(L, y, R - L, rh + 1, HEAD)
-    for i, (title, _, al) in enumerate(cols):
-        pdf.text(cell_x(i), y + 9.5, title, 7.8, True, align=al)
-    y += rh + 1
+    rh, sub = 13.2, 10.5  # Tageszeile, weitere Stempelblöcke
+
+    def table_head(y):
+        pdf.rect(L, y, R - L, rh + 1, HEAD)
+        for i, (title, _, al) in enumerate(cols):
+            pdf.text(cell_x(i), y + 9.5, title, 7.8, True, align=al)
+        return y + rh + 1
+
+    y = table_head(y)
     for d in data["report"]["days"]:
         dd = date.fromisoformat(d["date"])
+        lines = _day_lines(d)
+        height = rh + sub * (len(lines) - 1)
+        if y + height > PAGE_BOTTOM:
+            y = table_head(_pdf_continue(pdf, data, heading))
         off = not d["workday"] or d["holiday"]
         if off:
-            pdf.rect(L, y, R - L, rh, LIGHT)
+            pdf.rect(L, y, R - L, height, LIGHT)
         counts = _counts(d)
         konto = ""
         if counts and d["diff_s"]:
             konto = "Ü" if d["diff_ueberstunden_s"] else "GZ"
         vals = [
-            f"{dd:%d.%m.}", d["weekday"], d["first_in"] or "",
-            ("läuft" if d["running"] else d["last_out"]) or "",
+            f"{dd:%d.%m.}", d["weekday"], lines[0][0], lines[0][1],
             f"{d['break_deducted_s'] // 60} min" if d["break_deducted_s"] else "",
             d["worked"] if d["worked_s"] else "",
             d["target"] if d["target_s"] else "",
@@ -362,7 +395,11 @@ def month_pdf(data: Dict) -> bytes:
         for i, v in enumerate(vals):
             color = _signed_color(d["diff_s"]) if i == 7 else (GREY if i == 9 else (0, 0, 0))
             pdf.text(cell_x(i), y + 9.4, v, 7.5 if i == 9 else 8, align=cols[i][2], color=color)
-        y += rh
+        for n, (t_in, t_out) in enumerate(lines[1:], start=1):
+            yy = y + rh + sub * (n - 1) + 7.6
+            pdf.text(cell_x(2), yy, t_in, 7.5, color=GREY)
+            pdf.text(cell_x(3), yy, t_out, 7.5, color=GREY)
+        y += height
         pdf.line(L, y, R, y, 0.25, (0.85, 0.85, 0.85))
     t = data["report"]["totals"]
     pdf.line(L, y, R, y, 0.8, (0.3, 0.3, 0.3))
@@ -382,11 +419,14 @@ def month_pdf(data: Dict) -> bytes:
         y += 14
     y += 30
 
+    # Konten, Urlaub und Unterschriften brauchen rund 200 pt – sonst auf die nächste Seite
+    if y > 600:
+        y = _pdf_continue(pdf, data, heading) + 10
     end_label = "Stand heute" if data["end_is_today"] else f"Stand {data['to']:%d.%m.%Y}"
     y = _accounts_block(pdf, data, y, f"Stand {data['from'] - timedelta(days=1):%d.%m.%Y} (inkl. Übertrag)", end_label)
     _vacation_block(pdf, data, y)
     _pdf_footer(pdf, data)
-    return pdf.output()
+    return pdf.output() if own else None
 
 
 def year_pdf(data: Dict) -> bytes:
@@ -514,9 +554,9 @@ def _xlsx_month_sheet(ws, data: Dict, days: List[Dict], title_line: str) -> None
         note += ["ArbZG: " + w["text"] for w in d.get("warnings") or []]
         if d["before_start"]:
             note.append("vor Erfassungsbeginn")
+        lines = _day_lines(d)
         ws.append([
-            date.fromisoformat(d["date"]), d["weekday"], d["first_in"] or "",
-            ("läuft" if d["running"] else d["last_out"]) or "",
+            date.fromisoformat(d["date"]), d["weekday"], lines[0][0], lines[0][1],
             d["break_deducted_s"] // 60 if d["break_deducted_s"] else None,
             _hours(d["worked_s"]) if d["worked_s"] else None,
             _hours(d["target_s"]) if d["target_s"] else None,
@@ -533,9 +573,16 @@ def _xlsx_month_sheet(ws, data: Dict, days: List[Dict], title_line: str) -> None
             ws.cell(r, col).number_format = "0.00"
         for col in (8, 9, 10):
             ws.cell(r, col).number_format = hfmt
+        rows_of_day = [r]
+        for t_in, t_out in lines[1:]:  # weitere Stempelblöcke: eigene Zeile nur mit Kommen/Gehen
+            ws.append(["", "", t_in, t_out])
+            rows_of_day.append(ws.max_row)
+            for col in (3, 4):
+                ws.cell(ws.max_row, col).font = Font(color="666666")
         if not d["workday"] or d["holiday"]:
-            for c in ws[r]:
-                c.fill = off_fill
+            for rr in rows_of_day:
+                for col in range(1, len(header) + 1):
+                    ws.cell(rr, col).fill = off_fill
     last = ws.max_row
     ws.append(["Summe", "", "", "",
                f"=SUM(E{first}:E{last})", f"=SUM(F{first}:F{last})", f"=SUM(G{first}:G{last})",

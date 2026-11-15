@@ -242,7 +242,10 @@ async function loadMonth() {
       (d.before_start && d.workday ? '<span class="muted small">vor Erfassungsbeginn</span>' : "");
     const brk = (d.break_deducted_s ? ` <span class="muted small">−${Math.round(d.break_deducted_s / 60)} min Pause</span>` : "") +
       (d.travel_min ? ` <span class="tag" title="beim Stempeln dazugerechnete Wegezeit">+${d.travel_min} min Weg</span>` : "");
-    const multi = d.segments > 1 ? ` <span class="muted small">(${d.segments}×)</span>` : "";
+    // alle Stempelblöcke untereinander (Kommen- und Gehen-Spalte)
+    const bl = d.blocks && d.blocks.length ? d.blocks : [];
+    const kommen = bl.map(b => esc(b.in)).join("<br>");
+    const gehen = bl.map(b => b.out ? esc(b.out) : "läuft").join("<br>");
     const warn = (d.warnings || []).map(w => `<span class="tag warn" title="${w.code === "max10"
       ? "Mehr als 10 Stunden Arbeitszeit an einem Tag (§ 3 Arbeitszeitgesetz)"
       : "Weniger als 11 Stunden Ruhezeit seit dem letzten Arbeitstag (§ 5 Arbeitszeitgesetz)"}">⚠ ${esc(w.text)}</span> `).join("");
@@ -250,7 +253,7 @@ async function loadMonth() {
       ? `<span class="tag pending" title="Korrekturantrag wartet auf Entscheidung">⏳ Antrag offen</span> ` : "";
     const check = d.needs_check ? '<span class="tag warn" title="Ausstempeln vergessen – die Buchung wurde automatisch beendet. Bitte Gehen-Zeit prüfen und korrigieren.">⚠ bitte prüfen</span> ' : "";
     const row = `<tr class="day ${off ? "weekend" : ""} ${d.date === today ? "today" : ""}" data-day="${d.date}">
-      <td>${d.weekday} ${deShort(d.date)}</td><td>${d.first_in || ""}</td><td>${d.running ? "läuft" : d.last_out || ""}${multi}</td>
+      <td>${d.weekday} ${deShort(d.date)}</td><td class="stamps">${kommen}</td><td class="stamps">${gehen}</td>
       <td class="num">${d.worked_s ? d.worked : ""}</td><td class="num">${d.target_s ? d.target : ""}</td>
       <td class="num">${diff}</td><td>${ue}</td><td>${pend}${check}${warn}${info}${brk}</td></tr>`;
     return row + (state.openDay === d.date ? (isAdmin() ? detailRow(d) : requestRow(d)) : "");
@@ -300,6 +303,39 @@ async function loadClosings() {
       <td>${r.last_closed ? new Date(r.last_closed.closed_at).toLocaleDateString("de-DE") : ""}</td>
       <td>${r.next_month ? esc(r.next_month.slice(5) + "/" + r.next_month.slice(0, 4)) : ""}</td></tr>`).join("") + "</tbody>";
 }
+// Monatszusammenfassung aller Mitarbeiter (Download / sofort verschicken)
+function sumMonth() {
+  if (!$("sumMonth").value) {
+    const d = new Date(); d.setDate(0);  // Vormonat
+    $("sumMonth").value = `${d.getFullYear()}-${p2(d.getMonth() + 1)}`;
+  }
+  return $("sumMonth").value;
+}
+async function sumDownload(file) {
+  $("sumErr").textContent = "";
+  const m = sumMonth();
+  const name = file === "reports" ? `Arbeitszeitnachweise_${m}.pdf` : `Monatszusammenfassung_${m}.${file}`;
+  try { await downloadFile(`api/v1/reports/summary?period=${m}&file=${file}`, name); }
+  catch (e) { $("sumErr").textContent = e.message; }
+}
+async function sumSend() {
+  $("sumErr").textContent = "";
+  const m = sumMonth();
+  const to = (state.settings && state.settings.summary_recipients) || "";
+  if (!to) { $("sumErr").textContent = "Noch keine Empfänger – bitte unter ✉️ Mail eintragen."; return; }
+  const label = new Date(m + "-01T12:00").toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+  if (!confirm(`Monatszusammenfassung ${label} jetzt an ${to} schicken?`)) return;
+  $("sumSend").disabled = true;
+  try { const r = await api("reports/summary/mail", { method: "POST", body: { period: m } }); okMsg($("sumErr"), "Verschickt an " + r.to.join(", ") + "."); }
+  catch (e) { $("sumErr").textContent = e.message; }
+  finally { $("sumSend").disabled = false; }
+}
+$("sumPdf").onclick = () => sumDownload("pdf");
+$("sumXlsx").onclick = () => sumDownload("xlsx");
+$("sumReports").onclick = () => sumDownload("reports");
+$("sumSend").onclick = sumSend;
+$("sumToMail").onclick = (ev) => { ev.preventDefault(); const b = document.querySelector('.atabs button[data-asec="mail"], button[data-asec="mail"]'); if (b) b.click(); };
+
 async function closeAll() {
   const until = $("clUntil").value;
   $("clErr").textContent = "";
@@ -993,6 +1029,7 @@ async function loadAdmin() {
   loadUpdates().catch(() => {});
   loadBackups().catch(e => { $("bkErr").textContent = e.message; });
   loadClosings().catch(e => { $("clErr").textContent = e.message; });
+  sumMonth();
   loadAdminRequests().catch(e => { $("rqErr").textContent = e.message; });
   loadKiosks().catch(e => { $("kErr").textContent = e.message; });
   initAudit().catch(e => { $("alErr").textContent = e.message; });
@@ -1353,6 +1390,8 @@ async function loadSettingsForm() {
   $("setMinWrap").classList.toggle("hidden", s.break_mode !== "fixed");
   // Mailversand
   $("mailMonthly").checked = s.mail_monthly; $("mailYearly").checked = s.mail_yearly;
+  $("sumAuto").checked = !!s.summary_mail; $("sumTo").value = s.summary_recipients || "";
+  $("sumWithReports").checked = s.summary_with_reports !== false;
   $$(".mailFmt").forEach(c => { c.checked = (s.mail_formats || []).includes(c.value); });
   $("smtpHost").value = s.smtp_host || ""; $("smtpPort").value = s.smtp_port || 587;
   $("smtpSec").value = s.smtp_security || "starttls"; $("smtpUser").value = s.smtp_user || "";
@@ -1414,6 +1453,8 @@ async function saveMail() {
   try {
     const body = { mail_monthly: $("mailMonthly").checked, mail_yearly: $("mailYearly").checked,
       mail_formats: $$(".mailFmt").filter(c => c.checked).map(c => c.value),
+      summary_recipients: $("sumTo").value.trim(), summary_mail: $("sumAuto").checked,
+      summary_with_reports: $("sumWithReports").checked,
       smtp_host: $("smtpHost").value.trim(), smtp_port: Number($("smtpPort").value || 587), smtp_security: $("smtpSec").value,
       smtp_user: $("smtpUser").value.trim(), smtp_from: $("smtpFrom").value.trim(), smtp_from_name: $("smtpFromName").value.trim(),
       mail_transport: mailTr(), graph_tenant: $("grTenant").value.trim(), graph_client_id: $("grClient").value.trim(),
@@ -1462,7 +1503,7 @@ async function loadMailLog() {
   const rows = await api("reports/mail-log?limit=50");
   const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "";
   $("mailLog").innerHTML = rows.length ? `<thead><tr><th>Bericht</th><th>Mitarbeiter</th><th>an</th><th>Status</th><th>zuletzt</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${esc(r.period)}</td><td>${esc(r.display_name)}</td><td>${esc(r.recipient || "")}</td>
+    rows.map(r => `<tr><td>${esc(r.period)}</td><td>${r.summary ? "<i>Monatszusammenfassung</i>" : esc(r.display_name)}</td><td>${esc(r.recipient || "")}</td>
       <td>${r.status === "sent" ? '<span class="pos">verschickt</span>' : `<span class="neg">Fehler (${r.attempts}×)</span> <span class="muted small">${esc(r.error || "")}</span>`}</td>
       <td>${fmt(r.sent_at || r.last_attempt)}</td></tr>`).join("") + "</tbody>"
     : '<tbody><tr><td class="muted">Noch keine automatischen Berichte verschickt.</td></tr></tbody>';

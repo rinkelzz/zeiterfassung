@@ -248,6 +248,20 @@
       <div class="err" id="clErr"></div>
       <div class="scroll" style="max-height:260px;margin-top:8px"><table id="clTable"></table></div>
     </section>
+    <section class="card asec" data-asec="abschluss">
+      <h2>Monatszusammenfassung</h2>
+      <p class="muted small" style="margin-top:0">Alle Mitarbeiter auf einen Blick – Stunden, Kontostände, Urlaub, Krankheitstage und
+        weitere Abwesenheiten mit Datum. Gedacht z. B. fürs Steuerbüro oder die Lohnbuchhaltung. Den automatischen Versand am 1. des
+        Monats stellst du unter <a href="#" id="sumToMail">✉️ Mail</a> ein.</p>
+      <div class="row">
+        <label>Monat <input type="month" id="sumMonth"></label>
+        <label>&nbsp;<button id="sumPdf">PDF</button></label>
+        <label>&nbsp;<button id="sumXlsx">Excel</button></label>
+        <label>&nbsp;<button id="sumReports" title="Arbeitszeitnachweise aller Mitarbeiter in einer PDF-Datei">Alle Nachweise (PDF)</button></label>
+        <label>&nbsp;<button class="primary" id="sumSend">Jetzt verschicken</button></label>
+      </div>
+      <div class="err" id="sumErr"></div>
+    </section>
     <section class="card asec" data-asec="kiosk">
       <h2>Kiosk-Tablets</h2>
       <p class="muted small" style="margin-top:0">Ein Tablet an der Wache, an dem jeder per Namen und PIN kommt und geht.
@@ -355,6 +369,14 @@
         <span class="muted small">Anhänge:</span>
         <label class="inline"><input type="checkbox" class="mailFmt" value="pdf"> PDF</label>
         <label class="inline"><input type="checkbox" class="mailFmt" value="xlsx"> Excel</label>
+      </div>
+      <h3>Monatszusammenfassung aller Mitarbeiter</h3>
+      <p class="muted small" style="margin-top:0">Am 1. des Monats ab 6 Uhr für den Vormonat an eigene Adressen, z. B. ans Steuerbüro:
+        Übersicht als PDF und Excel, auf Wunsch mit den Arbeitszeitnachweisen aller Mitarbeiter in einer PDF-Datei.</p>
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="sumAuto"> automatisch verschicken</label>
+        <label>an <input id="sumTo" placeholder="lohn@steuerbuero.de, chef@firma.de" style="width:320px"></label>
+        <label class="inline"><input type="checkbox" id="sumWithReports"> Arbeitszeitnachweise mitschicken</label>
       </div>
       <h3>Versand über</h3>
       <div class="row">

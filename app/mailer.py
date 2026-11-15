@@ -9,6 +9,7 @@ Zeitplan (wenn in den Einstellungen eingeschaltet):
 - Monatsbericht: am 1. eines Monats ab 6 Uhr für den Vormonat
 - Jahresbericht: am 1. Januar ab 6 Uhr für das Vorjahr
 War die NAS zu dem Zeitpunkt aus, wird bis zum 7. des Monats nachgeholt.
+- Monatszusammenfassung aller Mitarbeiter: am 1. an eigene Adressen (app/summary.py)
 Jeder Bericht geht pro Person nur einmal raus (Tabelle report_mails).
 Fehlversuche werden höchstens 5-mal wiederholt, frühestens nach einer Stunde.
 """
@@ -276,6 +277,11 @@ def _loop(interval: float) -> None:
                 for r in run_due(conn):
                     status = "verschickt" if r["ok"] else f"FEHLER: {r.get('error')}"
                     print(f"[zeiterfassung] Bericht {r['period']} für Nutzer {r['user_id']}: {status}", flush=True)
+                from . import summary
+                r = summary.run_due(conn)
+                if r:
+                    status = "verschickt" if r["ok"] else f"FEHLER: {r.get('error')}"
+                    print(f"[zeiterfassung] Monatszusammenfassung {r['period']}: {status}", flush=True)
             finally:
                 conn.close()
         except Exception as e:  # noqa: BLE001

@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.31.0] – 2026-11-15
+
+### Neu
+- **Alle Stempelzeiten im Monatsbericht** – wer sich mehrmals am Tag ein- und ausstempelt, sieht jeden Block mit
+  Kommen und Gehen: im PDF und in Excel als eigene Zeile unter dem Tag, in der Monatsansicht untereinander.
+  Wird der Nachweis dadurch länger, geht er sauber auf eine zweite Seite weiter.
+- **Monatszusammenfassung aller Mitarbeiter** (z. B. fürs Steuerbüro) unter *Verwaltung → Abschluss*: Ist, Soll,
+  Differenz, Gleitzeit- und Überstundenkonto, Urlaub im Monat und Resturlaub, Krank, Kind krank und andere
+  Abwesenheiten – dazu alle Abwesenheiten mit Datum („Krank 08.10.–13.10. (4 Tage)“). Als PDF und Excel
+  (mit zweitem Blatt „Abwesenheiten“ zum Filtern), dazu auf Wunsch alle Arbeitszeitnachweise in einer PDF-Datei.
+  Mitarbeiter, deren Monat noch nicht abgeschlossen ist, sind markiert.
+- **Automatischer Versand der Zusammenfassung** (*Verwaltung → Mail*): am 1. des Monats ab 6 Uhr für den Vormonat an
+  eine oder mehrere eigene Adressen (jede bekommt eine eigene Mail), wahlweise mit den Arbeitszeitnachweisen.
+  Steht im Versandprotokoll; „Jetzt verschicken“ geht jederzeit von Hand.
+
 ## [0.30.0] – 2026-11-11
 
 ### Neu
@@ -438,6 +453,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.31.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.31.0
 [0.30.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.30.0
 [0.29.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.2
 [0.29.1]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.1
