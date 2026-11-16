@@ -1142,11 +1142,12 @@ function daysLabel(days) {
   return consecutive && days.length > 2 ? `${WD[days[0] - 1]}–${WD[days[days.length - 1] - 1]}` : days.map(d => WD[d - 1]).join(", ");
 }
 
-const BREAK_OPTS = [["", "Standard"], ["none", "keine"], ["arbzg", "ArbZG"], ["fixed", "fest"]];
+const BREAK_OPTS = [["", "Standard"], ["none", "keine"], ["arbzg", "ArbZG"], ["threshold", "ab Arbeitszeit"], ["fixed", "fest"]];
 function breakLabel(b) {
   if (!b) return "";
   if (b === "none") return "keine Pause";
   if (b === "arbzg") return "ArbZG";
+  if (b === "threshold") return "ab Arbeitszeit";
   return b + " min";
 }
 function scheduleText(x) {
@@ -1177,7 +1178,7 @@ async function toggleSchedules(tr) {
   row.className = "detail sched"; row.dataset.uid = uid;
   const today = isoDay(new Date());
   const brSel = (b) => {
-    const mode = !b ? "" : (b === "none" || b === "arbzg") ? b : "fixed";
+    const mode = !b ? "" : (b === "none" || b === "arbzg" || b === "threshold") ? b : "fixed";
     return `<select class="sbm">${BREAK_OPTS.map(([v, l]) => `<option value="${v}" ${v === mode ? "selected" : ""}>${l}</option>`).join("")}</select>
       <input class="sbmin w48 ${mode === "fixed" ? "" : "hidden"}" type="number" min="0" max="120" step="5" value="${mode === "fixed" ? b : 30}" title="Minuten">`;
   };
@@ -1366,7 +1367,10 @@ async function newUser() {
 
 async function loadSettingsForm() {
   const s = state.settings = await api("settings");
-  $("setBl").innerHTML = Object.entries(s.bundeslaender).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+  const blOpt = ([k, v]) => `<option value="${k}">${esc(v)}</option>`;
+  const bl = Object.entries(s.bundeslaender);
+  $("setBl").innerHTML = `<optgroup label="Deutschland">${bl.filter(([k]) => k !== "AT").map(blOpt).join("")}</optgroup>` +
+    `<optgroup label="Österreich">${bl.filter(([k]) => k === "AT").map(blOpt).join("")}</optgroup>`;
   $("setBl").value = s.bundesland; $("setFree").value = s.company_free_days;
   $("setTheme").innerHTML = Object.entries(s.themes || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
   $("setTheme").value = s.theme_default || "classic";
@@ -1387,7 +1391,8 @@ async function loadSettingsForm() {
   $("setBreak").value = s.break_mode; $("setMin").value = s.break_minutes;
   $("setOpenLimit").value = s.open_limit_hours; $("setOpenAuto").checked = s.open_auto_close;
   $("setArbzg").checked = s.arbzg_warnings;
-  $("setMinWrap").classList.toggle("hidden", s.break_mode !== "fixed");
+  $("setAfter").value = (s.break_after_min ?? 360) / 60;
+  breakFields();
   // Mailversand
   $("mailMonthly").checked = s.mail_monthly; $("mailYearly").checked = s.mail_yearly;
   $("sumAuto").checked = !!s.summary_mail; $("sumTo").value = s.summary_recipients || "";
@@ -1420,7 +1425,10 @@ function showRegional(bl, active) {
   const opts = (state.settings.regional_by_land || {})[bl] || {};
   const keys = Object.keys(opts);
   $("setRegional").classList.toggle("hidden", !keys.length);
-  $("setRegional").innerHTML = keys.length ? '<span class="muted">Regionale Feiertage (nur ankreuzen, wenn sie am Arbeitsort gelten):</span>' +
+  const intro = bl === "AT"
+    ? "Landespatrone – keine gesetzlichen Feiertage, nur ankreuzen, wenn sie bei euch frei sind (24.12. und 31.12. bei Bedarf unter „Betriebsfreie Tage“):"
+    : "Regionale Feiertage (nur ankreuzen, wenn sie am Arbeitsort gelten):";
+  $("setRegional").innerHTML = keys.length ? `<span class="muted">${intro}</span>` +
     keys.map(k => `<label class="inline" title="${esc(opts[k].info)}"><input type="checkbox" class="regHol" value="${k}"
       ${(active == null ? opts[k].default : active.includes(k)) ? "checked" : ""}> ${esc(opts[k].name)}
       <span class="muted">(${esc(opts[k].info)})</span></label>`).join("") : "";
@@ -1433,7 +1441,8 @@ async function saveSettings() {
       regional_holidays: $$(".regHol").filter(c => c.checked).map(c => c.value),
       theme_default: $("setTheme").value,
       company_workdays: $$(".cwd").filter(c => c.checked).map(c => Number(c.value)),
-      break_mode: $("setBreak").value, break_minutes: Number($("setMin").value || 0), public_url: $("setUrl").value.trim(),
+      break_mode: $("setBreak").value, break_minutes: Number($("setMin").value || 0),
+      break_after_min: Math.round(Number($("setAfter").value || 0) * 60), public_url: $("setUrl").value.trim(),
       dsm_login: $("setDsmLogin").checked, dsm_auto_create: $("setDsmCreate").checked, dsm_admins: $("setDsmAdmins").checked,
       dsm_url: $("setDsmUrl").value.trim() || null,
       travel_in_minutes: Number($("setTravIn").value || 0), travel_out_minutes: Number($("setTravOut").value || 0),
@@ -1751,7 +1760,20 @@ $("usersTable").addEventListener("click", e => {
 });
 $("newUserBtn").onclick = newUser;
 $("adminNav").addEventListener("click", e => { const b = e.target.closest("[data-asec]"); if (b) { showAdminSec(b.dataset.asec); window.scrollTo(0, 0); } });
-$("setBreak").onchange = () => $("setMinWrap").classList.toggle("hidden", $("setBreak").value !== "fixed");
+function breakFields() {
+  const m = $("setBreak").value;
+  $("setMinWrap").classList.toggle("hidden", m !== "fixed" && m !== "threshold");
+  $("setAfterWrap").classList.toggle("hidden", m !== "threshold");
+  $("setAfterHint").classList.toggle("hidden", m !== "threshold");
+}
+$("setBreak").onchange = () => {
+  // sinnvolle Vorgabe beim Umschalten: 60 min ab über 6 h
+  if ($("setBreak").value === "threshold" && state.settings && state.settings.break_mode !== "threshold") {
+    if (!Number($("setAfter").value)) $("setAfter").value = 6;
+    $("setMin").value = 60;
+  }
+  breakFields();
+};
 $("setBtn").onclick = saveSettings;
 $("setBl").onchange = () => showRegional($("setBl").value, $("setBl").value === state.settings.bundesland ? state.settings.regional_holidays : null);
 $("impPreview").onclick = () => runImport(false);

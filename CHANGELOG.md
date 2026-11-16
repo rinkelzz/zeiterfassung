@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.32.0] – 2026-11-16
+
+### Neu
+- **Feiertage für Österreich** – unter *Einstellungen → Bundesland / Land* gibt es jetzt „Österreich“ mit den
+  13 bundesweiten Feiertagen. Die Landespatrone (Josef, Florian, Rupert, Martin, Leopold) und der Kärntner Tag der
+  Volksabstimmung lassen sich ankreuzen, wenn sie im Betrieb frei sind.
+- **Pausenabzug „ab einer Arbeitszeit“** – frei einstellbar, z. B. über 6 Stunden 60 Minuten (aus 6:20 h werden
+  5:20 h) oder nach österreichischem AZG über 6 Stunden 30 Minuten. Ausgestempelte Pausen ab 15 Minuten werden
+  angerechnet. Auch pro Mitarbeiter und Wochentag wählbar.
+
 ## [0.31.0] – 2026-11-15
 
 ### Neu
@@ -453,6 +463,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.32.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.32.0
 [0.31.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.31.0
 [0.30.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.30.0
 [0.29.2]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.29.2

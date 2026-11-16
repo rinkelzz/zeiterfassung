@@ -103,6 +103,35 @@ def test_break_modes(admin):
     admin.patch("/api/v1/settings", json={"break_mode": "none"})
 
 
+def test_break_threshold(admin):
+    """Abzug ab einer Arbeitszeit: über 6 h → volle 60 min, sonst nichts; ausgestempelte Pausen zählen mit."""
+    uid = new_user(admin, "anton")
+    entry(admin, uid, "2026-03-23T08:00", "2026-03-23T13:50")   # 5:50
+    entry(admin, uid, "2026-03-24T08:00", "2026-03-24T14:20")   # 6:20
+    entry(admin, uid, "2026-03-25T08:00", "2026-03-25T14:00")   # genau 6:00 → kein Abzug
+    entry(admin, uid, "2026-03-26T07:00", "2026-03-26T12:00")   # 9:00 mit 30 min ausgestempelt
+    entry(admin, uid, "2026-03-26T12:30", "2026-03-26T16:30")
+    get = lambda: [d["worked"] for d in report(admin, uid, "2026-03-23", "2026-03-26")["days"]]
+    r = admin.patch("/api/v1/settings", json={"break_mode": "threshold", "break_minutes": 60, "break_after_min": 360})
+    assert r.status_code == 200, r.text
+    s = admin.get("/api/v1/settings").json()
+    assert s["break_mode"] == "threshold" and s["break_after_min"] == 360 and "threshold" in s["break_modes"]
+    assert get() == ["5:50", "5:20", "6:00", "8:30"]
+    # österreichisches AZG: über 6 h → 30 min
+    admin.patch("/api/v1/settings", json={"break_minutes": 30})
+    assert get() == ["5:50", "5:50", "6:00", "9:00"]
+    # Wochentagsregel „threshold“ übernimmt die Werte aus den Einstellungen
+    admin.patch("/api/v1/settings", json={"break_mode": "none", "break_minutes": 60})
+    r = admin.post(f"/api/v1/users/{uid}/schedules", json={"valid_from": "2026-03-01", "weekly_hours": 40, "workdays": [1, 2, 3, 4, 5],
+                                                         "day_breaks": ["", "threshold", "", "", "", "", ""]})
+    assert r.status_code in (200, 201), r.text
+    assert get() == ["5:50", "5:20", "6:00", "9:00"]
+    pdf = admin.get("/api/v1/reports/download", params={"user_id": uid, "period": "2026-03", "format": "pdf"})
+    assert pdf.status_code == 200
+    assert admin.patch("/api/v1/settings", json={"break_after_min": 2000}).status_code == 422
+    admin.patch("/api/v1/settings", json={"break_mode": "none", "break_minutes": 30})
+
+
 def test_csv_contains_accounts(admin):
     uid = new_user(admin, "gina", vacation_days_per_year=30)
     entry(admin, uid, "2026-03-02T07:00", "2026-03-02T17:00")

@@ -87,9 +87,11 @@ Dir gefällt die Zeiterfassung? Über einen Kaffee freue ich mich – die App bl
 - Urlaubskonto mit Resturlaub-Übertrag; Abwesenheiten (Urlaub, Krank, Bildungsurlaub, Gleittag,
   Mehrarbeit-Entnahme, Sonderurlaub, **Berufsschule**, **Elternzeit**), auch als halber Tag –
   Berufsschule zählt wie ein erfüllter Arbeitstag, Elternzeit hat kein Soll und verbraucht keinen Urlaub
-- Feiertage aller 16 Bundesländer, regionale Feiertage zum Ankreuzen (z. B. Fronleichnam in Teilen von Sachsen
-  und Thüringen, Augsburger Friedensfest), betriebsfreie Tage, Erfassungsbeginn und Überträge pro Person
-- Pausenabzug wählbar: keiner, nach ArbZG (über 6 h: 30 min, über 9 h: 45 min) oder fest –
+- Feiertage aller 16 Bundesländer und **Österreichs** (mit Landespatronen zum Ankreuzen), regionale Feiertage zum
+  Ankreuzen (z. B. Fronleichnam in Teilen von Sachsen und Thüringen, Augsburger Friedensfest), betriebsfreie Tage,
+  Erfassungsbeginn und Überträge pro Person
+- Pausenabzug wählbar: keiner, nach ArbZG (über 6 h: 30 min, über 9 h: 45 min), fest oder **ab einer Arbeitszeit**
+  (z. B. über 6 h: 60 min – oder über 6 h: 30 min nach österreichischem AZG) –
   pro Mitarbeiter auch **je Wochentag** abweichend (z. B. samstags kein Abzug)
 - **Vier Designs:** Klassisch (folgt hell/dunkel des Geräts), Synology DSM, Nacht (immer dunkel) und Warm & groß
   (größere Schrift und Knöpfe) – jeder wählt selbst unter „Mein Zugang“, der Admin legt den Standard fest
@@ -356,7 +358,8 @@ Unter **Verwaltung → Mitarbeiter → Arbeitszeit** gilt jede Änderung ab eine
 
 - **Gleichmäßig verteilen:** Wochenstunden und Arbeitstage, z. B. 40 h an Mo–Fr = 8 h pro Tag.
 - **Stunden je Tag:** für jeden Wochentag eine eigene Sollzeit, z. B. Mo 0 · Di–Fr 8,5 · Sa 4 · So 0 = 38 h/Woche.
-- **Pause je Tag:** *Standard* (Einstellung unter Verwaltung → Einstellungen), *keine*, *ArbZG* oder feste Minuten –
+- **Pause je Tag:** *Standard* (Einstellung unter Verwaltung → Einstellungen), *keine*, *ArbZG*, *ab Arbeitszeit*
+  (Werte aus den Einstellungen) oder feste Minuten –
   z. B. samstags kein Abzug.
 
 PDF und Excel zeigen die Tagesstunden und abweichende Pausen in der Kopfzeile.
@@ -369,6 +372,11 @@ Feiertage, die nur in einem Teil des Landes gelten, erscheinen darunter zum Ankr
 - **Sachsen:** Fronleichnam (nur einzelne Gemeinden im sorbischen Siedlungsgebiet, Landkreis Bautzen)
 - **Thüringen:** Fronleichnam (Eichsfeld und einzelne Gemeinden)
 - **Bayern:** Mariä Himmelfahrt (voreingestellt an, gilt in den meisten Gemeinden), Augsburger Friedensfest (nur Augsburg)
+
+Für **Österreich** gibt es den Eintrag *Österreich* mit den 13 bundesweiten Feiertagen (Feiertagsruhegesetz).
+Die Landespatrone sind keine gesetzlichen Feiertage, lassen sich aber ankreuzen, wenn sie im Betrieb frei sind:
+Josef (Kärnten, Steiermark, Tirol, Vorarlberg), Florian (Oberösterreich), Rupert (Salzburg),
+Tag der Volksabstimmung (Kärnten), Martin (Burgenland), Leopold (Wien, Niederösterreich).
 
 Zusätzlich lassen sich **betriebsfreie Tage** eintragen, z. B. `12-24, 12-31`.
 
@@ -448,8 +456,9 @@ Synology DSM 7 – one package for Intel/AMD and ARM (ARMv8, ARMv7) models. The 
   optional travel-time allowance
 - Forgotten clock-outs: email reminder after 12 hours, auto-close at midnight, flagged for review
 - Separate flextime and overtime accounts, weekly hours with effective dates (evenly spread or hours per
-  weekday, e.g. Tue–Fri 8.5 h, Sat 4 h), vacation tracking, public holidays for all 16 German states (regional ones such as Corpus Christi in parts of Saxony optional),
-  break deduction per German working-time law (ArbZG), fixed or none – optionally different per weekday
+  weekday, e.g. Tue–Fri 8.5 h, Sat 4 h), vacation tracking, public holidays for all 16 German states and Austria (regional ones such as Corpus Christi in parts of Saxony
+  or Austrian patron saints' days optional), break deduction per German working-time law (ArbZG), fixed, from a
+  daily threshold (e.g. 60 min once more than 6 h are worked) or none – optionally different per weekday
 - Four designs (classic, Synology DSM, night, warm & large) – chosen per user, admin sets the default
 - Company name and logo in the header, login page, kiosk tablet and PDF/Excel reports (PNG or JPEG up to 1 MB)
 - Deactivate employees (data kept) or delete them permanently (name confirmation, automatic backup first)

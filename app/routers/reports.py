@@ -329,6 +329,8 @@ class SettingsIn(BaseModel):
         None, description="eingeschaltete regionale Feiertage des Bundeslands (Schlüssel aus regional_options)")
     break_mode: Optional[str] = Field(None, description="none, arbzg oder fixed")
     break_minutes: Optional[int] = Field(None, ge=0, le=120)
+    break_after_min: Optional[int] = Field(None, ge=0, le=1440, description="Modus threshold: Abzug, sobald die "
+                                           "Arbeitszeit diese Minuten übersteigt (360 = über 6 Stunden)")
     auto_break: Optional[bool] = Field(None, description="veraltet – entspricht break_mode arbzg/none")
     public_url: Optional[str] = Field(None, max_length=200, description="z. B. https://zeit.meinedomain.de – leer = automatisch")
     dsm_login: Optional[bool] = None
@@ -393,6 +395,7 @@ def _settings_out(conn) -> dict:
                                                    get_setting(conn, "bundesland"))),
         "break_mode": rule["mode"],
         "break_minutes": rule["minutes"],
+        "break_after_min": rule["after_min"],
         "auto_break": rule["mode"] == "arbzg",
         "bundeslaender": BUNDESLAENDER,
         "break_modes": BREAK_MODES,
@@ -489,10 +492,12 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
         _set(conn, "break_mode", "arbzg" if data.auto_break else "none")
     if data.break_mode is not None:
         if data.break_mode not in BREAK_MODES:
-            raise HTTPException(400, "Pausenmodus muss none, arbzg oder fixed sein")
+            raise HTTPException(400, "Pausenmodus muss none, arbzg, fixed oder threshold sein")
         _set(conn, "break_mode", data.break_mode)
     if data.break_minutes is not None:
         _set(conn, "break_minutes", str(data.break_minutes))
+    if data.break_after_min is not None:
+        _set(conn, "break_after_min", str(data.break_after_min))
     for key in ("travel_in_minutes", "travel_out_minutes"):
         if changes.get(key) is not None:
             _set(conn, key, str(changes[key]))

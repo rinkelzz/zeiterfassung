@@ -1,4 +1,4 @@
-"""Gesetzliche Feiertage in Deutschland nach Bundesland.
+"""Gesetzliche Feiertage in Deutschland nach Bundesland – und in Österreich (Kürzel AT).
 
 Portiert aus rinkelzz/gleitzeit (includes/holidays.php), ergänzt um:
 - regionale Feiertage (Fronleichnam in Teilen von Sachsen/Thüringen, Mariä Himmelfahrt in Bayern,
@@ -28,6 +28,7 @@ BUNDESLAENDER = {
     "ST": "Sachsen-Anhalt",
     "SH": "Schleswig-Holstein",
     "TH": "Thüringen",
+    "AT": "Österreich",
 }
 
 
@@ -60,7 +61,47 @@ REGIONAL = {
     "fronleichnam_th": ("TH", "Fronleichnam", "nur im Eichsfeld und einzelnen Gemeinden im Unstrut-Hainich- und Wartburgkreis", False),
     "mariae_himmelfahrt_by": ("BY", "Mariä Himmelfahrt", "nur in Gemeinden mit überwiegend katholischer Bevölkerung (die meisten)", True),
     "friedensfest_by": ("BY", "Augsburger Friedensfest", "nur in der Stadt Augsburg", False),
+    # Österreich: Landespatrone sind keine gesetzlichen Feiertage, in vielen Betrieben aber frei
+    "at_josef": ("AT", "Josef (19.03.)", "Landespatron in Kärnten, Steiermark, Tirol und Vorarlberg", False),
+    "at_florian": ("AT", "Florian (04.05.)", "Landespatron in Oberösterreich", False),
+    "at_rupert": ("AT", "Rupert (24.09.)", "Landespatron in Salzburg", False),
+    "at_volksabstimmung": ("AT", "Tag der Volksabstimmung (10.10.)", "Landesfeiertag in Kärnten", False),
+    "at_martin": ("AT", "Martin (11.11.)", "Landespatron im Burgenland", False),
+    "at_leopold": ("AT", "Leopold (15.11.)", "Landespatron in Wien und Niederösterreich", False),
 }
+
+AT_REGIONAL_DATES = {
+    "at_josef": (3, 19, "Josef"),
+    "at_florian": (5, 4, "Florian"),
+    "at_rupert": (9, 24, "Rupert"),
+    "at_volksabstimmung": (10, 10, "Tag der Volksabstimmung"),
+    "at_martin": (11, 11, "Martin"),
+    "at_leopold": (11, 15, "Leopold"),
+}
+
+
+def _austria(year: int, regional: frozenset) -> Dict[date, str]:
+    """Die 13 bundesweiten Feiertage in Österreich (Feiertagsruhegesetz) plus gewählte Landespatrone."""
+    e = easter_sunday(year)
+    days = {
+        date(year, 1, 1): "Neujahr",
+        date(year, 1, 6): "Heilige Drei Könige",
+        e + timedelta(days=1): "Ostermontag",
+        date(year, 5, 1): "Staatsfeiertag",
+        e + timedelta(days=39): "Christi Himmelfahrt",
+        e + timedelta(days=50): "Pfingstmontag",
+        e + timedelta(days=60): "Fronleichnam",
+        date(year, 8, 15): "Mariä Himmelfahrt",
+        date(year, 10, 26): "Nationalfeiertag",
+        date(year, 11, 1): "Allerheiligen",
+        date(year, 12, 8): "Mariä Empfängnis",
+        date(year, 12, 25): "Christtag",
+        date(year, 12, 26): "Stefanitag",
+    }
+    for key, (mm, dd, name) in AT_REGIONAL_DATES.items():
+        if key in regional:
+            days.setdefault(date(year, mm, dd), name)
+    return days
 
 
 def regional_options(bl: str) -> Dict[str, Dict]:
@@ -86,6 +127,8 @@ def parse_regional(raw: str, bl: str) -> frozenset:
 @lru_cache(maxsize=256)
 def _public_holidays(year: int, bl: str, regional: frozenset = frozenset()) -> Dict[date, str]:
     bl = bl.upper()
+    if bl == "AT":
+        return _austria(year, regional)
     e = easter_sunday(year)
     days: Dict[date, str] = {}
 

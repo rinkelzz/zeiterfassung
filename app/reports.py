@@ -48,7 +48,8 @@ SICK_KINDS = {"krank", "kind_krank"}
 # Kind krank: wie Krank (Soll entfällt, kein Urlaubsverbrauch)
 ZERO_TARGET_KINDS = {"urlaub", "krank", "bildungsurlaub", "feiertag", "sonstiges", "berufsschule", "elternzeit", "kind_krank"}
 MIN_BREAK_S = 15 * 60  # nach ArbZG zählen nur Pausen ab 15 Minuten
-BREAK_MODES = {"none": "kein Abzug", "arbzg": "nach ArbZG (6 h → 30 min, 9 h → 45 min)", "fixed": "fester Abzug pro Arbeitstag"}
+BREAK_MODES = {"none": "kein Abzug", "arbzg": "nach ArbZG (6 h → 30 min, 9 h → 45 min)", "fixed": "fester Abzug pro Arbeitstag",
+               "threshold": "ab einer Arbeitszeit"}
 
 
 def required_break_s(worked_s: float) -> int:
@@ -95,6 +96,8 @@ def parse_day_breaks(raw: Optional[str]) -> List[Optional[Dict]]:
         p = p.strip()
         if p in ("none", "arbzg"):
             out[i] = {"mode": p, "minutes": 0}
+        elif p == "threshold":  # Werte (ab … h, … min) kommen aus den Einstellungen
+            out[i] = {"mode": "threshold", "minutes": None, "after_min": None}
         elif p.isdigit():
             out[i] = {"mode": "fixed", "minutes": max(0, min(120, int(p)))}
     return out
@@ -214,7 +217,11 @@ def break_rule(conn: sqlite3.Connection) -> Dict:
         minutes = max(0, min(120, int(get_setting(conn, "break_minutes") or 0)))
     except ValueError:
         minutes = 30
-    return {"mode": mode if mode in BREAK_MODES else "none", "minutes": minutes}
+    try:
+        after = max(0, min(24 * 60, int(get_setting(conn, "break_after_min") or 360)))
+    except ValueError:
+        after = 360
+    return {"mode": mode if mode in BREAK_MODES else "none", "minutes": minutes, "after_min": after}
 
 
 def holidays_between(conn: sqlite3.Connection, d_from: date, d_to: date) -> Dict[date, str]:
@@ -233,6 +240,9 @@ def _break_for_day(rule: Dict, gross: float, gaps: float, half_day: bool) -> flo
         need = required_break_s(gross)
     elif rule["mode"] == "fixed":
         need = rule["minutes"] * 60 * (0.5 if half_day else 1)
+    elif rule["mode"] == "threshold":
+        # erst wenn die Arbeitszeit die Schwelle übersteigt – dann die volle Pause
+        need = rule["minutes"] * 60 if gross > rule["after_min"] * 60 else 0
     else:
         return 0
     return min(max(0, need - gaps), gross)
@@ -325,6 +335,8 @@ def compute_report(
         holiday = holidays.get(d)
         regular, day_rule = day_schedule(d)
 
+        if day_rule and day_rule["mode"] == "threshold":
+            day_rule = {**day_rule, "minutes": rule["minutes"], "after_min": rule["after_min"]}
         deducted = _break_for_day(day_rule or rule, gross, gaps, half and kind in ZERO_TARGET_KINDS)
         worked = gross - deducted
 

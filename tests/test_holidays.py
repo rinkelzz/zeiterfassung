@@ -182,3 +182,25 @@ def test_regional_settings_api():
             assert "2026-08-15" not in days
         finally:
             c.patch("/api/v1/settings", json={"bundesland": before})
+
+
+def test_austria_national_holidays_2026():
+    from app.holidays import holidays_for_year
+    h = holidays_for_year(2026, "AT")
+    assert len(h) == 13
+    assert h[date(2026, 10, 26)] == "Nationalfeiertag"
+    assert h[date(2026, 12, 8)] == "Mariä Empfängnis"
+    assert h[date(2026, 12, 26)] == "Stefanitag"
+    assert h[date(2026, 6, 4)] == "Fronleichnam"
+    assert date(2026, 4, 3) not in h  # Karfreitag ist seit 2019 kein Feiertag mehr
+    assert date(2026, 10, 3) not in h
+    assert date(2026, 11, 15) not in h  # Landespatron nur auf Wunsch
+
+
+def test_austria_landespatron_optional():
+    from app.holidays import holidays_for_year, regional_options
+    assert set(regional_options("AT")) >= {"at_leopold", "at_josef", "at_florian"}
+    h = holidays_for_year(2026, "AT", "12-24, 12-31", "at_leopold,at_josef")
+    assert h[date(2026, 11, 15)] == "Leopold" and h[date(2026, 3, 19)] == "Josef"
+    assert h[date(2026, 12, 24)] == "Betriebsfrei"
+    assert date(2026, 5, 4) not in h

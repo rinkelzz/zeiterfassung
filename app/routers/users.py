@@ -313,7 +313,7 @@ def delete_user_token(user_id: int, token_id: int, admin=Depends(admin_user), co
 
 # --- Wochenarbeitszeit mit „gilt ab“ ------------------------------------------
 
-BREAK_CHOICES = ("", "none", "arbzg")
+BREAK_CHOICES = ("", "none", "arbzg", "threshold")
 
 
 class ScheduleIn(BaseModel):
@@ -325,7 +325,8 @@ class ScheduleIn(BaseModel):
                           "leer = Wochenstunden gleichmäßig auf die Arbeitstage verteilen")
     day_breaks: Optional[List[Optional[str]]] = Field(
         None, description="Pausenabzug je Wochentag Mo..So (7 Werte): leer = Standard aus den Einstellungen, "
-                          "'none' = kein Abzug, 'arbzg' = nach ArbZG, Zahl = feste Minuten")
+                          "'none' = kein Abzug, 'arbzg' = nach ArbZG, 'threshold' = ab Arbeitszeit "
+                          "(Werte aus den Einstellungen), Zahl = feste Minuten")
 
     @field_validator("workdays")
     @classmethod
@@ -354,7 +355,7 @@ class ScheduleIn(BaseModel):
         for x in v:
             x = (x or "").strip().lower()
             if x not in BREAK_CHOICES and not (x.isdigit() and int(x) <= 120):
-                raise ValueError("Pause je Tag: leer, none, arbzg oder Minuten (0–120)")
+                raise ValueError("Pause je Tag: leer, none, arbzg, threshold oder Minuten (0–120)")
             out.append(x)
         return out
 

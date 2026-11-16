@@ -293,7 +293,7 @@
       <div class="setgrid">
         <fieldset><legend>Allgemein</legend>
           <div class="row">
-            <label>Bundesland (Feiertage) <select id="setBl"></select></label>
+            <label>Bundesland / Land (Feiertage) <select id="setBl"></select></label>
             <label>Betriebsfreie Tage (MM-TT) <input id="setFree" placeholder="12-24, 12-31" style="width:160px"></label>
           </div>
           <div id="setRegional" class="row small hidden"></div>
@@ -315,8 +315,11 @@
         <fieldset><legend>Pausen &amp; Arbeitszeitgesetz</legend>
           <div class="row">
             <label>Pausenabzug (Standard) <select id="setBreak"></select></label>
+            <label id="setAfterWrap">ab über … Stunden <input id="setAfter" type="number" min="0" max="24" step="0.25" class="w80"></label>
             <label id="setMinWrap">Minuten <input id="setMin" type="number" min="0" max="120" class="w80"></label>
           </div>
+          <p class="muted small" id="setAfterHint">Beispiel: ab über 6 Stunden 60 Minuten – wer 6:20 h arbeitet, bekommt 5:20 h.
+            Selbst ausgestempelte Pausen ab 15 Minuten werden angerechnet.</p>
           <p class="muted small">Pro Mitarbeiter und Wochentag abweichend unter Mitarbeiter → Arbeitszeit.</p>
           <label class="inline"><input type="checkbox" id="setArbzg"> Hinweise: über 10 Stunden am Tag (§ 3), unter 11 Stunden Ruhezeit (§ 5)</label>
           <p class="muted small">Nur Hinweise in Monatsansicht und Berichten – an den Konten ändert sich nichts.</p>

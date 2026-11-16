@@ -82,6 +82,7 @@ DEFAULT_SETTINGS = {
     # Pausenabzug: none | arbzg | fixed
     "break_mode": "none",
     "break_minutes": "30",
+    "break_after_min": "360",      # Modus „threshold“: Abzug, sobald die Arbeitszeit das übersteigt
     # Öffentliche Adresse (Reverse Proxy) für QR-Code und DSM-Fenster; leer = automatisch
     "public_url": "",
     # Wegezeit: beim Kommen früher, beim Gehen später stempeln (Minuten) – nur für diese Stempelwege

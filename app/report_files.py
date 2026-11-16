@@ -110,7 +110,7 @@ def _rule_text(rule: Optional[Dict]) -> str:
         return ""
     if rule["mode"] == "fixed":
         return f"fest {rule['minutes']} min" if rule["minutes"] else "kein Abzug"
-    return {"none": "kein Abzug", "arbzg": "nach ArbZG"}.get(rule["mode"], "")
+    return {"none": "kein Abzug", "arbzg": "nach ArbZG", "threshold": "ab Arbeitszeit"}.get(rule["mode"], "")
 
 
 def _break_text(conn, user, d: date) -> str:
@@ -119,6 +119,8 @@ def _break_text(conn, user, d: date) -> str:
     base = BREAK_MODES.get(rule["mode"], "")
     if rule["mode"] == "fixed":
         base = f"fest {rule['minutes']} min pro Arbeitstag"
+    elif rule["mode"] == "threshold":
+        base = f"{rule['minutes']} min ab über {_num(rule['after_min'] / 60)} h"
     s = schedule_on(conn, user["id"], d)
     per_day = parse_day_breaks(s["day_breaks"]) if s else [None] * 7
     if not any(per_day):
