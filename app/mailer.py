@@ -278,10 +278,9 @@ def _loop(interval: float) -> None:
                     status = "verschickt" if r["ok"] else f"FEHLER: {r.get('error')}"
                     print(f"[zeiterfassung] Bericht {r['period']} für Nutzer {r['user_id']}: {status}", flush=True)
                 from . import summary
-                r = summary.run_due(conn)
-                if r:
+                for r in summary.run_due(conn):
                     status = "verschickt" if r["ok"] else f"FEHLER: {r.get('error')}"
-                    print(f"[zeiterfassung] Monatszusammenfassung {r['period']}: {status}", flush=True)
+                    print(f"[zeiterfassung] Monatszusammenfassung {r['period']} ({r['list']}): {status}", flush=True)
             finally:
                 conn.close()
         except Exception as e:  # noqa: BLE001

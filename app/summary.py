@@ -3,12 +3,13 @@
 Eine Zeile je Mitarbeiter: Ist, Soll, Differenz, Kontostände, Urlaub (im Monat, Rest im Jahr),
 Krank / Kind krank / andere Abwesenheiten – dazu die Abwesenheitszeiträume mit Datum.
 Als PDF und Excel; dazu auf Wunsch alle Arbeitszeitnachweise des Monats in einem PDF.
-Versand am 1. des Folgemonats an die in den Einstellungen hinterlegten Adressen (Tabelle summary_mails).
+Versand am 1. des Folgemonats je Verteiler (Tabelle summary_lists: Adressen + Auswahl alle / Filialen /
+Mitarbeiter), Protokoll in summary_mail_log.
 """
 import io
 import sqlite3
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from . import csvsafe
 from .db import audit, get_setting
@@ -80,7 +81,19 @@ def period_text(p: Dict) -> str:
     return f"{p['label']} {when} ({amount})"
 
 
-def build_summary(conn: sqlite3.Connection, period: str) -> Dict:
+def selection_user_ids(conn: sqlite3.Connection, branch_ids, user_ids) -> Set[int]:
+    """Mitarbeiter der gewählten Filialen plus einzeln gewählte Mitarbeiter."""
+    out = {int(u) for u in user_ids}
+    b = [int(x) for x in branch_ids]
+    if b:
+        out |= {r["user_id"] for r in conn.execute(
+            f"SELECT user_id FROM user_branches WHERE branch_id IN ({','.join('?' * len(b))})", b)}
+    return out
+
+
+def build_summary(conn: sqlite3.Connection, period: str, only: Optional[Set[int]] = None,
+                  scope: str = "Alle Mitarbeiter") -> Dict:
+    """only = Menge der Nutzer-IDs (None = alle); scope = Beschriftung im Kopf („Filiale Nord“)."""
     kind, d_from, d_to = parse_period(period)
     if kind != "month":
         raise ValueError("Die Zusammenfassung gibt es pro Monat (JJJJ-MM)")
@@ -91,6 +104,8 @@ def build_summary(conn: sqlite3.Connection, period: str) -> Dict:
         branches.setdefault(r["user_id"], []).append(r["name"])
     rows, datas = [], []
     for u in summary_users(conn, d_from, d_to):
+        if only is not None and u["id"] not in only:
+            continue
         data = build_data(conn, u, period)
         datas.append(data)
         rep, t = data["report"], data["report"]["totals"]
@@ -113,6 +128,7 @@ def build_summary(conn: sqlite3.Connection, period: str) -> Dict:
         })
     return {
         "period": period,
+        "scope": scope,
         "title": f"{MONTHS_DE[d_from.month - 1]} {d_from.year}",
         "from": d_from,
         "to": d_to,
@@ -141,7 +157,7 @@ def summary_pdf(s: Dict) -> bytes:
                 pdf.text(x, 36, fit(company, R - x - 10, 11, True), 11, True, color=(0.25, 0.25, 0.25))
             pdf.text(L, 58, "Monatszusammenfassung", 17, True)
             pdf.text(R, 58, s["title"], 13, True, align="right")
-            pdf.text(L, 76, f"Alle Mitarbeiter · {s['from']:%d.%m.%Y} – {s['to']:%d.%m.%Y}", 9.5)
+            pdf.text(L, 76, fit(f"{s['scope']} · {s['from']:%d.%m.%Y} – {s['to']:%d.%m.%Y}", 300, 9.5), 9.5)
             pdf.text(R, 76, "Stunden in h:mm · Abwesenheiten in Arbeitstagen", 8, align="right", color=GREY)
             pdf.line(L, 84, R, 84, 1, (0.3, 0.3, 0.3))
             return 98
@@ -384,23 +400,66 @@ def files_for(s: Dict, with_reports: bool) -> List[Tuple[str, bytes, str]]:
     return out
 
 
-def recipients(conn: sqlite3.Connection) -> List[str]:
-    raw = get_setting(conn, "summary_recipients") or ""
-    return [a.strip() for a in raw.replace(";", ",").split(",") if a.strip()]
+def split_addresses(raw: str) -> List[str]:
+    return list(dict.fromkeys(a.strip() for a in (raw or "").replace(";", ",").split(",") if a.strip()))
+
+
+def _ids(raw: str) -> List[int]:
+    return [int(x) for x in (raw or "").split(",") if x.strip().isdigit()]
+
+
+def list_out(conn: sqlite3.Connection, r: sqlite3.Row) -> Dict:
+    return {
+        "id": r["id"], "name": r["name"], "recipients": r["recipients"],
+        "all_users": bool(r["all_users"]), "branch_ids": _ids(r["branch_ids"]), "user_ids": _ids(r["user_ids"]),
+        "with_reports": bool(r["with_reports"]), "auto": bool(r["auto"]),
+    }
+
+
+def lists(conn: sqlite3.Connection) -> List[Dict]:
+    return [list_out(conn, r) for r in conn.execute("SELECT * FROM summary_lists ORDER BY name COLLATE NOCASE, id")]
+
+
+def scope_text(conn: sqlite3.Connection, lst: Dict) -> str:
+    if lst["all_users"]:
+        return "Alle Mitarbeiter"
+    parts = []
+    if lst["branch_ids"]:
+        q = ",".join("?" * len(lst["branch_ids"]))
+        names = [r["name"] for r in conn.execute(f"SELECT name FROM branches WHERE id IN ({q}) ORDER BY name",
+                                                 lst["branch_ids"])]
+        if names:
+            parts.append(("Filiale " if len(names) == 1 else "Filialen ") + ", ".join(names))
+    n = len(lst["user_ids"])
+    if n:
+        parts.append(f"{n} weitere{'r' if n == 1 else ''} Mitarbeiter" if parts else
+                     f"{n} ausgewählte{'r' if n == 1 else ''} Mitarbeiter")
+    return " + ".join(parts) or "keine Auswahl"
+
+
+def build_for_list(conn: sqlite3.Connection, period: str, lst: Dict) -> Dict:
+    only = None if lst["all_users"] else selection_user_ids(conn, lst["branch_ids"], lst["user_ids"])
+    return build_summary(conn, period, only, scope_text(conn, lst))
+
+
+def get_list(conn: sqlite3.Connection, list_id: int) -> Optional[Dict]:
+    r = conn.execute("SELECT * FROM summary_lists WHERE id = ?", (list_id,)).fetchone()
+    return list_out(conn, r) if r else None
 
 
 def mail_text(s: Dict, with_reports: bool) -> Tuple[str, str]:
     company = f" – {s['company']}" if s["company"] else ""
-    subject = f"Monatszusammenfassung {s['title']}{company}"
+    scope = "" if s["scope"] == "Alle Mitarbeiter" else f" ({s['scope']})"
+    subject = f"Monatszusammenfassung {s['title']}{scope}{company}"
     open_ = [r["name"] for r in s["rows"] if not r["closed"]]
     lines = [
         "Guten Tag,",
         "",
-        f"im Anhang finden Sie die Monatszusammenfassung für {s['title']} als PDF und Excel "
+        f"im Anhang finden Sie die Monatszusammenfassung für {s['title']}{scope} als PDF und Excel "
         f"({len(s['rows'])} Mitarbeiter: Arbeitsstunden, Kontostände, Urlaub, Krankheitstage und weitere Abwesenheiten).",
     ]
     if with_reports:
-        lines.append("Zusätzlich liegen die Arbeitszeitnachweise aller Mitarbeiter in einer PDF-Datei bei.")
+        lines.append("Zusätzlich liegen die Arbeitszeitnachweise dieser Mitarbeiter in einer PDF-Datei bei.")
     if open_:
         lines += ["", "Hinweis: Für folgende Mitarbeiter ist der Monat noch nicht abgeschlossen – "
                       "die Werte können sich noch ändern: " + ", ".join(open_) + "."]
@@ -408,57 +467,64 @@ def mail_text(s: Dict, with_reports: bool) -> Tuple[str, str]:
     return subject, "\n".join(lines)
 
 
-def send_summary(conn: sqlite3.Connection, period: str, actor_id: Optional[int] = None) -> List[str]:
-    """Zusammenfassung erzeugen und an alle hinterlegten Adressen schicken. Gibt die Empfänger zurück."""
+def send_list(conn: sqlite3.Connection, period: str, lst: Dict, actor_id: Optional[int] = None) -> List[str]:
+    """Zusammenfassung für einen Verteiler erzeugen und an dessen Adressen schicken."""
     from .mailer import MailError, send_mail, valid_email
-    to = recipients(conn)
+    to = split_addresses(lst["recipients"])
     if not to:
-        raise MailError("Keine Empfänger für die Monatszusammenfassung hinterlegt (Einstellungen → Mailversand)")
+        raise MailError(f"Verteiler „{lst['name']}“ hat keine Adresse")
     bad = [a for a in to if not valid_email(a)]
     if bad:
         raise MailError(f"Ungültige Adresse: {', '.join(bad)}")
-    with_reports = get_setting(conn, "summary_with_reports") != "0"
-    s = build_summary(conn, period)
-    subject, body = mail_text(s, with_reports)
-    attachments = files_for(s, with_reports)
+    s = build_for_list(conn, period, lst)
+    if not s["rows"]:
+        raise MailError(f"Verteiler „{lst['name']}“: keine Mitarbeiter in der Auswahl")
+    subject, body = mail_text(s, lst["with_reports"])
+    attachments = files_for(s, lst["with_reports"])
     for addr in to:  # einzeln – so sieht kein Empfänger die anderen Adressen
         send_mail(conn, addr, subject, body, attachments)
-    audit(conn, actor_id, "summary_mailed", None, f"{period} → {', '.join(to)}")
+    audit(conn, actor_id, "summary_mailed", None, f"{period} {lst['name']} → {', '.join(to)}")
     return to
 
 
-def _log(conn, period: str, ok: bool, to: str, error: str = "", when: Optional[datetime] = None) -> None:
+def _log(conn, period: str, list_id: int, ok: bool, to: str, error: str = "",
+         when: Optional[datetime] = None) -> None:
     now = to_utc_str(when) if when else now_utc_str()
     conn.execute(
-        "INSERT INTO summary_mails(period, status, attempts, last_attempt, sent_at, recipient, error) "
-        "VALUES (?, ?, 1, ?, ?, ?, ?) ON CONFLICT(period) DO UPDATE SET "
-        "status = excluded.status, attempts = summary_mails.attempts + 1, last_attempt = excluded.last_attempt, "
-        "sent_at = COALESCE(excluded.sent_at, summary_mails.sent_at), recipient = excluded.recipient, "
+        "INSERT INTO summary_mail_log(period, list_id, status, attempts, last_attempt, sent_at, recipient, error) "
+        "VALUES (?, ?, ?, 1, ?, ?, ?, ?) ON CONFLICT(period, list_id) DO UPDATE SET "
+        "status = excluded.status, attempts = summary_mail_log.attempts + 1, last_attempt = excluded.last_attempt, "
+        "sent_at = COALESCE(excluded.sent_at, summary_mail_log.sent_at), recipient = excluded.recipient, "
         "error = excluded.error",
-        (period, "sent" if ok else "error", now, now if ok else None, to, error[:500]),
+        (period, list_id, "sent" if ok else "error", now, now if ok else None, to, error[:500]),
     )
 
 
-def run_due(conn: sqlite3.Connection, now: Optional[datetime] = None) -> Optional[Dict]:
-    """Am 1. des Monats ab 6 Uhr (bis zum 7. nachholen): Zusammenfassung des Vormonats, einmal."""
+def run_due(conn: sqlite3.Connection, now: Optional[datetime] = None) -> List[Dict]:
+    """Am 1. des Monats ab 6 Uhr (bis zum 7. nachholen): Zusammenfassung des Vormonats – je Verteiler einmal."""
     from .mailer import CATCH_UP_DAYS, MAX_ATTEMPTS, RETRY_AFTER, SEND_HOUR, mail_ready
     from .report_files import previous_month
-    if get_setting(conn, "summary_mail") != "1" or not recipients(conn):
-        return None
+    due = [x for x in lists(conn) if x["auto"] and split_addresses(x["recipients"])]
+    if not due:
+        return []
     now = now or now_utc()
     local = to_local(now)
     if local.day > CATCH_UP_DAYS or (local.day == 1 and local.hour < SEND_HOUR) or not mail_ready(conn):
-        return None
+        return []
     period = previous_month(local.date())
-    log = conn.execute("SELECT * FROM summary_mails WHERE period = ?", (period,)).fetchone()
-    if log and (log["status"] == "sent" or log["attempts"] >= MAX_ATTEMPTS):
-        return None
-    if log and log["last_attempt"] and parse_utc(log["last_attempt"]) > now - RETRY_AFTER:
-        return None
-    try:
-        to = send_summary(conn, period)
-        _log(conn, period, True, ", ".join(to), when=now)
-        return {"period": period, "ok": True}
-    except Exception as e:  # noqa: BLE001
-        _log(conn, period, False, ", ".join(recipients(conn)), str(e), when=now)
-        return {"period": period, "ok": False, "error": str(e)}
+    out = []
+    for lst in due:
+        log = conn.execute("SELECT * FROM summary_mail_log WHERE period = ? AND list_id = ?",
+                           (period, lst["id"])).fetchone()
+        if log and (log["status"] == "sent" or log["attempts"] >= MAX_ATTEMPTS):
+            continue
+        if log and log["last_attempt"] and parse_utc(log["last_attempt"]) > now - RETRY_AFTER:
+            continue
+        try:
+            to = send_list(conn, period, lst)
+            _log(conn, period, lst["id"], True, ", ".join(to), when=now)
+            out.append({"period": period, "list": lst["name"], "ok": True})
+        except Exception as e:  # noqa: BLE001
+            _log(conn, period, lst["id"], False, lst["recipients"], str(e), when=now)
+            out.append({"period": period, "list": lst["name"], "ok": False, "error": str(e)})
+    return out

@@ -6,7 +6,7 @@ from typing import Iterator
 from .config import settings
 from .timeutil import local_date_of, now_utc_str
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -111,10 +111,6 @@ DEFAULT_SETTINGS = {
     "mail_monthly": "0",           # am 1. des Monats ab 6 Uhr: Bericht für den Vormonat
     "mail_yearly": "0",            # am 1. Januar ab 6 Uhr: Jahresbericht fürs Vorjahr
     "mail_formats": "pdf,xlsx",    # Anhänge
-    # Monatszusammenfassung aller Mitarbeiter am 1. an eigene Adressen (z. B. Steuerbüro)
-    "summary_mail": "0",
-    "summary_recipients": "",      # durch Komma getrennt
-    "summary_with_reports": "1",   # Arbeitszeitnachweise aller Mitarbeiter als ein PDF mitschicken
     # Vergessenes Ausstempeln: nach X Stunden erinnern (0 = aus), um Mitternacht danach beenden
     "open_limit_hours": "12",
     # Hinweise nach Arbeitszeitgesetz (über 10 h am Tag, unter 11 h Ruhezeit)
@@ -353,6 +349,44 @@ def migrate(conn: sqlite3.Connection) -> None:
             " attempts INTEGER NOT NULL DEFAULT 0,"
             " last_attempt TEXT, sent_at TEXT, recipient TEXT, error TEXT)"
         )
+    if version < 21:
+        # Verteiler für die Monatszusammenfassung: eigene Adressen und Auswahl (alle / Filialen / Mitarbeiter)
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS summary_lists ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            " name TEXT NOT NULL,"
+            " recipients TEXT NOT NULL DEFAULT '',"
+            " all_users INTEGER NOT NULL DEFAULT 1,"
+            " branch_ids TEXT NOT NULL DEFAULT '',"
+            " user_ids TEXT NOT NULL DEFAULT '',"
+            " with_reports INTEGER NOT NULL DEFAULT 1,"
+            " auto INTEGER NOT NULL DEFAULT 0,"
+            " created_at TEXT NOT NULL)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS summary_mail_log ("
+            " period TEXT NOT NULL, list_id INTEGER NOT NULL,"
+            " status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,"
+            " last_attempt TEXT, sent_at TEXT, recipient TEXT, error TEXT,"
+            " PRIMARY KEY (period, list_id))"
+        )
+        # bisherige Einstellung (eine Adressliste für alle) wird zum ersten Verteiler
+        old = {r["key"]: r["value"] for r in conn.execute(
+            "SELECT key, value FROM app_settings WHERE key IN ('summary_recipients', 'summary_mail', 'summary_with_reports')")}
+        list_id = 0
+        if (old.get("summary_recipients") or "").strip():
+            cur = conn.execute(
+                "INSERT INTO summary_lists(name, recipients, all_users, with_reports, auto, created_at) "
+                "VALUES ('Alle Mitarbeiter', ?, 1, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+                (old["summary_recipients"], 0 if old.get("summary_with_reports") == "0" else 1,
+                 1 if old.get("summary_mail") == "1" else 0))
+            list_id = cur.lastrowid
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'summary_mails'").fetchone():
+            conn.execute(
+                "INSERT OR IGNORE INTO summary_mail_log SELECT period, ?, status, attempts, last_attempt, sent_at, "
+                "recipient, error FROM summary_mails", (list_id,))
+            conn.execute("DROP TABLE summary_mails")
+        conn.execute("DELETE FROM app_settings WHERE key IN ('summary_recipients', 'summary_mail', 'summary_with_reports')")
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

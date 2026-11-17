@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an diesem Projekt. Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.33.0] – 2026-11-17
+
+### Neu
+- **Verteiler für die Monatszusammenfassung** (*Verwaltung → Mail*): beliebig viele Verteiler, jeder mit eigenen
+  Adressen und eigener Auswahl – alle Mitarbeiter, bestimmte Filialen und/oder einzelne Mitarbeiter. So geht z. B.
+  Filiale Hamburg an ein Steuerbüro und Filiale Kiel an ein anderes. Wer in zwei Filialen arbeitet, steht in beiden
+  Zusammenfassungen. Nachweise mitschicken und automatischer Versand am 1. sind je Verteiler einstellbar.
+- Unter *Verwaltung → Abschluss* lässt sich die Zusammenfassung für alle Mitarbeiter, einen Verteiler oder eine
+  Filiale herunterladen und an einen oder alle Verteiler verschicken.
+
+### Geändert
+- Die bisherige Adressliste der Monatszusammenfassung wird beim Update automatisch zum Verteiler
+  „Alle Mitarbeiter“ – mit den gleichen Adressen und Einstellungen. Ein schon verschickter Monat geht nicht doppelt raus.
+
 ## [0.32.0] – 2026-11-16
 
 ### Neu
@@ -463,6 +477,7 @@ Erste öffentliche Version.
 - CSV-Import (z. B. aus rinkelzz/gleitzeit) und CSV-Export, Änderungsprotokoll
 - Synology-Paket für DSM 7: eigenes DSM-Fenster, Single Sign-on, Login mit DSM-Konto inkl. Zwei-Faktor
 
+[0.33.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.33.0
 [0.32.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.32.0
 [0.31.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.31.0
 [0.30.0]: https://github.com/rinkelzz/zeiterfassung/releases/tag/v0.30.0

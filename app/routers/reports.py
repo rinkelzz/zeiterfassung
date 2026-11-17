@@ -4,7 +4,7 @@ import io
 import re
 import sqlite3
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from .. import csvsafe
 from ..config import THEMES, settings as app_settings
 from ..db import audit, company_workdays, get_db, get_setting
-from ..mailer import FORMATS, TRANSPORTS, MailError, mail_ready, send_mail, send_report, valid_email
+from ..mailer import FORMATS, TRANSPORTS, MailError, mail_ready, not_ready_message, send_mail, send_report, valid_email
 from ..report_files import parse_period, render
 from ..dsm import write_ui_config
 from ..holidays import BUNDESLAENDER, holidays_for_year, parse_company_free_days, parse_regional, regional_all, regional_options
@@ -27,7 +27,7 @@ from ..reports import (
     vacation_account,
 )
 from ..security import admin_user, current_user
-from ..timeutil import today_local
+from ..timeutil import now_utc_str, today_local
 from .entries import default_range, resolve_user_id
 
 class _SafeWriter:
@@ -241,52 +241,187 @@ def mail_report(data: MailReportIn, user=Depends(current_user), conn: sqlite3.Co
     return {"ok": True, "to": to, "message": f"Bericht an {to} verschickt"}
 
 
-# --- Monatszusammenfassung aller Mitarbeiter -------------------------------------------
+# --- Monatszusammenfassung (alle Mitarbeiter, Filiale oder Verteiler) --------------------
+
+def _summary_scope(conn, list_id: Optional[int], branch_id: Optional[int]):
+    """(only, scope, suffix) für Download: alle, ein Verteiler oder eine Filiale."""
+    from .. import summary
+    if list_id and branch_id:
+        raise HTTPException(400, "Entweder list_id oder branch_id")
+    if list_id:
+        lst = summary.get_list(conn, list_id)
+        if not lst:
+            raise HTTPException(404, "Verteiler nicht gefunden")
+        only = None if lst["all_users"] else summary.selection_user_ids(conn, lst["branch_ids"], lst["user_ids"])
+        return only, summary.scope_text(conn, lst), lst["name"]
+    if branch_id:
+        b = conn.execute("SELECT name FROM branches WHERE id = ?", (branch_id,)).fetchone()
+        if not b:
+            raise HTTPException(404, "Filiale nicht gefunden")
+        return summary.selection_user_ids(conn, [branch_id], []), f"Filiale {b['name']}", b["name"]
+    return None, "Alle Mitarbeiter", ""
+
+
+def _file_suffix(text: str) -> str:
+    """Filialname als ASCII-Anhang für den Dateinamen (Süd → Sued)."""
+    import unicodedata
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("Ä", "Ae"), ("Ö", "Oe"), ("Ü", "Ue"), ("ß", "ss")):
+        text = text.replace(a, b)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    keep = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in text.replace(" ", "_"))
+    return ("_" + keep.strip("_")[:40]) if keep.strip("_") else ""
+
 
 @router.get("/reports/summary")
 def summary_download(
     period: str = Query(..., description="JJJJ-MM"),
     file: str = Query("pdf", description="pdf, xlsx oder reports (alle Arbeitszeitnachweise in einem PDF)"),
+    list_id: Optional[int] = Query(None, description="nur die Mitarbeiter dieses Verteilers"),
+    branch_id: Optional[int] = Query(None, description="nur die Mitarbeiter dieser Filiale"),
     admin=Depends(admin_user),
     conn: sqlite3.Connection = Depends(get_db),
 ):
-    """Monatszusammenfassung aller Mitarbeiter (z. B. fürs Steuerbüro) als PDF oder Excel."""
+    """Monatszusammenfassung (z. B. fürs Steuerbüro) als PDF oder Excel – alle, ein Verteiler oder eine Filiale."""
     from .. import summary
     if file not in ("pdf", "xlsx", "reports"):
         raise HTTPException(400, "file muss pdf, xlsx oder reports sein")
+    only, scope, suffix = _summary_scope(conn, list_id, branch_id)
     try:
-        s = summary.build_summary(conn, period)
+        s = summary.build_summary(conn, period, only, scope)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    suf = _file_suffix(suffix)
     if file == "pdf":
-        body, name, mime = summary.summary_pdf(s), f"Monatszusammenfassung_{period}.pdf", summary.MIME_PDF
+        body, name, mime = summary.summary_pdf(s), f"Monatszusammenfassung_{period}{suf}.pdf", summary.MIME_PDF
     elif file == "xlsx":
-        body, name, mime = summary.summary_xlsx(s), f"Monatszusammenfassung_{period}.xlsx", summary.MIME_XLSX
+        body, name, mime = summary.summary_xlsx(s), f"Monatszusammenfassung_{period}{suf}.xlsx", summary.MIME_XLSX
     else:
-        body, name, mime = summary.reports_pdf(s), f"Arbeitszeitnachweise_{period}.pdf", summary.MIME_PDF
-    audit(conn, admin["id"], "summary_download", None, f"{period} {file}")
+        body, name, mime = summary.reports_pdf(s), f"Arbeitszeitnachweise_{period}{suf}.pdf", summary.MIME_PDF
+    audit(conn, admin["id"], "summary_download", None, f"{period} {file} {scope}")
     return Response(content=body, media_type=mime,
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 class SummaryMailIn(BaseModel):
     period: str = Field(..., description="JJJJ-MM")
+    list_id: Optional[int] = Field(None, description="nur dieser Verteiler – leer = alle Verteiler")
 
 
 @router.post("/reports/summary/mail")
 def summary_mail(data: SummaryMailIn, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
-    """Monatszusammenfassung sofort an die hinterlegten Adressen schicken."""
+    """Monatszusammenfassung sofort verschicken – an einen oder an alle Verteiler."""
     from .. import summary
     try:
-        kind, _, _ = parse_period(data.period)
-        if kind != "month":
-            raise ValueError("Die Zusammenfassung gibt es pro Monat (JJJJ-MM)")
-        to = summary.send_summary(conn, data.period, actor_id=admin["id"])
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    except MailError as e:
-        raise HTTPException(502 if mail_ready(conn) and summary.recipients(conn) else 400, str(e))
-    return {"ok": True, "to": to}
+        kind = parse_period(data.period)[0]
+    except ValueError:
+        kind = None
+    if kind != "month":
+        raise HTTPException(400, "Die Zusammenfassung gibt es pro Monat (JJJJ-MM)")
+    if data.list_id:
+        lst = summary.get_list(conn, data.list_id)
+        if not lst:
+            raise HTTPException(404, "Verteiler nicht gefunden")
+        targets = [lst]
+    else:
+        targets = [x for x in summary.lists(conn) if summary.split_addresses(x["recipients"])]
+    if not targets:
+        raise HTTPException(400, "Noch kein Verteiler angelegt (Verwaltung → Mail → Monatszusammenfassung)")
+    if not mail_ready(conn):
+        raise HTTPException(400, not_ready_message(conn))
+    sent, errors = [], []
+    for lst in targets:
+        try:
+            to = summary.send_list(conn, data.period, lst, actor_id=admin["id"])
+            summary._log(conn, data.period, lst["id"], True, ", ".join(to))
+            sent.append({"list": lst["name"], "to": to})
+        except MailError as e:
+            summary._log(conn, data.period, lst["id"], False, lst["recipients"], str(e))
+            errors.append(f"{lst['name']}: {e}")
+    if errors and not sent:
+        raise HTTPException(502, " · ".join(errors))
+    return {"ok": not errors, "sent": sent, "errors": errors}
+
+
+# Verteiler verwalten
+
+class SummaryListIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    recipients: str = Field("", max_length=1000, description="Adressen, durch Komma getrennt")
+    all_users: bool = True
+    branch_ids: List[int] = Field(default_factory=list)
+    user_ids: List[int] = Field(default_factory=list)
+    with_reports: bool = True
+    auto: bool = False
+
+
+def _check_list(conn, data: SummaryListIn) -> Dict:
+    from .. import summary
+    addrs = summary.split_addresses(data.recipients)
+    bad = [a for a in addrs if not valid_email(a)]
+    if bad:
+        raise HTTPException(400, f"Ungültige Adresse: {', '.join(bad)}")
+    if len(addrs) > 10:
+        raise HTTPException(400, "Höchstens 10 Adressen je Verteiler")
+    if data.auto and not addrs:
+        raise HTTPException(400, "Für den automatischen Versand bitte mindestens eine Adresse eintragen")
+    b = sorted({int(x) for x in data.branch_ids})
+    u = sorted({int(x) for x in data.user_ids})
+    if b and len(b) != conn.execute(f"SELECT COUNT(*) FROM branches WHERE id IN ({','.join('?' * len(b))})", b).fetchone()[0]:
+        raise HTTPException(400, "Unbekannte Filiale")
+    if u and len(u) != conn.execute(f"SELECT COUNT(*) FROM users WHERE id IN ({','.join('?' * len(u))})", u).fetchone()[0]:
+        raise HTTPException(400, "Unbekannter Mitarbeiter")
+    if not data.all_users and not (b or u):
+        raise HTTPException(400, "Bitte Filialen oder Mitarbeiter auswählen – oder „alle Mitarbeiter“")
+    return {"name": data.name.strip(), "recipients": ", ".join(addrs), "all_users": 1 if data.all_users else 0,
+            "branch_ids": "" if data.all_users else ",".join(map(str, b)),
+            "user_ids": "" if data.all_users else ",".join(map(str, u)),
+            "with_reports": 1 if data.with_reports else 0, "auto": 1 if data.auto else 0}
+
+
+@router.get("/summary-lists", tags=["Einstellungen"])
+def summary_lists(admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
+    """Verteiler der Monatszusammenfassung."""
+    from .. import summary
+    return [{**x, "scope": summary.scope_text(conn, x)} for x in summary.lists(conn)]
+
+
+@router.post("/summary-lists", status_code=201, tags=["Einstellungen"])
+def summary_list_create(data: SummaryListIn, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
+    from .. import summary
+    v = _check_list(conn, data)
+    cur = conn.execute(
+        "INSERT INTO summary_lists(name, recipients, all_users, branch_ids, user_ids, with_reports, auto, created_at) "
+        "VALUES (:name, :recipients, :all_users, :branch_ids, :user_ids, :with_reports, :auto, :now)",
+        {**v, "now": now_utc_str()})
+    audit(conn, admin["id"], "summary_list_create", None, f"{v['name']} → {v['recipients']}")
+    lst = summary.get_list(conn, cur.lastrowid)
+    return {**lst, "scope": summary.scope_text(conn, lst)}
+
+
+@router.put("/summary-lists/{list_id}", tags=["Einstellungen"])
+def summary_list_update(list_id: int, data: SummaryListIn, admin=Depends(admin_user),
+                        conn: sqlite3.Connection = Depends(get_db)):
+    from .. import summary
+    if not summary.get_list(conn, list_id):
+        raise HTTPException(404, "Verteiler nicht gefunden")
+    v = _check_list(conn, data)
+    conn.execute("UPDATE summary_lists SET name = :name, recipients = :recipients, all_users = :all_users, "
+                 "branch_ids = :branch_ids, user_ids = :user_ids, with_reports = :with_reports, auto = :auto "
+                 "WHERE id = :id", {**v, "id": list_id})
+    audit(conn, admin["id"], "summary_list_update", None, f"{v['name']} → {v['recipients']}")
+    lst = summary.get_list(conn, list_id)
+    return {**lst, "scope": summary.scope_text(conn, lst)}
+
+
+@router.delete("/summary-lists/{list_id}", tags=["Einstellungen"])
+def summary_list_delete(list_id: int, admin=Depends(admin_user), conn: sqlite3.Connection = Depends(get_db)):
+    from .. import summary
+    lst = summary.get_list(conn, list_id)
+    if not lst:
+        raise HTTPException(404, "Verteiler nicht gefunden")
+    conn.execute("DELETE FROM summary_lists WHERE id = ?", (list_id,))
+    audit(conn, admin["id"], "summary_list_delete", None, lst["name"])
+    return {"ok": True}
 
 
 @router.get("/reports/mail-log", tags=["Einstellungen"])
@@ -296,8 +431,10 @@ def mail_log(limit: int = Query(100, le=500), admin=Depends(admin_user), conn: s
         "SELECT m.*, u.display_name FROM report_mails m JOIN users u ON u.id = m.user_id "
         "ORDER BY m.last_attempt DESC LIMIT ?", (limit,)).fetchall()
     out = [dict(r) for r in rows]
-    for r in conn.execute("SELECT * FROM summary_mails ORDER BY last_attempt DESC LIMIT ?", (limit,)):
-        out.append({**dict(r), "user_id": None, "display_name": "Monatszusammenfassung", "summary": True})
+    for r in conn.execute("SELECT m.*, l.name AS list_name FROM summary_mail_log m LEFT JOIN summary_lists l "
+                          "ON l.id = m.list_id ORDER BY m.last_attempt DESC LIMIT ?", (limit,)):
+        out.append({**dict(r), "user_id": None, "summary": True,
+                    "display_name": "Monatszusammenfassung" + (f" ({r['list_name']})" if r["list_name"] else "")})
     out.sort(key=lambda r: r.get("last_attempt") or "", reverse=True)
     return out[:limit]
 
@@ -357,9 +494,6 @@ class SettingsIn(BaseModel):
     mail_monthly: Optional[bool] = None
     mail_yearly: Optional[bool] = None
     mail_formats: Optional[List[str]] = None
-    summary_mail: Optional[bool] = None
-    summary_recipients: Optional[str] = Field(None, max_length=1000, description="Adressen, durch Komma getrennt")
-    summary_with_reports: Optional[bool] = None
     open_limit_hours: Optional[float] = Field(None, ge=0, le=48, description="Erinnern nach X Stunden, 0 = aus")
     open_auto_close: Optional[bool] = Field(None, description="Um Mitternacht nach der Grenze automatisch beenden")
     arbzg_warnings: Optional[bool] = Field(None, description="Hinweise: über 10 h am Tag, unter 11 h Ruhezeit")
@@ -427,9 +561,6 @@ def _settings_out(conn) -> dict:
         "mail_monthly": get_setting(conn, "mail_monthly") == "1",
         "mail_yearly": get_setting(conn, "mail_yearly") == "1",
         "mail_formats": [x for x in (get_setting(conn, "mail_formats") or "").split(",") if x],
-        "summary_mail": get_setting(conn, "summary_mail") == "1",
-        "summary_recipients": get_setting(conn, "summary_recipients"),
-        "summary_with_reports": get_setting(conn, "summary_with_reports") != "0",
         "open_limit_hours": float(get_setting(conn, "open_limit_hours") or 0),
         "open_auto_close": get_setting(conn, "open_auto_close") == "1",
         "arbzg_warnings": get_setting(conn, "arbzg_warnings") != "0",
@@ -449,7 +580,7 @@ def get_settings(request: Request, user=Depends(current_user), conn: sqlite3.Con
     out = _settings_out(conn)
     # Mailserver-Zugang geht nur Admins etwas an – und nie über einen Stempel-Schlüssel
     if not user["is_admin"] or getattr(request.state, "via_token", False):
-        for k in [k for k in out if k.startswith(("smtp_", "summary_"))]:
+        for k in [k for k in out if k.startswith("smtp_")]:
             out.pop(k)
     return out
 
@@ -566,21 +697,6 @@ def update_settings(data: SettingsIn, admin=Depends(admin_user), conn: sqlite3.C
     if changes.get("open_auto_close") is not None:
         _set(conn, "open_auto_close", "1" if data.open_auto_close else "0")
     for key in ("mail_monthly", "mail_yearly"):
-        if changes.get(key) is not None:
-            _set(conn, key, "1" if changes[key] else "0")
-    if "summary_recipients" in changes or data.summary_mail:
-        raw = data.summary_recipients if "summary_recipients" in changes else get_setting(conn, "summary_recipients")
-        addrs = list(dict.fromkeys(a.strip() for a in (raw or "").replace(";", ",").split(",") if a.strip()))
-        bad = [a for a in addrs if not valid_email(a)]
-        if bad:
-            raise HTTPException(400, f"Ungültige Adresse für die Monatszusammenfassung: {', '.join(bad)}")
-        if len(addrs) > 10:
-            raise HTTPException(400, "Höchstens 10 Adressen für die Monatszusammenfassung")
-        if data.summary_mail and not addrs:
-            raise HTTPException(400, "Für den automatischen Versand der Monatszusammenfassung bitte mindestens eine Adresse eintragen")
-        if "summary_recipients" in changes:
-            _set(conn, "summary_recipients", ", ".join(addrs))
-    for key in ("summary_mail", "summary_with_reports"):
         if changes.get(key) is not None:
             _set(conn, key, "1" if changes[key] else "0")
     if data.mail_formats is not None:

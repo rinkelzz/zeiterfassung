@@ -139,51 +139,128 @@ def test_summary_admin_only(admin, staff):
         c.post("/api/v1/auth/login", json={"username": "sumo", "password": "geheim123"})
         assert c.get("/api/v1/reports/summary", params={"period": "2026-06"}).status_code == 403
         assert c.post("/api/v1/reports/summary/mail", json={"period": "2026-06"}).status_code == 403
-        assert "summary_recipients" not in c.get("/api/v1/settings").json()
+        assert c.get("/api/v1/summary-lists").status_code == 403
 
 
-def test_summary_settings_validation(admin):
-    assert admin.patch("/api/v1/settings", json={"summary_recipients": "kaputt"}).status_code == 400
-    assert admin.patch("/api/v1/settings", json={"summary_recipients": "", "summary_mail": True}).status_code == 400
-    r = admin.patch("/api/v1/settings", json={"summary_recipients": "lohn@steuer.de; chef@firma.de, lohn@steuer.de"})
-    assert r.status_code == 200
-    s = admin.get("/api/v1/settings").json()
-    assert s["summary_recipients"] == "lohn@steuer.de, chef@firma.de" and s["summary_with_reports"] is True
+@pytest.fixture(scope="module")
+def branches(admin, staff):
+    """Filiale Nord: Sumo · Filiale Süd: Svenja."""
+    out = {}
+    for name, uid in (("Nord", staff["sumo"]), ("Süd", staff["sumkrank"])):
+        r = admin.post("/api/v1/branches", json={"name": f"Sum-{name}", "user_ids": [uid]})
+        assert r.status_code == 201, r.text
+        out[name] = [b for b in r.json() if b["name"] == f"Sum-{name}"][0]["id"]
+    return out
 
 
-def test_summary_mail_now_and_schedule(admin, staff, smtp):
-    admin.patch("/api/v1/settings", json={"summary_recipients": "lohn@steuer.de, chef@firma.de",
-                                          "summary_with_reports": True})
+def test_summary_list_validation(admin, branches):
+    base = {"name": "Test", "recipients": "lohn@steuer.de"}
+    assert admin.post("/api/v1/summary-lists", json={**base, "recipients": "kaputt"}).status_code == 400
+    assert admin.post("/api/v1/summary-lists", json={**base, "recipients": "", "auto": True}).status_code == 400
+    assert admin.post("/api/v1/summary-lists", json={**base, "all_users": False}).status_code == 400
+    assert admin.post("/api/v1/summary-lists", json={**base, "all_users": False, "branch_ids": [99999]}).status_code == 400
+    r = admin.post("/api/v1/summary-lists", json={**base, "recipients": "lohn@steuer.de; chef@firma.de, lohn@steuer.de",
+                                                   "all_users": False, "branch_ids": [branches["Nord"]]})
+    assert r.status_code == 201, r.text
+    lst = r.json()
+    assert lst["recipients"] == "lohn@steuer.de, chef@firma.de" and lst["scope"] == "Filiale Sum-Nord"
+    r = admin.put(f"/api/v1/summary-lists/{lst['id']}", json={**base, "all_users": True, "branch_ids": [branches["Nord"]]})
+    assert r.status_code == 200 and r.json()["scope"] == "Alle Mitarbeiter" and r.json()["branch_ids"] == []
+    assert admin.delete(f"/api/v1/summary-lists/{lst['id']}").status_code == 200
+    assert admin.delete(f"/api/v1/summary-lists/{lst['id']}").status_code == 404
+
+
+def _names(content: bytes):
+    rows = list(load_workbook(io.BytesIO(content))["Übersicht"].iter_rows(values_only=True))
+    return {r[0] for r in rows[4:] if r[0] and r[0] != "Summe"}
+
+
+def test_summary_download_by_branch_and_list(admin, staff, branches):
+    r = admin.get("/api/v1/reports/summary", params={"period": "2026-06", "file": "xlsx", "branch_id": branches["Süd"]})
+    assert r.status_code == 200 and _names(r.content) == {"Svenja Krank"}
+    assert "Monatszusammenfassung_2026-06_Sum-Sued.xlsx" in r.headers["content-disposition"]
+    r = admin.post("/api/v1/summary-lists", json={"name": "Chef", "recipients": "", "all_users": False,
+                                                  "branch_ids": [branches["Nord"]], "user_ids": [staff["sumkrank"]]})
+    lst = r.json()
+    assert lst["scope"] == "Filiale Sum-Nord + 1 weiterer Mitarbeiter"
+    r = admin.get("/api/v1/reports/summary", params={"period": "2026-06", "file": "xlsx", "list_id": lst["id"]})
+    assert _names(r.content) == {"Sumo Splitter", "Svenja Krank"}
+    assert admin.get("/api/v1/reports/summary", params={"period": "2026-06", "list_id": 99999}).status_code == 404
+    admin.delete(f"/api/v1/summary-lists/{lst['id']}")
+
+
+def test_summary_mail_per_list_and_schedule(admin, staff, branches, smtp):
+    for x in admin.get("/api/v1/summary-lists").json():
+        admin.delete(f"/api/v1/summary-lists/{x['id']}")
+    assert admin.post("/api/v1/reports/summary/mail", json={"period": "2026-06"}).status_code == 400  # kein Verteiler
+    nord = admin.post("/api/v1/summary-lists", json={"name": "Steuerbüro Nord", "recipients": "nord@steuer.de",
+                                                     "all_users": False, "branch_ids": [branches["Nord"]]}).json()
+    sued = admin.post("/api/v1/summary-lists", json={"name": "Steuerbüro Süd", "recipients": "sued@steuer.de, chef@firma.de",
+                                                     "all_users": False, "branch_ids": [branches["Süd"]],
+                                                     "with_reports": False}).json()
     smtp.inbox.clear()
     r = admin.post("/api/v1/reports/summary/mail", json={"period": "2026-06"})
-    assert r.status_code == 200, r.text
-    assert sorted(m["msg"]["To"] for m in smtp.inbox) == ["chef@firma.de", "lohn@steuer.de"]
-    msg = smtp.inbox[0]["msg"]
-    assert msg["Subject"].startswith("Monatszusammenfassung Juni 2026")
-    names = [p.get_filename() for p in msg.walk() if p.get_filename()]
-    assert names == ["Monatszusammenfassung_2026-06.pdf", "Monatszusammenfassung_2026-06.xlsx",
-                     "Arbeitszeitnachweise_2026-06.pdf"]
-    body = [p for p in msg.walk() if p.get_content_type() == "text/plain"][0].get_content()
-    assert "noch nicht abgeschlossen" in body and "Svenja Krank" in body
+    assert r.status_code == 200 and r.json()["ok"], r.text
+    assert sorted(m["msg"]["To"] for m in smtp.inbox) == ["chef@firma.de", "nord@steuer.de", "sued@steuer.de"]
+    by_to = {m["msg"]["To"]: m["msg"] for m in smtp.inbox}
+    nmsg = by_to["nord@steuer.de"]
+    assert nmsg["Subject"].startswith("Monatszusammenfassung Juni 2026 (Filiale Sum-Nord)")
+    files = {p.get_filename(): p.get_payload(decode=True) for p in nmsg.walk() if p.get_filename()}
+    assert sorted(files) == ["Arbeitszeitnachweise_2026-06.pdf", "Monatszusammenfassung_2026-06.pdf",
+                             "Monatszusammenfassung_2026-06.xlsx"]
+    assert _names(files["Monatszusammenfassung_2026-06.xlsx"]) == {"Sumo Splitter"}
+    smsg = by_to["sued@steuer.de"]
+    sfiles = {p.get_filename(): p.get_payload(decode=True) for p in smsg.walk() if p.get_filename()}
+    assert len(sfiles) == 2 and _names(sfiles["Monatszusammenfassung_2026-06.xlsx"]) == {"Svenja Krank"}
+    body = [p for p in smsg.walk() if p.get_content_type() == "text/plain"][0].get_content()
+    assert "noch nicht abgeschlossen" in body and "Svenja Krank" in body and "Sumo" not in body
 
-    # ohne Nachweise
-    admin.patch("/api/v1/settings", json={"summary_with_reports": False})
+    # nur ein Verteiler
     smtp.inbox.clear()
-    assert admin.post("/api/v1/reports/summary/mail", json={"period": "2026-06"}).status_code == 200
-    assert len([p for p in smtp.inbox[0]["msg"].walk() if p.get_filename()]) == 2
+    r = admin.post("/api/v1/reports/summary/mail", json={"period": "2026-06", "list_id": nord["id"]})
+    assert r.status_code == 200 and [m["msg"]["To"] for m in smtp.inbox] == ["nord@steuer.de"]
 
-    # Zeitplan: aus → nichts; an → am 1. ab 6 Uhr genau einmal
+    # Zeitplan: nur Verteiler mit „automatisch“, je Verteiler einmal
     with connect() as conn:
-        assert summary.run_due(conn, datetime(2026, 7, 1, 8, 0, tzinfo=timezone.utc)) is None
-    admin.patch("/api/v1/settings", json={"summary_mail": True})
+        assert summary.run_due(conn, datetime(2026, 7, 1, 8, 0, tzinfo=timezone.utc)) == []
+    admin.put(f"/api/v1/summary-lists/{sued['id']}", json={"name": "Steuerbüro Süd", "recipients": "sued@steuer.de",
+                                                           "all_users": False, "branch_ids": [branches["Süd"]],
+                                                           "auto": True})
     smtp.inbox.clear()
     with connect() as conn:
-        assert summary.run_due(conn, datetime(2026, 7, 1, 3, 0, tzinfo=timezone.utc)) is None  # 5 Uhr Ortszeit
-        r = summary.run_due(conn, datetime(2026, 7, 1, 8, 0, tzinfo=timezone.utc))
-        assert r == {"period": "2026-06", "ok": True}
-        assert summary.run_due(conn, datetime(2026, 7, 2, 8, 0, tzinfo=timezone.utc)) is None  # schon verschickt
-        assert summary.run_due(conn, datetime(2026, 7, 9, 8, 0, tzinfo=timezone.utc)) is None  # nach dem 7.
-    assert len(smtp.inbox) == 2
+        # Juni wurde oben schon von Hand an „Süd“ geschickt → kein zweites Mal
+        assert summary.run_due(conn, datetime(2026, 7, 1, 8, 0, tzinfo=timezone.utc)) == []
+        assert summary.run_due(conn, datetime(2026, 8, 1, 3, 0, tzinfo=timezone.utc)) == []  # 5 Uhr Ortszeit
+        r = summary.run_due(conn, datetime(2026, 8, 1, 8, 0, tzinfo=timezone.utc))
+        assert r == [{"period": "2026-07", "list": "Steuerbüro Süd", "ok": True}]
+        assert summary.run_due(conn, datetime(2026, 8, 2, 8, 0, tzinfo=timezone.utc)) == []  # schon verschickt
+    assert [m["msg"]["To"] for m in smtp.inbox] == ["sued@steuer.de"]
     log = admin.get("/api/v1/reports/mail-log").json()
-    assert any(x.get("summary") and x["period"] == "2026-06" and x["status"] == "sent" for x in log)
-    admin.patch("/api/v1/settings", json={"summary_mail": False})
+    assert any(x.get("summary") and x["display_name"] == "Monatszusammenfassung (Steuerbüro Süd)" for x in log)
+    for x in (nord, sued):
+        admin.delete(f"/api/v1/summary-lists/{x['id']}")
+
+
+def test_migration_from_single_recipient_setting(tmp_path):
+    """0.31/0.32: eine Adressliste in den Einstellungen → wird zum Verteiler „Alle Mitarbeiter“."""
+    import sqlite3
+    from app import db
+    path = tmp_path / "alt.db"
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    conn.isolation_level = None
+    conn.executescript(db.SCHEMA)
+    conn.execute("CREATE TABLE summary_mails (period TEXT PRIMARY KEY, status TEXT NOT NULL, attempts INTEGER NOT NULL "
+                 "DEFAULT 0, last_attempt TEXT, sent_at TEXT, recipient TEXT, error TEXT)")
+    conn.execute("INSERT INTO summary_mails VALUES ('2026-10', 'sent', 1, '2026-11-01T06:00:00Z', "
+                 "'2026-11-01T06:00:00Z', 'lohn@steuer.de', '')")
+    for k, v in (("summary_recipients", "lohn@steuer.de"), ("summary_mail", "1"), ("summary_with_reports", "0")):
+        conn.execute("INSERT OR REPLACE INTO app_settings(key, value) VALUES (?, ?)", (k, v))
+    conn.execute("PRAGMA user_version = 20")
+    db.migrate(conn)
+    lst = [dict(r) for r in conn.execute("SELECT * FROM summary_lists")]
+    assert len(lst) == 1 and lst[0]["recipients"] == "lohn@steuer.de" and lst[0]["auto"] == 1
+    assert lst[0]["with_reports"] == 0 and lst[0]["all_users"] == 1
+    log = conn.execute("SELECT * FROM summary_mail_log").fetchone()
+    assert log["period"] == "2026-10" and log["list_id"] == lst[0]["id"] and log["status"] == "sent"
+    assert not conn.execute("SELECT 1 FROM app_settings WHERE key LIKE 'summary_%'").fetchone()

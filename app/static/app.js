@@ -311,25 +311,125 @@ function sumMonth() {
   }
   return $("sumMonth").value;
 }
+// Auswahl: "" = alle, "l<id>" = Verteiler, "b<id>" = Filiale
+async function loadSumScope() {
+  const keep = $("sumScope").value;
+  const [lists, branches] = await Promise.all([api("summary-lists"), api("branches")]);
+  state.sumLists = lists;
+  $("sumScope").innerHTML = '<option value="">Alle Mitarbeiter</option>' +
+    (lists.length ? `<optgroup label="Verteiler">${lists.map(l => `<option value="l${l.id}">${esc(l.name)} (${esc(l.scope)})</option>`).join("")}</optgroup>` : "") +
+    (branches.length ? `<optgroup label="Filiale">${branches.map(b => `<option value="b${b.id}">${esc(b.name)}</option>`).join("")}</optgroup>` : "");
+  if ([...$("sumScope").options].some(o => o.value === keep)) $("sumScope").value = keep;
+  sumScopeChanged();
+}
+function sumScopeChanged() {
+  const v = $("sumScope").value;
+  const lists = state.sumLists || [];
+  $("sumSend").disabled = v.startsWith("b") || (!v && !lists.length);
+  $("sumSend").title = v.startsWith("b") ? "Verschickt wird an Verteiler – für eine Filiale bitte unter ✉️ Mail einen Verteiler anlegen"
+    : !v ? "An alle Verteiler schicken" : "An diesen Verteiler schicken";
+  $("sumSend").textContent = v.startsWith("l") ? "An diesen Verteiler schicken" : "An alle Verteiler schicken";
+}
+function sumQuery() {
+  const v = $("sumScope").value;
+  return v.startsWith("l") ? `&list_id=${v.slice(1)}` : v.startsWith("b") ? `&branch_id=${v.slice(1)}` : "";
+}
 async function sumDownload(file) {
   $("sumErr").textContent = "";
   const m = sumMonth();
-  const name = file === "reports" ? `Arbeitszeitnachweise_${m}.pdf` : `Monatszusammenfassung_${m}.${file}`;
-  try { await downloadFile(`api/v1/reports/summary?period=${m}&file=${file}`, name); }
+  const opt = $("sumScope").selectedOptions[0];
+  const suffix = $("sumScope").value ? "_" + (opt.textContent.split(" (")[0]).replace(/[^A-Za-z0-9ÄÖÜäöüß_-]+/g, "_") : "";
+  const name = (file === "reports" ? `Arbeitszeitnachweise_${m}` : `Monatszusammenfassung_${m}`) + suffix + (file === "xlsx" ? ".xlsx" : ".pdf");
+  try { await downloadFile(`api/v1/reports/summary?period=${m}&file=${file}${sumQuery()}`, name); }
   catch (e) { $("sumErr").textContent = e.message; }
 }
 async function sumSend() {
   $("sumErr").textContent = "";
   const m = sumMonth();
-  const to = (state.settings && state.settings.summary_recipients) || "";
-  if (!to) { $("sumErr").textContent = "Noch keine Empfänger – bitte unter ✉️ Mail eintragen."; return; }
+  const v = $("sumScope").value;
+  const lists = (state.sumLists || []).filter(l => v ? "l" + l.id === v : l.recipients);
+  if (!lists.length) { $("sumErr").textContent = "Noch kein Verteiler mit Adresse – bitte unter ✉️ Mail anlegen."; return; }
   const label = new Date(m + "-01T12:00").toLocaleDateString("de-DE", { month: "long", year: "numeric" });
-  if (!confirm(`Monatszusammenfassung ${label} jetzt an ${to} schicken?`)) return;
+  if (!confirm(`Monatszusammenfassung ${label} jetzt verschicken?\n\n` + lists.map(l => `• ${l.name}: ${l.recipients}`).join("\n"))) return;
   $("sumSend").disabled = true;
-  try { const r = await api("reports/summary/mail", { method: "POST", body: { period: m } }); okMsg($("sumErr"), "Verschickt an " + r.to.join(", ") + "."); }
+  try {
+    const r = await api("reports/summary/mail", { method: "POST", body: { period: m, list_id: v ? Number(v.slice(1)) : null } });
+    const ok = r.sent.map(x => `${x.list} (${x.to.join(", ")})`).join(" · ");
+    if (r.errors.length) $("sumErr").textContent = "Verschickt: " + ok + " – Fehler: " + r.errors.join(" · ");
+    else okMsg($("sumErr"), "Verschickt: " + ok + ".");
+  }
   catch (e) { $("sumErr").textContent = e.message; }
-  finally { $("sumSend").disabled = false; }
+  finally { sumScopeChanged(); }
 }
+
+// Verteiler (Verwaltung → Mail)
+async function loadSumLists() {
+  const [lists, branches] = await Promise.all([api("summary-lists"), api("branches")]);
+  state.sumLists = lists; state.branches = branches;
+  $("slList").innerHTML = lists.map(slBox).join("") || '<p class="muted small">Noch kein Verteiler.</p>';
+  slWire();
+}
+function slBox(l) {
+  const users = (state.allUsers || state.users || []).filter(u => u.active !== false || (l.user_ids || []).includes(u.id));
+  const branches = state.branches || [];
+  const id = l.id || "neu";
+  const sel = !l.all_users;
+  return `<div class="detailbox sumlist" data-slid="${id}">
+    <div class="row">
+      <label>Name <input class="slName" value="${esc(l.name || "")}" placeholder="z. B. Steuerbüro" style="width:180px"></label>
+      <label>an <input class="slTo" value="${esc(l.recipients || "")}" placeholder="lohn@steuerbuero.de, chef@firma.de" style="width:300px"></label>
+    </div>
+    <div class="row">
+      <label class="inline"><input type="radio" name="slAll${id}" class="slAll" value="1" ${sel ? "" : "checked"}> alle Mitarbeiter</label>
+      <label class="inline"><input type="radio" name="slAll${id}" class="slAll" value="0" ${sel ? "checked" : ""}> Auswahl</label>
+      <label class="inline"><input type="checkbox" class="slRep" ${l.with_reports !== false ? "checked" : ""}> Arbeitszeitnachweise mitschicken</label>
+      <label class="inline"><input type="checkbox" class="slAuto" ${l.auto ? "checked" : ""}> automatisch am 1.</label>
+    </div>
+    <div class="slSel ${sel ? "" : "hidden"}">
+      ${branches.length ? `<div class="row"><span class="muted small">Filialen:</span>${branches.map(b => `<label class="inline"><input type="checkbox" class="slB" value="${b.id}" ${(l.branch_ids || []).includes(b.id) ? "checked" : ""}> ${esc(b.name)}</label>`).join("")}</div>` : ""}
+      <div class="row"><span class="muted small">${branches.length ? "und/oder einzelne Mitarbeiter:" : "Mitarbeiter:"}</span>${users.map(u => `<label class="inline"><input type="checkbox" class="slU" value="${u.id}" ${(l.user_ids || []).includes(u.id) ? "checked" : ""}> ${esc(u.display_name)}</label>`).join("")}</div>
+    </div>
+    <div class="row">
+      ${l.id ? `<span class="muted small">${esc(l.scope || "")}</span>` : ""}
+      <button class="mini primary" data-slact="save">Speichern</button>
+      ${l.id ? '<button class="mini danger" data-slact="del">Löschen</button>' : '<button class="mini" data-slact="cancel">Abbrechen</button>'}
+    </div>
+  </div>`;
+}
+function slWire() {
+  $$("#slList .sumlist").forEach(box => {
+    $$(".slAll", box).forEach(r => r.onchange = () => box.querySelector(".slSel").classList.toggle("hidden", box.querySelector(".slAll:checked").value === "1"));
+    $$("[data-slact]", box).forEach(b => b.onclick = () => slAction(b, box));
+  });
+}
+async function slAction(btn, box) {
+  $("slErr").textContent = "";
+  const id = box.dataset.slid;
+  try {
+    if (btn.dataset.slact === "cancel") { box.remove(); return; }
+    if (btn.dataset.slact === "del") {
+      if (!confirm("Verteiler löschen? Er bekommt dann keine Zusammenfassung mehr.")) return;
+      await api("summary-lists/" + id, { method: "DELETE" });
+    } else {
+      const body = { name: box.querySelector(".slName").value.trim(), recipients: box.querySelector(".slTo").value.trim(),
+        all_users: box.querySelector(".slAll:checked").value === "1",
+        branch_ids: $$(".slB", box).filter(c => c.checked).map(c => Number(c.value)),
+        user_ids: $$(".slU", box).filter(c => c.checked).map(c => Number(c.value)),
+        with_reports: box.querySelector(".slRep").checked, auto: box.querySelector(".slAuto").checked };
+      await api(id === "neu" ? "summary-lists" : "summary-lists/" + id, { method: id === "neu" ? "POST" : "PUT", body });
+      okMsg($("slErr"), "Verteiler gespeichert.");
+    }
+    await loadSumLists();
+  } catch (e) { $("slErr").textContent = e.message; }
+}
+$("slAdd").onclick = () => {
+  if (document.querySelector('#slList [data-slid="neu"]')) return;
+  const first = !(state.sumLists || []).length;
+  $("slList").insertAdjacentHTML(first ? "afterbegin" : "beforeend", slBox({ all_users: true, with_reports: true }));
+  if (first) $$("#slList > p").forEach(p => p.remove());
+  slWire();
+};
+$("sumScope").onchange = sumScopeChanged;
 $("sumPdf").onclick = () => sumDownload("pdf");
 $("sumXlsx").onclick = () => sumDownload("xlsx");
 $("sumReports").onclick = () => sumDownload("reports");
@@ -1030,6 +1130,7 @@ async function loadAdmin() {
   loadBackups().catch(e => { $("bkErr").textContent = e.message; });
   loadClosings().catch(e => { $("clErr").textContent = e.message; });
   sumMonth();
+  loadSumScope().catch(e => { $("sumErr").textContent = e.message; });
   loadAdminRequests().catch(e => { $("rqErr").textContent = e.message; });
   loadKiosks().catch(e => { $("kErr").textContent = e.message; });
   initAudit().catch(e => { $("alErr").textContent = e.message; });
@@ -1395,8 +1496,6 @@ async function loadSettingsForm() {
   breakFields();
   // Mailversand
   $("mailMonthly").checked = s.mail_monthly; $("mailYearly").checked = s.mail_yearly;
-  $("sumAuto").checked = !!s.summary_mail; $("sumTo").value = s.summary_recipients || "";
-  $("sumWithReports").checked = s.summary_with_reports !== false;
   $$(".mailFmt").forEach(c => { c.checked = (s.mail_formats || []).includes(c.value); });
   $("smtpHost").value = s.smtp_host || ""; $("smtpPort").value = s.smtp_port || 587;
   $("smtpSec").value = s.smtp_security || "starttls"; $("smtpUser").value = s.smtp_user || "";
@@ -1415,6 +1514,7 @@ async function loadSettingsForm() {
   showMailTr();
   if (!$("mailTestTo").value) $("mailTestTo").value = state.me.email || "";
   loadMailLog().catch(() => {});
+  loadSumLists().catch(e => { $("slErr").textContent = e.message; });
   const h = await api("holidays");
   $("holYear").textContent = `${h.year} · ${esc(h.bundesland_name)}`;
   $("holTable").innerHTML = "<tbody>" + h.days.map(d => `<tr><td>${d.weekday} ${deDate(d.date)}</td><td>${esc(d.name)}</td></tr>`).join("") + "</tbody>";
@@ -1462,8 +1562,6 @@ async function saveMail() {
   try {
     const body = { mail_monthly: $("mailMonthly").checked, mail_yearly: $("mailYearly").checked,
       mail_formats: $$(".mailFmt").filter(c => c.checked).map(c => c.value),
-      summary_recipients: $("sumTo").value.trim(), summary_mail: $("sumAuto").checked,
-      summary_with_reports: $("sumWithReports").checked,
       smtp_host: $("smtpHost").value.trim(), smtp_port: Number($("smtpPort").value || 587), smtp_security: $("smtpSec").value,
       smtp_user: $("smtpUser").value.trim(), smtp_from: $("smtpFrom").value.trim(), smtp_from_name: $("smtpFromName").value.trim(),
       mail_transport: mailTr(), graph_tenant: $("grTenant").value.trim(), graph_client_id: $("grClient").value.trim(),
@@ -1512,7 +1610,7 @@ async function loadMailLog() {
   const rows = await api("reports/mail-log?limit=50");
   const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "";
   $("mailLog").innerHTML = rows.length ? `<thead><tr><th>Bericht</th><th>Mitarbeiter</th><th>an</th><th>Status</th><th>zuletzt</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${esc(r.period)}</td><td>${r.summary ? "<i>Monatszusammenfassung</i>" : esc(r.display_name)}</td><td>${esc(r.recipient || "")}</td>
+    rows.map(r => `<tr><td>${esc(r.period)}</td><td>${r.summary ? `<i>${esc(r.display_name)}</i>` : esc(r.display_name)}</td><td>${esc(r.recipient || "")}</td>
       <td>${r.status === "sent" ? '<span class="pos">verschickt</span>' : `<span class="neg">Fehler (${r.attempts}×)</span> <span class="muted small">${esc(r.error || "")}</span>`}</td>
       <td>${fmt(r.sent_at || r.last_attempt)}</td></tr>`).join("") + "</tbody>"
     : '<tbody><tr><td class="muted">Noch keine automatischen Berichte verschickt.</td></tr></tbody>';
